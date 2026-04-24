@@ -5,7 +5,8 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # --- CONFIGURAÇÕES DE CONEXÃO ---
-SHEET_ID = "1ci4AdQq5jIFNsyas7I3zw9Y9RcdMnTME"
+# Novo ID da planilha Google nativa
+SHEET_ID = "153ohv6YsmfOZHjoLpb8He2VM2P-DYTVGh9zDVNRBdS0"
 
 # Função para conectar com a planilha usando os Secrets do Streamlit
 def conectar_google_sheets():
@@ -32,6 +33,7 @@ try:
     df_profs, df_alunos = carregar_dados()
 except Exception as e:
     st.error(f"Erro ao carregar dados: {e}")
+    st.info("Dica: Verifique se a planilha foi compartilhada como EDITOR com o e-mail da conta de serviço e se as abas têm os nomes corretos.")
     st.stop()
 
 if 'logado' not in st.session_state:
@@ -44,7 +46,7 @@ if not st.session_state.logado:
     pass_input = st.text_input("Senha", type="password")
     
     if st.button("Entrar"):
-        match = df_profs[(df_profs['Usuario'] == user_input) & (df_profs['Senha'].astype(str) == pass_input)]
+        match = df_profs[(df_profs['Usuario'].astype(str) == user_input) & (df_profs['Senha'].astype(str) == pass_input)]
         if not match.empty:
             st.session_state.logado = True
             st.session_state.user_data = match.iloc[0].to_dict()
