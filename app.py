@@ -115,7 +115,7 @@ else:
     elif st.session_state.pagina == "Cadastro":
         st.title("⚙️ Painel de Cadastro")
         
-        tab1, tab2 = st.tabs(["Usuários/Professores", "Turmas/Alunos"])
+        tab1, tab2, tab3 = st.tabs(["Usuários/Professores", "Turmas/Alunos", "Alterar Senha"])
         
         with tab1:
             st.subheader("Cadastrar Novo Professor/Usuário")
@@ -147,3 +147,26 @@ else:
                         st.cache_data.clear()
                     except Exception as e:
                         st.error(f"Erro: {e}")
+
+        with tab3:
+            st.subheader("Alterar Senha de Usuário")
+            lista_usuarios = df_profs['Usuario'].tolist()
+            user_alvo = st.selectbox("Selecione o Usuário", lista_usuarios)
+            nova_senha_input = st.text_input("Nova Senha", type="password")
+            confirmar_senha = st.text_input("Confirmar Nova Senha", type="password")
+            
+            if st.button("Atualizar Senha"):
+                if nova_senha_input != confirmar_senha:
+                    st.error("As senhas não coincidem.")
+                elif nova_senha_input == "":
+                    st.error("A senha não pode ser vazia.")
+                else:
+                    try:
+                        sh = conectar_google_sheets()
+                        wks_p = sh.worksheet("Config_Professores")
+                        celula = wks_p.find(str(user_alvo))
+                        wks_p.update_cell(celula.row, 3, str(nova_senha_input))
+                        st.success(f"Senha de {user_alvo} atualizada com sucesso!")
+                        st.cache_data.clear()
+                    except Exception as e:
+                        st.error(f"Erro ao atualizar: {e}")
