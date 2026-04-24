@@ -5,10 +5,8 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # --- CONFIGURAÇÕES DE CONEXÃO ---
-# Novo ID da planilha Google nativa
 SHEET_ID = "153ohv6YsmfOZHjoLpb8He2VM2P-DYTVGh9zDVNRBdS0"
 
-# Função para conectar com a planilha usando os Secrets do Streamlit
 def conectar_google_sheets():
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds_dict = st.secrets["gcp_service_account"]
@@ -20,9 +18,7 @@ def conectar_google_sheets():
 @st.cache_data(ttl=60)
 def carregar_dados():
     sh = conectar_google_sheets()
-    # Carrega professores
     df_p = pd.DataFrame(sh.worksheet("Config_Professores").get_all_records())
-    # Carrega alunos
     df_a = pd.DataFrame(sh.worksheet("Config_Alunos").get_all_records())
     return df_p, df_a
 
@@ -38,6 +34,8 @@ except Exception as e:
 
 if 'logado' not in st.session_state:
     st.session_state.logado = False
+if 'pagina' not in st.session_state:
+    st.session_state.pagina = "Registro"
 
 # TELA DE LOGIN
 if not st.session_state.logado:
@@ -54,53 +52,98 @@ if not st.session_state.logado:
         else:
             st.error("Usuário ou senha incorretos.")
 
-# INTERFACE DE REGISTRO
+# INTERFACE PRINCIPAL
 else:
     prof_nome = st.session_state.user_data['Professor']
     st.sidebar.write(f"Professor: **{prof_nome}**")
     
-    if st.sidebar.button("Atualizar Alunos"):
+    if st.sidebar.button("Registro de Ocorrências"):
+        st.session_state.pagina = "Registro"
+        st.rerun()
+
+    if st.sidebar.button("Cadastro"):
+        st.session_state.pagina = "Cadastro"
+        st.rerun()
+    
+    if st.sidebar.button("Atualizar Dados"):
         st.cache_data.clear()
         st.rerun()
 
     if st.sidebar.button("Sair"):
         st.session_state.logado = False
+        st.session_state.pagina = "Registro"
         st.rerun()
 
-    st.title("📝 Novo Registro")
-    
-    # Seleção de Turma e Aluno
-    todas_turmas = sorted(df_alunos['Turma'].unique().astype(str))
-    turma_sel = st.selectbox("1. Turma", todas_turmas)
-    
-    alunos_da_turma = df_alunos[df_alunos['Turma'].astype(str) == turma_sel]['Nome_Aluno'].tolist()
-    aluno_sel = st.selectbox("2. Aluno", sorted(alunos_da_turma))
-
-    with st.form("form_registro", clear_on_submit=True):
-        disciplina = st.selectbox("Disciplina", ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"])
-        periodo = st.selectbox("Bimestre", ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
-        tipo = st.radio("Ocorrência", ["Indisciplina", "Falta de Material", "Não realizou tarefa", "Elogio/Destaque", "Atraso"])
-        obs = st.text_area("Observações")
+    if st.session_state.pagina == "Registro":
+        st.title("📝 Novo Registro")
         
-        btn_salvar = st.form_submit_button("GRAVAR NA PLANILHA")
+        todas_turmas = sorted(df_alunos['Turma'].unique().astype(str))
+        turma_sel = st.selectbox("1. Turma", todas_turmas)
+        
+        alunos_da_turma = df_alunos[df_alunos['Turma'].astype(str) == turma_sel]['Nome_Aluno'].tolist()
+        aluno_sel = st.selectbox("2. Aluno", sorted(alunos_da_turma))
 
-    if btn_salvar:
-        try:
-            sh = conectar_google_sheets()
-            wks = sh.worksheet("Registros_Ocorrencias")
+        with st.form("form_registro", clear_on_submit=True):
+            disciplina = st.selectbox("Disciplina", ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"])
+            periodo = st.selectbox("Bimestre", ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
+            tipo = st.radio("Ocorrência", ["Indisciplina", "Falta de Material", "Não realizou tarefa", "Elogio/Destaque", "Atraso"])
+            obs = st.text_area("Observações")
             
-            nova_linha = [
-                datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-                prof_nome,
-                turma_sel,
-                aluno_sel,
-                disciplina,
-                periodo,
-                tipo,
-                obs
-            ]
-            
-            wks.append_row(nova_linha)
-            st.success(f"✅ Sucesso! Registro de {aluno_sel} salvo na planilha.")
-        except Exception as e:
-            st.error(f"Erro ao salvar: {e}")
+            btn_salvar = st.form_submit_button("GRAVAR NA PLANILHA")
+
+        if btn_salvar:
+            try:
+                sh = conectar_google_sheets()
+                wks = sh.worksheet("Registros_Ocorrencias")
+                
+                nova_linha = [
+                    datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                    prof_nome,
+                    turma_sel,
+                    aluno_sel,
+                    disciplina,
+                    periodo,
+                    tipo,
+                    obs
+                ]
+                
+                wks.append_row(nova_linha)
+                st.success(f"✅ Sucesso! Registro de {aluno_sel} salvo na planilha.")
+            except Exception as e:
+                st.error(f"Erro ao salvar: {e}")
+
+    elif st.session_state.pagina == "Cadastro":
+        st.title("⚙️ Painel de Cadastro")
+        
+        tab1, tab2 = st.tabs(["Usuários/Professores", "Turmas/Alunos"])
+        
+        with tab1:
+            st.subheader("Cadastrar Novo Professor/Usuário")
+            with st.form("form_prof"):
+                novo_prof = st.text_input("Nome do Professor")
+                novo_usuario = st.text_input("Nome de Usuário (Login)")
+                nova_senha = st.text_input("Senha", type="password")
+                if st.form_submit_button("Salvar Professor"):
+                    try:
+                        sh = conectar_google_sheets()
+                        wks_p = sh.worksheet("Config_Professores")
+                        wks_p.append_row([novo_prof, novo_usuario, nova_senha])
+                        st.success("Professor cadastrado!")
+                        st.cache_data.clear()
+                    except Exception as e:
+                        st.error(f"Erro: {e}")
+
+        with tab2:
+            st.subheader("Cadastrar Novo Aluno")
+            with st.form("form_aluno"):
+                nova_turma = st.text_input("Turma (Ex: 101, 202)")
+                novo_aluno = st.text_input("Nome Completo do Aluno")
+                if st.form_submit_button("Salvar Aluno"):
+                    try:
+                        sh = conectar_google_sheets()
+                        wks_a = sh.worksheet("Config_Alunos")
+                        wks_a.append_row([nova_turma, novo_aluno])
+                        st.success("Aluno cadastrado!")
+                        st.cache_data.clear()
+                    except Exception as e:
+                        st.error(f"Erro: {e}")
