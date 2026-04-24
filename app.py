@@ -1,33 +1,43 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import gspread
+from google.oauth2.service_account import Credentials
 
-# LINK DA SUA PLANILHA
+# --- CONFIGURAÇÕES DE CONEXÃO ---
 SHEET_ID = "1ci4AdQq5jIFNsyas7I3zw9Y9RcdMnTME"
 
-# Função com 'cache_data' para carregar os dados mas permitir atualização
-@st.cache_data(ttl=60) # O site limpa o cache a cada 60 segundos automaticamente
-def ler_planilha(aba):
-    url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={aba}"
-    # Adicionamos o parâmetro on_bad_lines para evitar erros se houver linhas vazias na planilha
-    return pd.read_csv(url, on_bad_lines='skip')
+# Função para conectar com a planilha usando os Secrets do Streamlit
+def conectar_google_sheets():
+    scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    creds_dict = st.secrets["gcp_service_account"]
+    credentials = Credentials.from_service_account_info(creds_dict, scopes=scope)
+    client = gspread.authorize(credentials)
+    return client.open_by_key(SHEET_ID)
 
-# Configuração da página
+# --- CARREGAMENTO DE DADOS ---
+@st.cache_data(ttl=60)
+def carregar_dados():
+    sh = conectar_google_sheets()
+    # Carrega professores
+    df_p = pd.DataFrame(sh.worksheet("Config_Professores").get_all_records())
+    # Carrega alunos
+    df_a = pd.DataFrame(sh.worksheet("Config_Alunos").get_all_records())
+    return df_p, df_a
+
+# --- INTERFACE ---
 st.set_page_config(page_title="Sistema Escola Diva", layout="centered")
 
-# Tente carregar os dados
 try:
-    df_profs = ler_planilha("Config_Professores")
-    df_alunos = ler_planilha("Config_Alunos")
+    df_profs, df_alunos = carregar_dados()
 except Exception as e:
-    st.error(f"Erro ao ler a planilha: {e}")
+    st.error(f"Erro ao carregar dados: {e}")
     st.stop()
 
-# Controle de Login
 if 'logado' not in st.session_state:
     st.session_state.logado = False
-    st.session_state.user_data = None
 
+# TELA DE LOGIN
 if not st.session_state.logado:
     st.title("🔑 Acesso ao Sistema")
     user_input = st.text_input("Usuário")
@@ -42,12 +52,12 @@ if not st.session_state.logado:
         else:
             st.error("Usuário ou senha incorretos.")
 
+# INTERFACE DE REGISTRO
 else:
     prof_nome = st.session_state.user_data['Professor']
-    st.sidebar.write(f"Conectado como: **{prof_nome}**")
+    st.sidebar.write(f"Professor: **{prof_nome}**")
     
-    # Botão para forçar atualização dos dados da planilha
-    if st.sidebar.button("Atualizar Dados da Planilha"):
+    if st.sidebar.button("Atualizar Alunos"):
         st.cache_data.clear()
         st.rerun()
 
@@ -55,37 +65,40 @@ else:
         st.session_state.logado = False
         st.rerun()
 
-    st.title("📝 Registro de Ocorrências")
+    st.title("📝 Novo Registro")
     
-    # --- FILTRO DE TURMA E ALUNO ---
-    # Pegamos as turmas únicas da planilha de alunos
+    # Seleção de Turma e Aluno
     todas_turmas = sorted(df_alunos['Turma'].unique().astype(str))
+    turma_sel = st.selectbox("1. Turma", todas_turmas)
     
-    turma_sel = st.selectbox("1. Escolha a Turma", todas_turmas, key="turma_selecionada")
+    alunos_da_turma = df_alunos[df_alunos['Turma'].astype(str) == turma_sel]['Nome_Aluno'].tolist()
+    aluno_sel = st.selectbox("2. Aluno", sorted(alunos_da_turma))
 
-    # Filtramos os alunos APENAS da turma selecionada
-    alunos_filtrados = df_alunos[df_alunos['Turma'].astype(str) == turma_sel]['Nome_Aluno'].tolist()
-
-    if alunos_filtrados:
-        aluno_sel = st.selectbox("2. Escolha o Aluno", sorted(alunos_filtrados), key="aluno_selecionado")
-    else:
-        st.warning("Nenhum aluno encontrado para esta turma na planilha.")
-        aluno_sel = None
-
-    # --- RESTANTE DO FORMULÁRIO ---
-    with st.form("form_ocorrencia", clear_on_submit=True):
+    with st.form("form_registro", clear_on_submit=True):
         disciplina = st.selectbox("Disciplina", ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"])
-        periodo = st.selectbox("Período", ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
-        tipo = st.radio("Tipo de Ocorrência", ["Indisciplina", "Falta de Material", "Não realizou tarefa", "Elogio/Destaque", "Atraso"])
-        descricao = st.text_area("Detalhes Adicionais")
+        periodo = st.selectbox("Bimestre", ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
+        tipo = st.radio("Ocorrência", ["Indisciplina", "Falta de Material", "Não realizou tarefa", "Elogio/Destaque", "Atraso"])
+        obs = st.text_area("Observações")
         
-        enviar = st.form_submit_button("Gerar Registro")
+        btn_salvar = st.form_submit_button("GRAVAR NA PLANILHA")
 
-    if enviar and aluno_sel:
-        agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        st.success(f"Registro gerado com sucesso para {aluno_sel}!")
-        
-        # Mostra o resultado para copiar
-        resultado = f"{agora};{prof_nome};{turma_sel};{aluno_sel};{disciplina};{periodo};{tipo};{descricao}"
-        st.info("Copie e cole na aba 'Registros_Ocorrencias':")
-        st.code(resultado)
+    if btn_salvar:
+        try:
+            sh = conectar_google_sheets()
+            wks = sh.worksheet("Registros_Ocorrencias")
+            
+            nova_linha = [
+                datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                prof_nome,
+                turma_sel,
+                aluno_sel,
+                disciplina,
+                periodo,
+                tipo,
+                obs
+            ]
+            
+            wks.append_row(nova_linha)
+            st.success(f"✅ Sucesso! Registro de {aluno_sel} salvo na planilha.")
+        except Exception as e:
+            st.error(f"Erro ao salvar: {e}")
