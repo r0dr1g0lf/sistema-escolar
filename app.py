@@ -2,39 +2,39 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# LINK DA SUA PLANILHA (Formato para leitura direta)
+# LINK DA SUA PLANILHA
 SHEET_ID = "1ci4AdQq5jIFNsyas7I3zw9Y9RcdMnTME"
 
+# Função com 'cache_data' para carregar os dados mas permitir atualização
+@st.cache_data(ttl=60) # O site limpa o cache a cada 60 segundos automaticamente
 def ler_planilha(aba):
     url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={aba}"
-    return pd.read_csv(url)
+    # Adicionamos o parâmetro on_bad_lines para evitar erros se houver linhas vazias na planilha
+    return pd.read_csv(url, on_bad_lines='skip')
 
 # Configuração da página
 st.set_page_config(page_title="Sistema Escola Diva", layout="centered")
 
-# Carregamento de dados iniciais
+# Tente carregar os dados
 try:
     df_profs = ler_planilha("Config_Professores")
     df_alunos = ler_planilha("Config_Alunos")
-except:
-    st.error("Erro ao conectar com a planilha. Verifique se ela está como 'Editor' para qualquer pessoa com o link.")
+except Exception as e:
+    st.error(f"Erro ao ler a planilha: {e}")
     st.stop()
 
-# Controle de Sessão
+# Controle de Login
 if 'logado' not in st.session_state:
     st.session_state.logado = False
     st.session_state.user_data = None
 
-# TELA DE LOGIN
 if not st.session_state.logado:
     st.title("🔑 Acesso ao Sistema")
     user_input = st.text_input("Usuário")
     pass_input = st.text_input("Senha", type="password")
     
     if st.button("Entrar"):
-        # Verifica se o usuário e senha existem na planilha
         match = df_profs[(df_profs['Usuario'] == user_input) & (df_profs['Senha'].astype(str) == pass_input)]
-        
         if not match.empty:
             st.session_state.logado = True
             st.session_state.user_data = match.iloc[0].to_dict()
@@ -42,39 +42,50 @@ if not st.session_state.logado:
         else:
             st.error("Usuário ou senha incorretos.")
 
-# INTERFACE APÓS LOGIN
 else:
     prof_nome = st.session_state.user_data['Professor']
-    st.sidebar.write(f"Usuário: **{prof_nome}**")
+    st.sidebar.write(f"Conectado como: **{prof_nome}**")
+    
+    # Botão para forçar atualização dos dados da planilha
+    if st.sidebar.button("Atualizar Dados da Planilha"):
+        st.cache_data.clear()
+        st.rerun()
+
     if st.sidebar.button("Sair"):
         st.session_state.logado = False
         st.rerun()
 
     st.title("📝 Registro de Ocorrências")
     
-    with st.form("registro_form"):
-        # 1. Seleção de Turma (baseada no que o prof atende ou todas)
-        turmas_disponiveis = df_alunos['Turma'].unique()
-        turma_sel = st.selectbox("Selecione a Turma", turmas_disponiveis)
-        
-        # 2. Seleção de Aluno (Filtra apenas alunos daquela turma)
-        lista_alunos = df_alunos[df_alunos['Turma'] == turma_sel]['Nome_Aluno'].tolist()
-        aluno_sel = st.selectbox("Selecione o Aluno", lista_alunos)
-        
-        # 3. Informações Pré-Preenchidas
+    # --- FILTRO DE TURMA E ALUNO ---
+    # Pegamos as turmas únicas da planilha de alunos
+    todas_turmas = sorted(df_alunos['Turma'].unique().astype(str))
+    
+    turma_sel = st.selectbox("1. Escolha a Turma", todas_turmas, key="turma_selecionada")
+
+    # Filtramos os alunos APENAS da turma selecionada
+    alunos_filtrados = df_alunos[df_alunos['Turma'].astype(str) == turma_sel]['Nome_Aluno'].tolist()
+
+    if alunos_filtrados:
+        aluno_sel = st.selectbox("2. Escolha o Aluno", sorted(alunos_filtrados), key="aluno_selecionado")
+    else:
+        st.warning("Nenhum aluno encontrado para esta turma na planilha.")
+        aluno_sel = None
+
+    # --- RESTANTE DO FORMULÁRIO ---
+    with st.form("form_ocorrencia", clear_on_submit=True):
         disciplina = st.selectbox("Disciplina", ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"])
         periodo = st.selectbox("Período", ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
         tipo = st.radio("Tipo de Ocorrência", ["Indisciplina", "Falta de Material", "Não realizou tarefa", "Elogio/Destaque", "Atraso"])
+        descricao = st.text_area("Detalhes Adicionais")
         
-        descricao = st.text_area("Detalhes Adicionais (opcional)")
-        
-        enviar = st.form_submit_button("Salvar na Planilha")
+        enviar = st.form_submit_button("Gerar Registro")
 
-    if enviar:
-        # Preparando a linha para salvar
+    if enviar and aluno_sel:
         agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        # FORMATO PARA VOCÊ COPIAR E COLAR NA PLANILHA (Já que a escrita direta exige chaves de API mais complexas)
-        st.success(f"Registro gerado para {aluno_sel}!")
-        st.info("Copie a linha abaixo e cole na aba 'Registros_Ocorrencias':")
-        linha_csv = f"{agora};{prof_nome};{turma_sel};{aluno_sel};{disciplina};{periodo};{tipo};{descricao}"
-        st.code(linha_csv)
+        st.success(f"Registro gerado com sucesso para {aluno_sel}!")
+        
+        # Mostra o resultado para copiar
+        resultado = f"{agora};{prof_nome};{turma_sel};{aluno_sel};{disciplina};{periodo};{tipo};{descricao}"
+        st.info("Copie e cole na aba 'Registros_Ocorrencias':")
+        st.code(resultado)
