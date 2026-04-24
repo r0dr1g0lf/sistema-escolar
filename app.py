@@ -200,17 +200,43 @@ else:
                         st.error(f"Erro ao atualizar: {e}")
 
         with tab3:
-            st.subheader("Cadastrar Novo Aluno")
-            with st.form("form_aluno"):
-                nova_turma = st.text_input("Turma (Ex: 101, 202)")
-                novo_aluno = st.text_input("Nome Completo do Aluno")
-                if st.form_submit_button("Salvar Aluno"):
-                    try:
-                        sh = conectar_google_sheets()
-                        wks_a = sh.worksheet("Config_Alunos")
-                        wks_a.append_row([nova_turma, novo_aluno])
-                        st.success("Aluno cadastrado!")
-                        st.cache_data.clear()
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro: {e}")
+            st.subheader("Cadastrar Alunos")
+            
+            opcao_cadastro = st.radio("Método de Cadastro", ["Individual", "Em Massa (Excel/Word)"])
+            
+            if opcao_cadastro == "Individual":
+                with st.form("form_aluno"):
+                    nova_turma = st.text_input("Turma (Ex: 101, 202)")
+                    novo_aluno = st.text_input("Nome Completo do Aluno")
+                    if st.form_submit_button("Salvar Aluno"):
+                        try:
+                            sh = conectar_google_sheets()
+                            wks_a = sh.worksheet("Config_Alunos")
+                            wks_a.append_row([nova_turma, novo_aluno])
+                            st.success("Aluno cadastrado!")
+                            st.cache_data.clear()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro: {e}")
+            
+            else:
+                with st.form("form_aluno_massa"):
+                    turma_massa = st.text_input("Turma para todos os alunos (Ex: 101)")
+                    lista_nomes = st.text_area("Cole aqui a lista de nomes (um por linha)")
+                    if st.form_submit_button("Salvar Todos os Alunos"):
+                        if not turma_massa or not lista_nomes:
+                            st.error("Preencha a turma e a lista de nomes.")
+                        else:
+                            try:
+                                nomes = [n.strip() for n in lista_nomes.split('\n') if n.strip()]
+                                novas_linhas = [[turma_massa, nome] for nome in nomes]
+                                
+                                sh = conectar_google_sheets()
+                                wks_a = sh.worksheet("Config_Alunos")
+                                wks_a.append_rows(novas_linhas)
+                                
+                                st.success(f"✅ {len(nomes)} alunos cadastrados com sucesso na turma {turma_massa}!")
+                                st.cache_data.clear()
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao cadastrar em massa: {e}")
