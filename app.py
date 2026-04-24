@@ -115,7 +115,7 @@ else:
     elif st.session_state.pagina == "Cadastro":
         st.title("⚙️ Painel de Cadastro")
         
-        tab1, tab2, tab3 = st.tabs(["Gerenciar Usuários", "Turmas/Alunos", "Alterar Senha"])
+        tab1, tab2, tab3 = st.tabs(["Gerenciar Usuários", "Alterar Senha", "Turmas/Alunos"])
         
         with tab1:
             st.subheader("Cadastrar Novo Professor")
@@ -178,22 +178,6 @@ else:
                         st.error(f"Erro ao excluir: {e}")
 
         with tab2:
-            st.subheader("Cadastrar Novo Aluno")
-            with st.form("form_aluno"):
-                nova_turma = st.text_input("Turma (Ex: 101, 202)")
-                novo_aluno = st.text_input("Nome Completo do Aluno")
-                if st.form_submit_button("Salvar Aluno"):
-                    try:
-                        sh = conectar_google_sheets()
-                        wks_a = sh.worksheet("Config_Alunos")
-                        wks_a.append_row([nova_turma, novo_aluno])
-                        st.success("Aluno cadastrado!")
-                        st.cache_data.clear()
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro: {e}")
-
-        with tab3:
             st.subheader("Alterar Senha de Usuário")
             lista_usuarios = df_profs['Usuario'].tolist()
             user_alvo = st.selectbox("Selecione o Usuário", lista_usuarios)
@@ -214,3 +198,19 @@ else:
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao atualizar: {e}")
+
+        with tab3:
+            st.subheader("Cadastrar Novo Aluno")
+            with st.form("form_aluno"):
+                nova_turma = st.text_input("Turma (Ex: 101, 202)")
+                novo_aluno = st.text_input("Nome Completo do Aluno")
+                if st.form_submit_button("Salvar Aluno"):
+                    try:
+                        sh = conectar_google_sheets()
+                        wks_a = sh.worksheet("Config_Alunos")
+                        wks_a.append_row([nova_turma, novo_aluno])
+                        st.success("Aluno cadastrado!")
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro: {e}")
