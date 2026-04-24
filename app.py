@@ -127,7 +127,7 @@ else:
                     try:
                         sh = conectar_google_sheets()
                         wks_p = sh.worksheet("Config_Professores")
-                        wks_p.append_row([novo_prof, novo_usuario, nova_senha])
+                        wks_p.append_row([novo_prof, novo_usuario, str(nova_senha)])
                         st.success("Professor cadastrado!")
                         st.cache_data.clear()
                     except Exception as e:
@@ -158,8 +158,6 @@ else:
             if st.button("Atualizar Senha"):
                 if nova_senha_input != confirmar_senha:
                     st.error("As senhas não coincidem.")
-                elif nova_senha_input == "":
-                    st.error("A senha não pode ser vazia.")
                 else:
                     try:
                         sh = conectar_google_sheets()
