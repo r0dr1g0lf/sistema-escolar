@@ -120,17 +120,26 @@ else:
         else:
             st.info(f"📅 Período de lançamento aberto: **{bimestre_ativo}**")
 
-        todas_turmas = sorted(df_alunos['Turma'].unique().astype(str))
+        if st.session_state.user_data['Usuario'] == "admin":
+            todas_turmas = sorted(df_alunos['Turma'].unique().astype(str))
+        else:
+            turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
+            todas_turmas = sorted([t.strip() for t in turmas_vinc if t.strip()])
+            
         turma_sel = st.selectbox("1. Turma", todas_turmas)
         
         alunos_da_turma = df_alunos[df_alunos['Turma'].astype(str) == turma_sel]['Nome_Aluno'].tolist()
         aluno_sel = st.selectbox("2. Aluno", sorted(alunos_da_turma))
 
         with st.form("form_registro", clear_on_submit=True):
-            if not df_discs.empty:
-                disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
+            if st.session_state.user_data['Usuario'] == "admin":
+                if not df_discs.empty:
+                    disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
+                else:
+                    disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
             else:
-                disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
+                discs_vinc = str(st.session_state.user_data.get('Disciplinas', "")).split(", ")
+                disciplina_opcoes = sorted([d.strip() for d in discs_vinc if d.strip()])
                 
             disciplina = st.selectbox("Disciplina", disciplina_opcoes)
             periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True)
