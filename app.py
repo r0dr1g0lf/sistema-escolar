@@ -184,9 +184,7 @@ else:
             confirmar_senha_prof = st.text_input("Confirmar Nova Senha", type="password")
             
             if st.form_submit_button("Atualizar Minha Senha"):
-                if not nova_senha_prof:
-                    st.error("A senha não pode estar vazia.")
-                elif nova_senha_prof != confirmar_senha_prof:
+                if nova_senha_prof != confirmar_senha_prof:
                     st.error("As senhas não coincidem.")
                 else:
                     try:
@@ -194,7 +192,7 @@ else:
                         wks_p = sh.worksheet("Config_Professores")
                         celula = wks_p.find(str(user_atual))
                         wks_p.update_cell(celula.row, 3, str(nova_senha_prof))
-                        st.success("Sua senha foi alterada com sucesso!")
+                        st.success("Sua senha foi atualizada com sucesso!")
                         st.cache_data.clear()
                     except Exception as e:
                         st.error(f"Erro ao atualizar: {e}")
@@ -234,7 +232,7 @@ else:
                         else:
                             try:
                                 nomes = [n.strip() for n in lista_nomes.split('\n') if n.strip()]
-                                novas_linhas = [[turma_massa, nome] for name in nomes]
+                                novas_linhas = [[turma_massa, nome] for nome in nomes]
                                 
                                 sh = conectar_google_sheets()
                                 wks_a = sh.worksheet("Config_Alunos")
