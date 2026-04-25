@@ -217,12 +217,7 @@ else:
                     alunos_orig = df_alunos[df_alunos['Turma'].astype(str) == turma_orig]['Nome_Aluno'].tolist()
                     aluno_a_transf = st.selectbox("Selecione o Aluno para Transferir", [""] + sorted(alunos_orig))
                     
-                    turma_dest_tipo = st.radio("Destino", ["Selecionar Turma Existente", "Digitar Nova Turma"])
-                    
-                    if turma_dest_tipo == "Selecionar Turma Existente":
-                        turma_dest = st.selectbox("Turma de Destino", [""] + todas_turmas_cadastradas)
-                    else:
-                        turma_dest = st.text_input("Digitar Turma de Destino (Ex: 301)")
+                    turma_dest = st.selectbox("Turma de Destino", [""] + todas_turmas_cadastradas)
                     
                     if aluno_a_transf != "" and turma_dest != "" and st.button("Executar Transferência"):
                         try:
