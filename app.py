@@ -84,7 +84,8 @@ else:
         aluno_sel = st.selectbox("2. Aluno", sorted(alunos_da_turma))
 
         with st.form("form_registro", clear_on_submit=True):
-            disciplina = st.selectbox("Disciplina", ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"])
+            disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
+            disciplina = st.selectbox("Disciplina", disciplina_opcoes)
             periodo = st.selectbox("Bimestre", ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
             tipo = st.radio("Ocorrência", ["Indisciplina", "Falta de Material", "Não realizou tarefa", "Elogio/Destaque", "Atraso"])
             obs = st.text_area("Observações")
@@ -123,12 +124,23 @@ else:
                 novo_prof = st.text_input("Nome do Professor")
                 novo_usuario = st.text_input("Nome de Usuário (Login)")
                 nova_senha = st.text_input("Senha", type="password")
+                
+                todas_turmas_disp = sorted(df_alunos['Turma'].unique().astype(str))
+                turmas_vinculo = st.multiselect("Vincular Turmas", todas_turmas_disp)
+                
+                disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
+                disciplinas_vinculo = st.multiselect("Vincular Disciplinas", disciplina_opcoes)
+                
                 if st.form_submit_button("Salvar Professor"):
                     try:
                         sh = conectar_google_sheets()
                         wks_p = sh.worksheet("Config_Professores")
-                        wks_p.append_row([novo_prof, novo_usuario, str(nova_senha)])
-                        st.success("Professor cadastrado!")
+                        
+                        turmas_str = ", ".join(turmas_vinculo)
+                        disciplinas_str = ", ".join(disciplinas_vinculo)
+                        
+                        wks_p.append_row([novo_prof, novo_usuario, str(nova_senha), turmas_str, disciplinas_str])
+                        st.success("Professor cadastrado com turmas e disciplinas vinculadas!")
                         st.cache_data.clear()
                         st.rerun()
                     except Exception as e:
@@ -146,6 +158,14 @@ else:
                     edit_nome = st.text_input("Alterar Nome do Professor", value=dados_atuais['Professor'])
                     edit_login = st.text_input("Alterar Login (Usuário)", value=dados_atuais['Usuario'])
                     
+                    todas_turmas_disp = sorted(df_alunos['Turma'].unique().astype(str))
+                    turmas_atuais = str(dados_atuais.get('Turmas', "")).split(", ") if dados_atuais.get('Turmas') else []
+                    edit_turmas = st.multiselect("Alterar Turmas", todas_turmas_disp, default=[t for t in turmas_atuais if t in todas_turmas_disp])
+                    
+                    disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
+                    disciplinas_atuais = str(dados_atuais.get('Disciplinas', "")).split(", ") if dados_atuais.get('Disciplinas') else []
+                    edit_disciplinas = st.multiselect("Alterar Disciplinas", disciplina_opcoes, default=[d for d in disciplinas_atuais if d in disciplina_opcoes])
+                    
                     col_btn1, col_btn2 = st.columns(2)
                     with col_btn1:
                         btn_update = st.form_submit_button("SALVAR ALTERAÇÕES")
@@ -157,8 +177,15 @@ else:
                         sh = conectar_google_sheets()
                         wks_p = sh.worksheet("Config_Professores")
                         celula = wks_p.find(str(user_selecionado))
+                        
+                        turmas_edit_str = ", ".join(edit_turmas)
+                        disciplinas_edit_str = ", ".join(edit_disciplinas)
+                        
                         wks_p.update_cell(celula.row, 1, edit_nome)
                         wks_p.update_cell(celula.row, 2, edit_login)
+                        wks_p.update_cell(celula.row, 4, turmas_edit_str)
+                        wks_p.update_cell(celula.row, 5, disciplinas_edit_str)
+                        
                         st.success(f"Dados de {user_selecionado} atualizados!")
                         st.cache_data.clear()
                         st.rerun()
