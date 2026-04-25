@@ -71,7 +71,6 @@ if not st.session_state.logado:
 
 # INTERFACE PRINCIPAL
 else:
-    # Logo discreto na barra lateral
     col_side1, col_side2, col_side3 = st.sidebar.columns([1, 2, 1])
     with col_side2:
         st.image("logo.png", width=80)
@@ -84,7 +83,10 @@ else:
         st.session_state.pagina = "Registro"
         st.rerun()
 
-    # Só exibe Segurança se NÃO for admin
+    if st.sidebar.button("Registros", use_container_width=True):
+        st.session_state.pagina = "VisualizarRegistros"
+        st.rerun()
+
     if st.session_state.user_data['Usuario'] != "admin":
         if st.sidebar.button("Segurança", use_container_width=True):
             st.session_state.pagina = "Segurança"
@@ -174,6 +176,29 @@ else:
                 st.success(f"✅ Sucesso! Registro de {aluno_sel} salvo na planilha.")
             except Exception as e:
                 st.error(f"Erro ao salvar: {e}")
+
+    elif st.session_state.pagina == "VisualizarRegistros":
+        st.title("📋 Registros Realizados")
+        try:
+            sh = conectar_google_sheets()
+            df_reg = pd.DataFrame(sh.worksheet("Registros_Ocorrencias").get_all_records())
+            
+            if not df_reg.empty:
+                lista_bimestres = ["Todos"] + sorted(df_reg['Bimestre'].unique().tolist())
+                bim_filtro = st.selectbox("Filtrar por Bimestre", lista_bimestres)
+                
+                df_filtrado = df_reg.copy()
+                if bim_filtro != "Todos":
+                    df_filtrado = df_filtrado[df_filtrado['Bimestre'] == bim_filtro]
+                
+                if st.session_state.user_data['Usuario'] != "admin":
+                    df_filtrado = df_filtrado[df_filtrado['Professor'] == prof_nome]
+                
+                st.dataframe(df_filtrado, use_container_width=True)
+            else:
+                st.info("Nenhum registro encontrado na planilha.")
+        except Exception as e:
+            st.error(f"Erro ao carregar registros: {e}")
 
     elif st.session_state.pagina == "Segurança":
         st.title("🔒 Segurança")
