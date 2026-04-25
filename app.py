@@ -50,9 +50,9 @@ if 'pagina' not in st.session_state:
 
 # TELA DE LOGIN
 if not st.session_state.logado:
-    col1, col2, col3 = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        st.image("logo.png", use_container_width=True)
+        st.image("logo.png", width=120)
     
     st.title("🔑 Acesso ao Sistema")
     with st.form("login_form"):
@@ -71,24 +71,29 @@ if not st.session_state.logado:
 
 # INTERFACE PRINCIPAL
 else:
-    st.sidebar.image("logo.png", use_container_width=True)
+    # Logo discreto na barra lateral
+    col_side1, col_side2, col_side3 = st.sidebar.columns([1, 2, 1])
+    with col_side2:
+        st.image("logo.png", width=80)
+        
     prof_nome = st.session_state.user_data['Professor']
-    st.sidebar.write(f"Professor: **{prof_nome}**")
+    st.sidebar.markdown(f"<div style='text-align: center'>Professor: <b>{prof_nome}</b></div>", unsafe_allow_html=True)
+    st.sidebar.divider()
     
-    if st.sidebar.button("Registro de Ocorrências"):
+    if st.sidebar.button("Registro de Ocorrências", use_container_width=True):
         st.session_state.pagina = "Registro"
         st.rerun()
 
     if st.session_state.user_data['Usuario'] == "admin":
-        if st.sidebar.button("Cadastro"):
+        if st.sidebar.button("Cadastro", use_container_width=True):
             st.session_state.pagina = "Cadastro"
             st.rerun()
         
-        if st.sidebar.button("Atualizar Dados"):
+        if st.sidebar.button("Atualizar Dados", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
 
-    if st.sidebar.button("Sair"):
+    if st.sidebar.button("Sair", use_container_width=True):
         st.session_state.logado = False
         st.session_state.pagina = "Registro"
         st.rerun()
