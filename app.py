@@ -186,17 +186,14 @@ else:
             if not df_reg.empty:
                 col_f1, col_f2 = st.columns(2)
                 
-                # Tratamento para garantir que as colunas de filtro existam
                 colunas_df = df_reg.columns.tolist()
                 
                 with col_f1:
-                    # Tenta usar a coluna 'Bimestre', se não existir, usa a coluna 5 (índice 5)
                     col_bim = 'Bimestre' if 'Bimestre' in colunas_df else colunas_df[5]
                     lista_bimestres = ["Todos"] + sorted(df_reg[col_bim].unique().astype(str).tolist())
                     bim_filtro = st.selectbox("Filtrar por Bimestre", lista_bimestres)
                 
                 with col_f2:
-                    # Tenta usar a coluna 'Turma', se não existir, usa a coluna 2 (índice 2)
                     col_turma = 'Turma' if 'Turma' in colunas_df else colunas_df[2]
                     lista_turmas_reg = ["Todas"] + sorted(df_reg[col_turma].unique().astype(str).tolist())
                     turma_filtro = st.selectbox("Filtrar por Turma", lista_turmas_reg)
@@ -211,6 +208,11 @@ else:
                 
                 if st.session_state.user_data['Usuario'] != "admin":
                     df_filtrado = df_filtrado[df_filtrado['Professor'] == prof_nome]
+                
+                if 'Data_Hora' in df_filtrado.columns:
+                    df_filtrado = df_filtrado.drop(columns=['Data_Hora'])
+                elif len(df_filtrado.columns) > 0:
+                    df_filtrado = df_filtrado.drop(df_filtrado.columns[0], axis=1)
                 
                 st.dataframe(df_filtrado, use_container_width=True)
             else:
