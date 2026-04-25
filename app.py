@@ -108,7 +108,7 @@ else:
                 ]
                 
                 wks.append_row(nova_linha)
-                st.success(f"✅ Sucesso! Registro de {aluno_sel} salv na planilha.")
+                st.success(f"✅ Sucesso! Registro de {aluno_sel} salvo na planilha.")
             except Exception as e:
                 st.error(f"Erro ao salvar: {e}")
 
@@ -202,7 +202,7 @@ else:
         with tab3:
             st.subheader("Cadastrar Alunos")
             
-            opcao_cadastro = st.radio("Método de Cadastro", ["Individual", "Em Massa (Excel/Word)"])
+            opcao_cadastro = st.radio("Método de Cadastro", ["Individual", "Em Massa (Excel/Word)", "Excluir Aluno"])
             
             if opcao_cadastro == "Individual":
                 with st.form("form_aluno"):
@@ -219,7 +219,7 @@ else:
                         except Exception as e:
                             st.error(f"Erro: {e}")
             
-            else:
+            elif opcao_cadastro == "Em Massa (Excel/Word)":
                 with st.form("form_aluno_massa"):
                     turma_massa = st.text_input("Turma para todos os alunos (Ex: 101)")
                     lista_nomes = st.text_area("Cole aqui a lista de nomes (um por linha)")
@@ -240,3 +240,35 @@ else:
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao cadastrar em massa: {e}")
+
+            elif opcao_cadastro == "Excluir Aluno":
+                st.subheader("Excluir Aluno Específico")
+                todas_turmas_exc = sorted(df_alunos['Turma'].unique().astype(str))
+                turma_exc = st.selectbox("Selecione a Turma", [""] + todas_turmas_exc)
+                
+                if turma_exc != "":
+                    alunos_exc = df_alunos[df_alunos['Turma'].astype(str) == turma_exc]['Nome_Aluno'].tolist()
+                    aluno_a_excluir = st.selectbox("Selecione o Aluno para Excluir", [""] + sorted(alunos_exc))
+                    
+                    if aluno_a_excluir != "" and st.button("❌ EXCLUIR ALUNO DEFINITIVAMENTE"):
+                        try:
+                            sh = conectar_google_sheets()
+                            wks_a = sh.worksheet("Config_Alunos")
+                            
+                            # Busca a linha onde Turma e Nome coincidem
+                            data = wks_a.get_all_values()
+                            row_index = -1
+                            for i, row in enumerate(data):
+                                if row[0] == turma_exc and row[1] == aluno_a_excluir:
+                                    row_index = i + 1
+                                    break
+                            
+                            if row_index != -1:
+                                wks_a.delete_rows(row_index)
+                                st.warning(f"Aluno {aluno_a_excluir} da turma {turma_exc} foi removido.")
+                                st.cache_data.clear()
+                                st.rerun()
+                            else:
+                                st.error("Não foi possível encontrar o registro do aluno.")
+                        except Exception as e:
+                            st.error(f"Erro ao excluir aluno: {e}")
