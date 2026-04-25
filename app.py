@@ -147,7 +147,7 @@ else:
                 
             disciplina = st.selectbox("Disciplina", disciplina_opcoes)
             periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True)
-            tipo = st.radio("Valores e atitudes", ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Elogio/Destaque", "Atraso"])
+            tipo = st.radio("Valores e atitudes", ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas"])
             obs = st.text_area("Observações")
             
             btn_salvar = st.form_submit_button("GRAVAR NA PLANILHA", disabled=(bimestre_ativo == "Bloqueado"))
