@@ -20,13 +20,19 @@ def carregar_dados():
     sh = conectar_google_sheets()
     df_p = pd.DataFrame(sh.worksheet("Config_Professores").get_all_records())
     df_a = pd.DataFrame(sh.worksheet("Config_Alunos").get_all_records())
-    return df_p, df_a
+    
+    try:
+        df_d = pd.DataFrame(sh.worksheet("Config_Disciplinas").get_all_records())
+    except:
+        df_d = pd.DataFrame(columns=["Disciplina"])
+        
+    return df_p, df_a, df_d
 
 # --- INTERFACE ---
 st.set_page_config(page_title="Sistema Escola Diva", layout="centered")
 
 try:
-    df_profs, df_alunos = carregar_dados()
+    df_profs, df_alunos, df_discs = carregar_dados()
 except Exception as e:
     st.error(f"Erro ao carregar dados: {e}")
     st.info("Dica: Verifique se a planilha foi compartilhada como EDITOR com o e-mail da conta de serviço e se as abas têm os nomes corretos.")
@@ -84,7 +90,11 @@ else:
         aluno_sel = st.selectbox("2. Aluno", sorted(alunos_da_turma))
 
         with st.form("form_registro", clear_on_submit=True):
-            disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
+            if not df_discs.empty:
+                disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
+            else:
+                disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
+                
             disciplina = st.selectbox("Disciplina", disciplina_opcoes)
             periodo = st.selectbox("Bimestre", ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
             tipo = st.radio("Ocorrência", ["Indisciplina", "Falta de Material", "Não realizou tarefa", "Elogio/Destaque", "Atraso"])
@@ -116,7 +126,7 @@ else:
     elif st.session_state.pagina == "Cadastro":
         st.title("⚙️ Painel de Cadastro")
         
-        tab1, tab2, tab3 = st.tabs(["Gerenciar Usuários", "Alterar Senha", "Turmas/Alunos"])
+        tab1, tab2, tab3, tab4 = st.tabs(["Gerenciar Usuários", "Alterar Senha", "Turmas/Alunos", "Disciplinas"])
         
         with tab1:
             st.subheader("Cadastrar Novo Professor")
@@ -128,7 +138,11 @@ else:
                 todas_turmas_disp = sorted(df_alunos['Turma'].unique().astype(str))
                 turmas_vinculo = st.multiselect("Vincular Turmas", todas_turmas_disp)
                 
-                disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
+                if not df_discs.empty:
+                    disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
+                else:
+                    disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
+                
                 disciplinas_vinculo = st.multiselect("Vincular Disciplinas", disciplina_opcoes)
                 
                 if st.form_submit_button("Salvar Professor"):
@@ -162,7 +176,11 @@ else:
                     turmas_atuais = str(dados_atuais.get('Turmas', "")).split(", ") if dados_atuais.get('Turmas') else []
                     edit_turmas = st.multiselect("Alterar Turmas", todas_turmas_disp, default=[t for t in turmas_atuais if t in todas_turmas_disp])
                     
-                    disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
+                    if not df_discs.empty:
+                        disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
+                    else:
+                        disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
+                        
                     disciplinas_atuais = str(dados_atuais.get('Disciplinas', "")).split(", ") if dados_atuais.get('Disciplinas') else []
                     edit_disciplinas = st.multiselect("Alterar Disciplinas", disciplina_opcoes, default=[d for d in disciplinas_atuais if d in disciplina_opcoes])
                     
@@ -312,11 +330,9 @@ else:
                                 wks_a = sh.worksheet("Config_Alunos")
                                 data = wks_a.get_all_values()
                                 
-                                # Filtrar linhas que pertencem à turma selecionada
                                 indices_para_deletar = [i + 1 for i, row in enumerate(data) if row[0] == turma_alvo_limpar]
                                 
                                 if indices_para_deletar:
-                                    # Deletar de trás para frente para manter a integridade dos índices
                                     for idx in reversed(indices_para_deletar):
                                         wks_a.delete_rows(idx)
                                     
@@ -329,3 +345,47 @@ else:
                                 st.error(f"Erro ao limpar turma: {e}")
                         else:
                             st.error("Marque a caixa de confirmação.")
+
+        with tab4:
+            st.subheader("Gerenciar Disciplinas")
+            
+            with st.form("form_disciplina"):
+                nova_disc = st.text_input("Nome da Disciplina")
+                if st.form_submit_button("Cadastrar Disciplina"):
+                    if nova_disc:
+                        try:
+                            sh = conectar_google_sheets()
+                            try:
+                                wks_d = sh.worksheet("Config_Disciplinas")
+                            except:
+                                wks_d = sh.add_worksheet(title="Config_Disciplinas", rows="100", cols="2")
+                                wks_d.append_row(["Disciplina"])
+                                
+                            wks_d.append_row([nova_disc])
+                            st.success(f"Disciplina '{nova_disc}' cadastrada!")
+                            st.cache_data.clear()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro: {e}")
+                    else:
+                        st.error("Informe o nome da disciplina.")
+
+            st.divider()
+            st.subheader("Excluir Disciplina")
+            if not df_discs.empty:
+                disc_lista = sorted(df_discs['Disciplina'].unique().astype(str))
+                disc_excluir = st.selectbox("Selecione a disciplina para remover", [""] + disc_lista)
+                
+                if disc_excluir != "" and st.button("❌ REMOVER DISCIPLINA"):
+                    try:
+                        sh = conectar_google_sheets()
+                        wks_d = sh.worksheet("Config_Disciplinas")
+                        celula = wks_d.find(str(disc_excluir))
+                        wks_d.delete_rows(celula.row)
+                        st.warning(f"Disciplina '{disc_excluir}' removida.")
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao excluir: {e}")
+            else:
+                st.info("Nenhuma disciplina cadastrada.")
