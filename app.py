@@ -120,20 +120,22 @@ else:
         else:
             st.info(f"📅 Período de lançamento aberto: **{bimestre_ativo}**")
 
-        # --- LÓGICA DE FILTRAGEM DE TURMAS ---
         if st.session_state.user_data['Usuario'] == "admin":
             todas_turmas = sorted(df_alunos['Turma'].unique().astype(str))
         else:
             turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
             todas_turmas = sorted([t.strip() for t in turmas_vinc if t.strip()])
 
+        # Corrigido: Seleção de Turma agora mostra turmas e Aluno mostra nomes
         turma_sel = st.selectbox("1. Turma", todas_turmas)
         
-        alunos_da_turma = df_alunos[df_alunos['Turma'].astype(str) == turma_sel]['Nome_Aluno'].tolist()
+        alunos_da_turma = df_alunos[df_alunos['Turma'].astype(str) == turma_sel]['Nome_Alunos'].tolist()
+        if not alunos_da_turma:
+            alunos_da_turma = df_alunos[df_alunos['Turma'].astype(str) == turma_sel]['Nome_Aluno'].tolist()
+            
         aluno_sel = st.selectbox("2. Aluno", sorted(alunos_da_turma))
 
         with st.form("form_registro", clear_on_submit=True):
-            # --- LÓGICA DE FILTRAGEM DE DISCIPLINAS ---
             if st.session_state.user_data['Usuario'] == "admin":
                 if not df_discs.empty:
                     disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
@@ -143,7 +145,7 @@ else:
                 discs_vinc = str(st.session_state.user_data.get('Disciplinas', "")).split(", ")
                 disciplina_opcoes = sorted([d.strip() for d in discs_vinc if d.strip()])
                 if not disciplina_opcoes:
-                    disciplina_opcoes = ["Nenhuma disciplina vinculada"]
+                     disciplina_opcoes = ["Nenhuma disciplina vinculada"]
                 
             disciplina = st.selectbox("Disciplina", disciplina_opcoes)
             periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True)
@@ -228,6 +230,8 @@ else:
                 
                 if turma_orig != "":
                     alunos_orig = df_alunos[df_alunos['Turma'].astype(str) == turma_orig]['Nome_Aluno'].tolist()
+                    if not alunos_orig:
+                        alunos_orig = df_alunos[df_alunos['Turma'].astype(str) == turma_orig]['Nome_Alunos'].tolist()
                     aluno_a_transf = st.selectbox("Selecione o Aluno para Transferir", [""] + sorted(alunos_orig))
                     
                     turma_dest = st.selectbox("Turma de Destino", [""] + todas_turmas_cadastradas)
@@ -260,6 +264,8 @@ else:
                 
                 if turma_exc != "":
                     alunos_exc = df_alunos[df_alunos['Turma'].astype(str) == turma_exc]['Nome_Aluno'].tolist()
+                    if not alunos_exc:
+                        alunos_exc = df_alunos[df_alunos['Turma'].astype(str) == turma_exc]['Nome_Alunos'].tolist()
                     aluno_a_excluir = st.selectbox("Selecione o Aluno para Excluir", [""] + sorted(alunos_exc))
                     
                     if aluno_a_excluir != "" and st.button("❌ EXCLUIR ALUNO DEFINITIVAMENTE"):
