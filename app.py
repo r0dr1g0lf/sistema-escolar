@@ -108,7 +108,7 @@ else:
                 ]
                 
                 wks.append_row(nova_linha)
-                st.success(f"✅ Sucesso! Registro de {aluno_sel} salvo na planilha.")
+                st.success(f"✅ Sucesso! Registro de {aluno_sel} salv na planilha.")
             except Exception as e:
                 st.error(f"Erro ao salvar: {e}")
 
