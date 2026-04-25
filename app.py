@@ -72,9 +72,10 @@ else:
         st.session_state.pagina = "Registro"
         st.rerun()
 
-    if st.sidebar.button("Cadastro"):
-        st.session_state.pagina = "Cadastro"
-        st.rerun()
+    if st.session_state.user_data['Usuario'] == "admin":
+        if st.sidebar.button("Cadastro"):
+            st.session_state.pagina = "Cadastro"
+            st.rerun()
     
     if st.sidebar.button("Atualizar Dados"):
         st.cache_data.clear()
@@ -147,7 +148,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao salvar: {e}")
 
-    elif st.session_state.pagina == "Cadastro":
+    elif st.session_state.pagina == "Cadastro" and st.session_state.user_data['Usuario'] == "admin":
         st.title("⚙️ Painel de Cadastro")
         
         tab1, tab2, tab3, tab4, tab5 = st.tabs(["Gerenciar Usuários", "Alterar Senha", "Turmas/Alunos", "Disciplinas", "Período de Lançamento"])
@@ -419,7 +420,6 @@ else:
             
             with st.form("form_periodo"):
                 bim_sel = st.selectbox("Bimestre", ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
-                # Ajuste no formato da data para exibição no calendário (Brasil)
                 data_inicio = st.date_input("Início do Lançamento", format="DD/MM/YYYY")
                 data_fim = st.date_input("Fim do Lançamento", format="DD/MM/YYYY")
                 
@@ -435,7 +435,6 @@ else:
                         data_per = wks_per.get_all_values()
                         found = False
                         
-                        # Formato gravado na planilha segue o padrão brasileiro
                         inicio_str = data_inicio.strftime("%d/%m/%Y")
                         fim_str = data_fim.strftime("%d/%m/%Y")
                         
@@ -473,3 +472,8 @@ else:
                         st.error(f"Erro: {e}")
             else:
                 st.info("Nenhum período configurado.")
+    
+    elif st.session_state.pagina == "Cadastro":
+        st.error("Acesso restrito.")
+        st.session_state.pagina = "Registro"
+        st.rerun()
