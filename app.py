@@ -76,10 +76,10 @@ else:
         if st.sidebar.button("Cadastro"):
             st.session_state.pagina = "Cadastro"
             st.rerun()
-    
-    if st.sidebar.button("Atualizar Dados"):
-        st.cache_data.clear()
-        st.rerun()
+        
+        if st.sidebar.button("Atualizar Dados"):
+            st.cache_data.clear()
+            st.rerun()
 
     if st.sidebar.button("Sair"):
         st.session_state.logado = False
