@@ -120,17 +120,30 @@ else:
         else:
             st.info(f"📅 Período de lançamento aberto: **{bimestre_ativo}**")
 
-        todas_turmas = sorted(df_alunos['Turma'].unique().astype(str))
+        # --- LÓGICA DE FILTRAGEM DE TURMAS ---
+        if st.session_state.user_data['Usuario'] == "admin":
+            todas_turmas = sorted(df_alunos['Turma'].unique().astype(str))
+        else:
+            turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
+            todas_turmas = sorted([t.strip() for t in turmas_vinc if t.strip()])
+
         turma_sel = st.selectbox("1. Turma", todas_turmas)
         
         alunos_da_turma = df_alunos[df_alunos['Turma'].astype(str) == turma_sel]['Nome_Aluno'].tolist()
         aluno_sel = st.selectbox("2. Aluno", sorted(alunos_da_turma))
 
         with st.form("form_registro", clear_on_submit=True):
-            if not df_discs.empty:
-                disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
+            # --- LÓGICA DE FILTRAGEM DE DISCIPLINAS ---
+            if st.session_state.user_data['Usuario'] == "admin":
+                if not df_discs.empty:
+                    disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
+                else:
+                    disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
             else:
-                disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
+                discs_vinc = str(st.session_state.user_data.get('Disciplinas', "")).split(", ")
+                disciplina_opcoes = sorted([d.strip() for d in discs_vinc if d.strip()])
+                if not disciplina_opcoes:
+                    disciplina_opcoes = ["Nenhuma disciplina vinculada"]
                 
             disciplina = st.selectbox("Disciplina", disciplina_opcoes)
             periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True)
@@ -355,11 +368,11 @@ else:
                 turmas_vinculo = st.multiselect("Vincular Turmas", todas_turmas_disp)
                 
                 if not df_discs.empty:
-                    disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
+                    disciplina_opcoes_cad = sorted(df_discs['Disciplina'].unique().astype(str))
                 else:
-                    disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
+                    disciplina_opcoes_cad = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
                 
-                disciplinas_vinculo = st.multiselect("Vincular Disciplinas", disciplina_opcoes)
+                disciplinas_vinculo = st.multiselect("Vincular Disciplinas", disciplina_opcoes_cad)
                 
                 if st.form_submit_button("Salvar Professor"):
                     try:
@@ -393,12 +406,12 @@ else:
                     edit_turmas = st.multiselect("Alterar Turmas", todas_turmas_disp, default=[t for t in turmas_atuais if t in todas_turmas_disp])
                     
                     if not df_discs.empty:
-                        disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
+                        disciplina_opcoes_edit = sorted(df_discs['Disciplina'].unique().astype(str))
                     else:
-                        disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
+                        disciplina_opcoes_edit = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
                         
                     disciplinas_atuais = str(dados_atuais.get('Disciplinas', "")).split(", ") if dados_atuais.get('Disciplinas') else []
-                    edit_disciplinas = st.multiselect("Alterar Disciplinas", disciplina_opcoes, default=[d for d in disciplinas_atuais if d in disciplina_opcoes])
+                    edit_disciplinas = st.multiselect("Alterar Disciplinas", disciplina_opcoes_edit, default=[d for d in disciplinas_atuais if d in disciplina_opcoes_edit])
                     
                     col_btn1, col_btn2 = st.columns(2)
                     with col_btn1:
