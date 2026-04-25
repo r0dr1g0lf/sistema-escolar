@@ -202,7 +202,7 @@ else:
         with tab3:
             st.subheader("Gerenciar Alunos e Turmas")
             
-            opcao_cadastro = st.radio("Selecione uma Ação", ["Individual", "Em Massa (Excel/Word)", "Excluir Aluno", "Limpar Banco de Alunos"])
+            opcao_cadastro = st.radio("Selecione uma Ação", ["Individual", "Em Massa (Excel/Word)", "Excluir Aluno", "Limpar turma"])
             
             if opcao_cadastro == "Individual":
                 with st.form("form_aluno"):
@@ -269,25 +269,36 @@ else:
                         except Exception as e:
                             st.error(f"Erro ao excluir aluno: {e}")
 
-            elif opcao_cadastro == "Limpar Banco de Alunos":
-                st.warning("⚠️ ATENÇÃO: Esta ação apagará TODOS os alunos e turmas cadastrados no sistema.")
-                confirmacao = st.checkbox("Eu entendo que esta ação é irreversível.")
+            elif opcao_cadastro == "Limpar turma":
+                st.subheader("Limpar Todos os Alunos de uma Turma")
+                todas_turmas_limpar = sorted(df_alunos['Turma'].unique().astype(str))
+                turma_alvo_limpar = st.selectbox("Selecione a Turma para APAGAR TODOS os alunos", [""] + todas_turmas_limpar)
                 
-                if st.button("🚨 APAGAR TODOS OS ALUNOS E TURMAS"):
-                    if confirmacao:
-                        try:
-                            sh = conectar_google_sheets()
-                            wks_a = sh.worksheet("Config_Alunos")
-                            
-                            rows = len(wks_a.get_all_values())
-                            if rows > 1:
-                                wks_a.delete_rows(2, rows)
-                                st.success("✅ Banco de dados de alunos limpo com sucesso!")
-                                st.cache_data.clear()
-                                st.rerun()
-                            else:
-                                st.info("O banco de dados já está vazio.")
-                        except Exception as e:
-                            st.error(f"Erro ao limpar banco: {e}")
-                    else:
-                        st.error("Por favor, marque a caixa de confirmação para prosseguir.")
+                if turma_alvo_limpar != "":
+                    st.warning(f"⚠️ ATENÇÃO: Esta ação apagará TODOS os alunos da turma {turma_alvo_limpar}.")
+                    confirmacao_turma = st.checkbox(f"Confirmo que desejo apagar todos os alunos da {turma_alvo_limpar}")
+                    
+                    if st.button(f"🚨 APAGAR ALUNOS DA TURMA {turma_alvo_limpar}"):
+                        if confirmacao_turma:
+                            try:
+                                sh = conectar_google_sheets()
+                                wks_a = sh.worksheet("Config_Alunos")
+                                data = wks_a.get_all_values()
+                                
+                                # Filtrar linhas que pertencem à turma selecionada
+                                indices_para_deletar = [i + 1 for i, row in enumerate(data) if row[0] == turma_alvo_limpar]
+                                
+                                if indices_para_deletar:
+                                    # Deletar de trás para frente para manter a integridade dos índices
+                                    for idx in reversed(indices_para_deletar):
+                                        wks_a.delete_rows(idx)
+                                    
+                                    st.success(f"✅ Todos os alunos da turma {turma_alvo_limpar} foram removidos!")
+                                    st.cache_data.clear()
+                                    st.rerun()
+                                else:
+                                    st.info("Nenhum aluno encontrado para esta turma.")
+                            except Exception as e:
+                                st.error(f"Erro ao limpar turma: {e}")
+                        else:
+                            st.error("Marque a caixa de confirmação.")
