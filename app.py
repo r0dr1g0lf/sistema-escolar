@@ -184,12 +184,23 @@ else:
             df_reg = pd.DataFrame(sh.worksheet("Registros_Ocorrencias").get_all_records())
             
             if not df_reg.empty:
-                lista_bimestres = ["Todos"] + sorted(df_reg['Bimestre'].unique().tolist())
-                bim_filtro = st.selectbox("Filtrar por Bimestre", lista_bimestres)
+                col_f1, col_f2 = st.columns(2)
+                
+                with col_f1:
+                    lista_bimestres = ["Todos"] + sorted(df_reg['Bimestre'].unique().tolist())
+                    bim_filtro = st.selectbox("Filtrar por Bimestre", lista_bimestres)
+                
+                with col_f2:
+                    lista_turmas_reg = ["Todas"] + sorted(df_reg['Turma'].unique().astype(str).tolist())
+                    turma_filtro = st.selectbox("Filtrar por Turma", lista_turmas_reg)
                 
                 df_filtrado = df_reg.copy()
+                
                 if bim_filtro != "Todos":
                     df_filtrado = df_filtrado[df_filtrado['Bimestre'] == bim_filtro]
+                
+                if turma_filtro != "Todas":
+                    df_filtrado = df_filtrado[df_filtrado['Turma'].astype(str) == turma_filtro]
                 
                 if st.session_state.user_data['Usuario'] != "admin":
                     df_filtrado = df_filtrado[df_filtrado['Professor'] == prof_nome]
