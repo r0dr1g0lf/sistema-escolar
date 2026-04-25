@@ -84,9 +84,11 @@ else:
         st.session_state.pagina = "Registro"
         st.rerun()
 
-    if st.sidebar.button("Segurança", use_container_width=True):
-        st.session_state.pagina = "Segurança"
-        st.rerun()
+    # Só exibe Segurança se NÃO for admin
+    if st.session_state.user_data['Usuario'] != "admin":
+        if st.sidebar.button("Segurança", use_container_width=True):
+            st.session_state.pagina = "Segurança"
+            st.rerun()
 
     if st.session_state.user_data['Usuario'] == "admin":
         if st.sidebar.button("Cadastro", use_container_width=True):
