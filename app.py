@@ -200,9 +200,9 @@ else:
                         st.error(f"Erro ao atualizar: {e}")
 
         with tab3:
-            st.subheader("Cadastrar Alunos")
+            st.subheader("Gerenciar Alunos e Turmas")
             
-            opcao_cadastro = st.radio("Método de Cadastro", ["Individual", "Em Massa (Excel/Word)", "Excluir Aluno"])
+            opcao_cadastro = st.radio("Selecione uma Ação", ["Individual", "Em Massa (Excel/Word)", "Excluir Aluno", "Limpar Banco de Alunos"])
             
             if opcao_cadastro == "Individual":
                 with st.form("form_aluno"):
@@ -254,8 +254,6 @@ else:
                         try:
                             sh = conectar_google_sheets()
                             wks_a = sh.worksheet("Config_Alunos")
-                            
-                            # Busca a linha onde Turma e Nome coincidem
                             data = wks_a.get_all_values()
                             row_index = -1
                             for i, row in enumerate(data):
@@ -265,10 +263,32 @@ else:
                             
                             if row_index != -1:
                                 wks_a.delete_rows(row_index)
-                                st.warning(f"Aluno {aluno_a_excluir} da turma {turma_exc} foi removido.")
+                                st.warning(f"Aluno {aluno_a_excluir} removido.")
+                                st.cache_data.clear()
+                                st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao excluir aluno: {e}")
+
+            elif opcao_cadastro == "Limpar Banco de Alunos":
+                st.warning("⚠️ ATENÇÃO: Esta ação apagará TODOS os alunos e turmas cadastrados no sistema.")
+                confirmacao = st.checkbox("Eu entendo que esta ação é irreversível.")
+                
+                if st.button("🚨 APAGAR TODOS OS ALUNOS E TURMAS"):
+                    if confirmacao:
+                        try:
+                            sh = conectar_google_sheets()
+                            wks_a = sh.worksheet("Config_Alunos")
+                            
+                            # Mantém apenas o cabeçalho (linha 1) e apaga do 2 em diante
+                            rows = len(wks_a.get_all_values())
+                            if rows > 1:
+                                wks_a.delete_rows(2, rows)
+                                st.success("✅ Banco de dados de alunos limpo com sucesso!")
                                 st.cache_data.clear()
                                 st.rerun()
                             else:
-                                st.error("Não foi possível encontrar o registro do aluno.")
+                                st.info("O banco de dados já está vazio.")
                         except Exception as e:
-                            st.error(f"Erro ao excluir aluno: {e}")
+                            st.error(f"Erro ao limpar banco: {e}")
+                    else:
+                        st.error("Por favor, marque a caixa de confirmação para prosseguir.")
