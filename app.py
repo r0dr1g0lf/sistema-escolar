@@ -26,13 +26,18 @@ def carregar_dados():
     except:
         df_d = pd.DataFrame(columns=["Disciplina"])
         
-    return df_p, df_a, df_d
+    try:
+        df_per = pd.DataFrame(sh.worksheet("Config_Periodos").get_all_records())
+    except:
+        df_per = pd.DataFrame(columns=["Bimestre", "Inicio", "Fim"])
+        
+    return df_p, df_a, df_d, df_per
 
 # --- INTERFACE ---
 st.set_page_config(page_title="Sistema Escola Diva", layout="centered")
 
 try:
-    df_profs, df_alunos, df_discs = carregar_dados()
+    df_profs, df_alunos, df_discs, df_periodos = carregar_dados()
 except Exception as e:
     st.error(f"Erro ao carregar dados: {e}")
     st.info("Dica: Verifique se a planilha foi compartilhada como EDITOR com o e-mail da conta de serviço e se as abas têm os nomes corretos.")
@@ -83,6 +88,25 @@ else:
     if st.session_state.pagina == "Registro":
         st.title("📝 Novo Registro")
         
+        hoje = datetime.now().date()
+        bimestre_ativo = "Bloqueado"
+        
+        if not df_periodos.empty:
+            for _, row in df_periodos.iterrows():
+                try:
+                    inicio = datetime.strptime(str(row['Inicio']), "%Y-%m-%d").date()
+                    fim = datetime.strptime(str(row['Fim']), "%Y-%m-%d").date()
+                    if inicio <= hoje <= fim:
+                        bimestre_ativo = row['Bimestre']
+                        break
+                except:
+                    continue
+
+        if bimestre_ativo == "Bloqueado":
+            st.warning("🏮 O período de lançamentos está fechado ou não configurado.")
+        else:
+            st.info(f"📅 Período de lançamento aberto: **{bimestre_ativo}**")
+
         todas_turmas = sorted(df_alunos['Turma'].unique().astype(str))
         turma_sel = st.selectbox("1. Turma", todas_turmas)
         
@@ -96,11 +120,11 @@ else:
                 disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
                 
             disciplina = st.selectbox("Disciplina", disciplina_opcoes)
-            periodo = st.selectbox("Bimestre", ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
+            periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True)
             tipo = st.radio("Ocorrência", ["Indisciplina", "Falta de Material", "Não realizou tarefa", "Elogio/Destaque", "Atraso"])
             obs = st.text_area("Observações")
             
-            btn_salvar = st.form_submit_button("GRAVAR NA PLANILHA")
+            btn_salvar = st.form_submit_button("GRAVAR NA PLANILHA", disabled=(bimestre_ativo == "Bloqueado"))
 
         if btn_salvar:
             try:
@@ -126,7 +150,7 @@ else:
     elif st.session_state.pagina == "Cadastro":
         st.title("⚙️ Painel de Cadastro")
         
-        tab1, tab2, tab3, tab4 = st.tabs(["Gerenciar Usuários", "Alterar Senha", "Turmas/Alunos", "Disciplinas"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["Gerenciar Usuários", "Alterar Senha", "Turmas/Alunos", "Disciplinas", "Período de Lançamento"])
         
         with tab1:
             st.subheader("Cadastrar Novo Professor")
@@ -389,3 +413,57 @@ else:
                         st.error(f"Erro ao excluir: {e}")
             else:
                 st.info("Nenhuma disciplina cadastrada.")
+
+        with tab5:
+            st.subheader("Configurar Período de Lançamento")
+            
+            with st.form("form_periodo"):
+                bim_sel = st.selectbox("Bimestre", ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
+                data_inicio = st.date_input("Início do Lançamento")
+                data_fim = st.date_input("Fim do Lançamento")
+                
+                if st.form_submit_button("Salvar Período"):
+                    try:
+                        sh = conectar_google_sheets()
+                        try:
+                            wks_per = sh.worksheet("Config_Periodos")
+                        except:
+                            wks_per = sh.add_worksheet(title="Config_Periodos", rows="10", cols="3")
+                            wks_per.append_row(["Bimestre", "Inicio", "Fim"])
+                        
+                        data_per = wks_per.get_all_values()
+                        found = False
+                        for i, row in enumerate(data_per):
+                            if row[0] == bim_sel:
+                                wks_per.update_cell(i + 1, 2, str(data_inicio))
+                                wks_per.update_cell(i + 1, 3, str(data_fim))
+                                found = True
+                                break
+                        
+                        if not found:
+                            wks_per.append_row([bim_sel, str(data_inicio), str(data_fim)])
+                            
+                        st.success(f"Período do {bim_sel} configurado!")
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao salvar período: {e}")
+            
+            st.divider()
+            st.subheader("Períodos Configurados")
+            if not df_periodos.empty:
+                st.dataframe(df_periodos, use_container_width=True)
+                if st.button("Limpar Todos os Períodos"):
+                    try:
+                        sh = conectar_google_sheets()
+                        wks_per = sh.worksheet("Config_Periodos")
+                        rows = len(wks_per.get_all_values())
+                        if rows > 1:
+                            wks_per.delete_rows(2, rows)
+                            st.success("Períodos removidos.")
+                            st.cache_data.clear()
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro: {e}")
+            else:
+                st.info("Nenhum período configurado.")
