@@ -186,21 +186,28 @@ else:
             if not df_reg.empty:
                 col_f1, col_f2 = st.columns(2)
                 
+                # Tratamento para garantir que as colunas de filtro existam
+                colunas_df = df_reg.columns.tolist()
+                
                 with col_f1:
-                    lista_bimestres = ["Todos"] + sorted(df_reg['Bimestre'].unique().tolist())
+                    # Tenta usar a coluna 'Bimestre', se não existir, usa a coluna 5 (índice 5)
+                    col_bim = 'Bimestre' if 'Bimestre' in colunas_df else colunas_df[5]
+                    lista_bimestres = ["Todos"] + sorted(df_reg[col_bim].unique().astype(str).tolist())
                     bim_filtro = st.selectbox("Filtrar por Bimestre", lista_bimestres)
                 
                 with col_f2:
-                    lista_turmas_reg = ["Todas"] + sorted(df_reg['Turma'].unique().astype(str).tolist())
+                    # Tenta usar a coluna 'Turma', se não existir, usa a coluna 2 (índice 2)
+                    col_turma = 'Turma' if 'Turma' in colunas_df else colunas_df[2]
+                    lista_turmas_reg = ["Todas"] + sorted(df_reg[col_turma].unique().astype(str).tolist())
                     turma_filtro = st.selectbox("Filtrar por Turma", lista_turmas_reg)
                 
                 df_filtrado = df_reg.copy()
                 
                 if bim_filtro != "Todos":
-                    df_filtrado = df_filtrado[df_filtrado['Bimestre'] == bim_filtro]
+                    df_filtrado = df_filtrado[df_filtrado[col_bim].astype(str) == bim_filtro]
                 
                 if turma_filtro != "Todas":
-                    df_filtrado = df_filtrado[df_filtrado['Turma'].astype(str) == turma_filtro]
+                    df_filtrado = df_filtrado[df_filtrado[col_turma].astype(str) == turma_filtro]
                 
                 if st.session_state.user_data['Usuario'] != "admin":
                     df_filtrado = df_filtrado[df_filtrado['Professor'] == prof_nome]
@@ -210,6 +217,7 @@ else:
                 st.info("Nenhum registro encontrado na planilha.")
         except Exception as e:
             st.error(f"Erro ao carregar registros: {e}")
+            st.info("Certifique-se de que a aba 'Registros_Ocorrencias' possui um cabeçalho na primeira linha.")
 
     elif st.session_state.pagina == "Segurança":
         st.title("🔒 Segurança")
