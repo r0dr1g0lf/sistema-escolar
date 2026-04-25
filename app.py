@@ -419,8 +419,9 @@ else:
             
             with st.form("form_periodo"):
                 bim_sel = st.selectbox("Bimestre", ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
-                data_inicio = st.date_input("Início do Lançamento")
-                data_fim = st.date_input("Fim do Lançamento")
+                # Ajuste no formato da data para exibição no calendário (Brasil)
+                data_inicio = st.date_input("Início do Lançamento", format="DD/MM/YYYY")
+                data_fim = st.date_input("Fim do Lançamento", format="DD/MM/YYYY")
                 
                 if st.form_submit_button("Salvar Período"):
                     try:
@@ -434,6 +435,7 @@ else:
                         data_per = wks_per.get_all_values()
                         found = False
                         
+                        # Formato gravado na planilha segue o padrão brasileiro
                         inicio_str = data_inicio.strftime("%d/%m/%Y")
                         fim_str = data_fim.strftime("%d/%m/%Y")
                         
