@@ -83,14 +83,21 @@ else:
     if st.session_state.pagina == "Registro":
         st.title("📝 Novo Registro")
         
-        todas_turmas = sorted(df_alunos['Turma'].unique().astype(str))
-        turma_sel = st.selectbox("1. Turma", todas_turmas)
+        turmas_vinculadas = str(st.session_state.user_data.get('Turmas', "")).split(", ") if st.session_state.user_data.get('Turmas') else []
+        disciplinas_vinculadas = str(st.session_state.user_data.get('Disciplinas', "")).split(", ") if st.session_state.user_data.get('Disciplinas') else []
+        
+        todas_turmas_sistema = df_alunos['Turma'].unique().astype(str)
+        turmas_validas = [t for t in turmas_vinculadas if t in todas_turmas_sistema] if turmas_vinculadas else sorted(todas_turmas_sistema)
+        
+        turma_sel = st.selectbox("1. Turma", sorted(turmas_validas))
         
         alunos_da_turma = df_alunos[df_alunos['Turma'].astype(str) == turma_sel]['Nome_Aluno'].tolist()
         aluno_sel = st.selectbox("2. Aluno", sorted(alunos_da_turma))
 
         with st.form("form_registro", clear_on_submit=True):
-            if not df_discs.empty:
+            if disciplinas_vinculadas:
+                disciplina_opcoes = sorted([d for d in disciplinas_vinculadas if d.strip()])
+            elif not df_discs.empty:
                 disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
             else:
                 disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
