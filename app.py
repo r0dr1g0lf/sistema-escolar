@@ -197,13 +197,20 @@ else:
 
             elif opcao_cadastro == "Transferir Aluno":
                 st.subheader("Transferir Aluno de Turma")
-                todas_turmas_orig = sorted(df_alunos['Turma'].unique().astype(str))
-                turma_orig = st.selectbox("Turma de Origem", [""] + todas_turmas_orig)
+                todas_turmas_cadastradas = sorted(df_alunos['Turma'].unique().astype(str))
+                
+                turma_orig = st.selectbox("Turma de Origem", [""] + todas_turmas_cadastradas)
                 
                 if turma_orig != "":
                     alunos_orig = df_alunos[df_alunos['Turma'].astype(str) == turma_orig]['Nome_Aluno'].tolist()
                     aluno_a_transf = st.selectbox("Selecione o Aluno para Transferir", [""] + sorted(alunos_orig))
-                    turma_dest = st.text_input("Turma de Destino (Ex: 301)")
+                    
+                    turma_dest_tipo = st.radio("Destino", ["Selecionar Turma Existente", "Digitar Nova Turma"])
+                    
+                    if turma_dest_tipo == "Selecionar Turma Existente":
+                        turma_dest = st.selectbox("Turma de Destino", [""] + todas_turmas_cadastradas)
+                    else:
+                        turma_dest = st.text_input("Digitar Turma de Destino (Ex: 301)")
                     
                     if aluno_a_transf != "" and turma_dest != "" and st.button("Executar Transferência"):
                         try:
@@ -221,6 +228,8 @@ else:
                                 st.success(f"Aluno {aluno_a_transf} transferido para a turma {turma_dest}!")
                                 st.cache_data.clear()
                                 st.rerun()
+                            else:
+                                st.error("Aluno não encontrado na base de dados para atualização.")
                         except Exception as e:
                             st.error(f"Erro ao transferir aluno: {e}")
 
