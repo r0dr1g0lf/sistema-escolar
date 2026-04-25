@@ -151,125 +151,9 @@ else:
     elif st.session_state.pagina == "Cadastro" and st.session_state.user_data['Usuario'] == "admin":
         st.title("⚙️ Painel de Cadastro")
         
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["Gerenciar Usuários", "Alterar Senha", "Turmas/Alunos", "Disciplinas", "Período de Lançamento"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["Turmas/Alunos", "Disciplinas", "Gerenciar Usuários", "Alterar Senha", "Período de Lançamento"])
         
         with tab1:
-            st.subheader("Cadastrar Novo Professor")
-            with st.form("form_prof"):
-                novo_prof = st.text_input("Nome do Professor")
-                novo_usuario = st.text_input("Nome de Usuário (Login)")
-                nova_senha = st.text_input("Senha", type="password")
-                
-                todas_turmas_disp = sorted(df_alunos['Turma'].unique().astype(str))
-                turmas_vinculo = st.multiselect("Vincular Turmas", todas_turmas_disp)
-                
-                if not df_discs.empty:
-                    disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
-                else:
-                    disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
-                
-                disciplinas_vinculo = st.multiselect("Vincular Disciplinas", disciplina_opcoes)
-                
-                if st.form_submit_button("Salvar Professor"):
-                    try:
-                        sh = conectar_google_sheets()
-                        wks_p = sh.worksheet("Config_Professores")
-                        
-                        turmas_str = ", ".join(turmas_vinculo)
-                        disciplinas_str = ", ".join(disciplinas_vinculo)
-                        
-                        wks_p.append_row([novo_prof, novo_usuario, str(nova_senha), turmas_str, disciplinas_str])
-                        st.success("Professor cadastrado com turmas e disciplinas vinculadas!")
-                        st.cache_data.clear()
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro: {e}")
-            
-            st.divider()
-            st.subheader("Editar ou Excluir Usuário Existente")
-            lista_usuarios_edit = df_profs['Usuario'].tolist()
-            user_selecionado = st.selectbox("Selecione o Usuário para Modificar", [""] + lista_usuarios_edit)
-            
-            if user_selecionado != "":
-                dados_atuais = df_profs[df_profs['Usuario'] == user_selecionado].iloc[0]
-                
-                with st.form("form_editar_usuario"):
-                    edit_nome = st.text_input("Alterar Nome do Professor", value=dados_atuais['Professor'])
-                    edit_login = st.text_input("Alterar Login (Usuário)", value=dados_atuais['Usuario'])
-                    
-                    todas_turmas_disp = sorted(df_alunos['Turma'].unique().astype(str))
-                    turmas_atuais = str(dados_atuais.get('Turmas', "")).split(", ") if dados_atuais.get('Turmas') else []
-                    edit_turmas = st.multiselect("Alterar Turmas", todas_turmas_disp, default=[t for t in turmas_atuais if t in todas_turmas_disp])
-                    
-                    if not df_discs.empty:
-                        disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
-                    else:
-                        disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
-                        
-                    disciplinas_atuais = str(dados_atuais.get('Disciplinas', "")).split(", ") if dados_atuais.get('Disciplinas') else []
-                    edit_disciplinas = st.multiselect("Alterar Disciplinas", disciplina_opcoes, default=[d for d in disciplinas_atuais if d in disciplina_opcoes])
-                    
-                    col_btn1, col_btn2 = st.columns(2)
-                    with col_btn1:
-                        btn_update = st.form_submit_button("SALVAR ALTERAÇÕES")
-                    with col_btn2:
-                        btn_delete = st.form_submit_button("❌ EXCLUIR USUÁRIO")
-
-                if btn_update:
-                    try:
-                        sh = conectar_google_sheets()
-                        wks_p = sh.worksheet("Config_Professores")
-                        celula = wks_p.find(str(user_selecionado))
-                        
-                        turmas_edit_str = ", ".join(edit_turmas)
-                        disciplinas_edit_str = ", ".join(edit_disciplinas)
-                        
-                        wks_p.update_cell(celula.row, 1, edit_nome)
-                        wks_p.update_cell(celula.row, 2, edit_login)
-                        wks_p.update_cell(celula.row, 4, turmas_edit_str)
-                        wks_p.update_cell(celula.row, 5, disciplinas_edit_str)
-                        
-                        st.success(f"Dados de {user_selecionado} atualizados!")
-                        st.cache_data.clear()
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao atualizar: {e}")
-
-                if btn_delete:
-                    try:
-                        sh = conectar_google_sheets()
-                        wks_p = sh.worksheet("Config_Professores")
-                        celula = wks_p.find(str(user_selecionado))
-                        wks_p.delete_rows(celula.row)
-                        st.warning(f"Usuário {user_selecionado} foi excluído.")
-                        st.cache_data.clear()
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao excluir: {e}")
-
-        with tab2:
-            st.subheader("Alterar Senha de Usuário")
-            lista_usuarios = df_profs['Usuario'].tolist()
-            user_alvo = st.selectbox("Selecione o Usuário", lista_usuarios)
-            nova_senha_input = st.text_input("Nova Senha", type="password")
-            confirmar_senha = st.text_input("Confirmar Nova Senha", type="password")
-            
-            if st.button("Atualizar Senha"):
-                if nova_senha_input != confirmar_senha:
-                    st.error("As senhas não coincidem.")
-                else:
-                    try:
-                        sh = conectar_google_sheets()
-                        wks_p = sh.worksheet("Config_Professores")
-                        celula = wks_p.find(str(user_alvo))
-                        wks_p.update_cell(celula.row, 3, str(nova_senha_input))
-                        st.success(f"Senha de {user_alvo} atualizada com sucesso!")
-                        st.cache_data.clear()
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao atualizar: {e}")
-
-        with tab3:
             st.subheader("Gerenciar Alunos e Turmas")
             
             opcao_cadastro = st.radio("Selecione uma Ação", ["Individual", "Em Massa (Excel/Word)", "Excluir Aluno", "Limpar turma"])
@@ -371,7 +255,7 @@ else:
                         else:
                             st.error("Marque a caixa de confirmação.")
 
-        with tab4:
+        with tab2:
             st.subheader("Gerenciar Disciplinas")
             
             with st.form("form_disciplina"):
@@ -414,6 +298,122 @@ else:
                         st.error(f"Erro ao excluir: {e}")
             else:
                 st.info("Nenhuma disciplina cadastrada.")
+
+        with tab3:
+            st.subheader("Cadastrar Novo Professor")
+            with st.form("form_prof"):
+                novo_prof = st.text_input("Nome do Professor")
+                novo_usuario = st.text_input("Nome de Usuário (Login)")
+                nova_senha = st.text_input("Senha", type="password")
+                
+                todas_turmas_disp = sorted(df_alunos['Turma'].unique().astype(str))
+                turmas_vinculo = st.multiselect("Vincular Turmas", todas_turmas_disp)
+                
+                if not df_discs.empty:
+                    disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
+                else:
+                    disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
+                
+                disciplinas_vinculo = st.multiselect("Vincular Disciplinas", disciplina_opcoes)
+                
+                if st.form_submit_button("Salvar Professor"):
+                    try:
+                        sh = conectar_google_sheets()
+                        wks_p = sh.worksheet("Config_Professores")
+                        
+                        turmas_str = ", ".join(turmas_vinculo)
+                        disciplinas_str = ", ".join(disciplinas_vinculo)
+                        
+                        wks_p.append_row([novo_prof, novo_usuario, str(nova_senha), turmas_str, disciplinas_str])
+                        st.success("Professor cadastrado com turmas e disciplinas vinculadas!")
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro: {e}")
+            
+            st.divider()
+            st.subheader("Editar ou Excluir Usuário Existente")
+            lista_usuarios_edit = df_profs['Usuario'].tolist()
+            user_selecionado = st.selectbox("Selecione o Usuário para Modificar", [""] + lista_usuarios_edit)
+            
+            if user_selecionado != "":
+                dados_atuais = df_profs[df_profs['Usuario'] == user_selecionado].iloc[0]
+                
+                with st.form("form_editar_usuario"):
+                    edit_nome = st.text_input("Alterar Nome do Professor", value=dados_atuais['Professor'])
+                    edit_login = st.text_input("Alterar Login (Usuário)", value=dados_atuais['Usuario'])
+                    
+                    todas_turmas_disp = sorted(df_alunos['Turma'].unique().astype(str))
+                    turmas_atuais = str(dados_atuais.get('Turmas', "")).split(", ") if dados_atuais.get('Turmas') else []
+                    edit_turmas = st.multiselect("Alterar Turmas", todas_turmas_disp, default=[t for t in turmas_atuais if t in todas_turmas_disp])
+                    
+                    if not df_discs.empty:
+                        disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
+                    else:
+                        disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
+                        
+                    disciplinas_atuais = str(dados_atuais.get('Disciplinas', "")).split(", ") if dados_atuais.get('Disciplinas') else []
+                    edit_disciplinas = st.multiselect("Alterar Disciplinas", disciplina_opcoes, default=[d for d in disciplinas_atuais if d in disciplina_opcoes])
+                    
+                    col_btn1, col_btn2 = st.columns(2)
+                    with col_btn1:
+                        btn_update = st.form_submit_button("SALVAR ALTERAÇÕES")
+                    with col_btn2:
+                        btn_delete = st.form_submit_button("❌ EXCLUIR USUÁRIO")
+
+                if btn_update:
+                    try:
+                        sh = conectar_google_sheets()
+                        wks_p = sh.worksheet("Config_Professores")
+                        celula = wks_p.find(str(user_selecionado))
+                        
+                        turmas_edit_str = ", ".join(edit_turmas)
+                        disciplinas_edit_str = ", ".join(edit_disciplinas)
+                        
+                        wks_p.update_cell(celula.row, 1, edit_nome)
+                        wks_p.update_cell(celula.row, 2, edit_login)
+                        wks_p.update_cell(celula.row, 4, turmas_edit_str)
+                        wks_p.update_cell(celula.row, 5, disciplinas_edit_str)
+                        
+                        st.success(f"Dados de {user_selecionado} atualizados!")
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao atualizar: {e}")
+
+                if btn_delete:
+                    try:
+                        sh = conectar_google_sheets()
+                        wks_p = sh.worksheet("Config_Professores")
+                        celula = wks_p.find(str(user_selecionado))
+                        wks_p.delete_rows(celula.row)
+                        st.warning(f"Usuário {user_selecionado} foi excluído.")
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao excluir: {e}")
+
+        with tab4:
+            st.subheader("Alterar Senha de Usuário")
+            lista_usuarios = df_profs['Usuario'].tolist()
+            user_alvo = st.selectbox("Selecione o Usuário", lista_usuarios)
+            nova_senha_input = st.text_input("Nova Senha", type="password")
+            confirmar_senha = st.text_input("Confirmar Nova Senha", type="password")
+            
+            if st.button("Atualizar Senha"):
+                if nova_senha_input != confirmar_senha:
+                    st.error("As senhas não coincidem.")
+                else:
+                    try:
+                        sh = conectar_google_sheets()
+                        wks_p = sh.worksheet("Config_Professores")
+                        celula = wks_p.find(str(user_alvo))
+                        wks_p.update_cell(celula.row, 3, str(nova_senha_input))
+                        st.success(f"Senha de {user_alvo} atualizada com sucesso!")
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao atualizar: {e}")
 
         with tab5:
             st.subheader("Configurar Período de Lançamento")
