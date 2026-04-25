@@ -94,8 +94,8 @@ else:
         if not df_periodos.empty:
             for _, row in df_periodos.iterrows():
                 try:
-                    inicio = datetime.strptime(str(row['Inicio']), "%Y-%m-%d").date()
-                    fim = datetime.strptime(str(row['Fim']), "%Y-%m-%d").date()
+                    inicio = datetime.strptime(str(row['Inicio']), "%d/%m/%Y").date()
+                    fim = datetime.strptime(str(row['Fim']), "%d/%m/%Y").date()
                     if inicio <= hoje <= fim:
                         bimestre_ativo = row['Bimestre']
                         break
@@ -433,15 +433,19 @@ else:
                         
                         data_per = wks_per.get_all_values()
                         found = False
+                        
+                        inicio_str = data_inicio.strftime("%d/%m/%Y")
+                        fim_str = data_fim.strftime("%d/%m/%Y")
+                        
                         for i, row in enumerate(data_per):
                             if row[0] == bim_sel:
-                                wks_per.update_cell(i + 1, 2, str(data_inicio))
-                                wks_per.update_cell(i + 1, 3, str(data_fim))
+                                wks_per.update_cell(i + 1, 2, inicio_str)
+                                wks_per.update_cell(i + 1, 3, fim_str)
                                 found = True
                                 break
                         
                         if not found:
-                            wks_per.append_row([bim_sel, str(data_inicio), str(data_fim)])
+                            wks_per.append_row([bim_sel, inicio_str, fim_str])
                             
                         st.success(f"Período do {bim_sel} configurado!")
                         st.cache_data.clear()
