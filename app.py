@@ -181,7 +181,8 @@ else:
         st.title("📋 Registros Realizados")
         try:
             sh = conectar_google_sheets()
-            df_reg = pd.DataFrame(sh.worksheet("Registros_Ocorrencias").get_all_records())
+            wks_reg = sh.worksheet("Registros_Ocorrencias")
+            df_reg = pd.DataFrame(wks_reg.get_all_records())
             
             if not df_reg.empty:
                 col_f1, col_f2 = st.columns(2)
@@ -209,12 +210,78 @@ else:
                 if st.session_state.user_data['Usuario'] != "admin":
                     df_filtrado = df_filtrado[df_filtrado['Professor'] == prof_nome]
                 
-                if 'Data_Hora' in df_filtrado.columns:
-                    df_filtrado = df_filtrado.drop(columns=['Data_Hora'])
-                elif len(df_filtrado.columns) > 0:
-                    df_filtrado = df_filtrado.drop(df_filtrado.columns[0], axis=1)
+                col_display = df_filtrado.copy()
+                if 'Data_Hora' in col_display.columns:
+                    col_display = col_display.drop(columns=['Data_Hora'])
+                elif len(col_display.columns) > 0:
+                    col_display = col_display.drop(col_display.columns[0], axis=1)
                 
-                st.dataframe(df_filtrado, use_container_width=True)
+                st.dataframe(col_display, use_container_width=True)
+
+                st.divider()
+                st.subheader("Gerenciar Registros")
+                
+                opcoes_gestao = ["Selecionar Ação", "Excluir um registro específico"]
+                if st.session_state.user_data['Usuario'] == "admin":
+                    opcoes_gestao.append("Excluir por Bimestre e Turma (Lote)")
+                
+                acao_reg = st.selectbox("O que deseja fazer?", opcoes_gestao)
+
+                if acao_reg == "Excluir um registro específico":
+                    if not df_filtrado.empty:
+                        # Criar uma lista de identificação para o selectbox
+                        df_filtrado['ID_TEMP'] = df_filtrado.index + 2 # +2 para alinhar com a linha da planilha (header + index 0)
+                        lista_exclusao = []
+                        for idx, row in df_filtrado.iterrows():
+                            resumo = f"Linha {idx+2}: {row['Aluno']} - {row['Disciplina']} ({row.get('Bimestre', row[5])})"
+                            lista_exclusao.append(resumo)
+                        
+                        reg_para_excluir = st.selectbox("Selecione o registro para APAGAR", [""] + lista_exclusao)
+                        
+                        if reg_para_excluir != "" and st.button("❌ CONFIRMAR EXCLUSÃO"):
+                            linha_index = int(reg_para_excluir.split(":")[0].replace("Linha ", ""))
+                            try:
+                                wks_reg.delete_rows(linha_index)
+                                st.success("Registro excluído com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao excluir: {e}")
+                    else:
+                        st.info("Não há registros filtrados para excluir.")
+
+                elif acao_reg == "Excluir por Bimestre e Turma (Lote)":
+                    st.warning("⚠️ Esta ação excluirá TODOS os registros que correspondem ao filtro atual (Bimestre e Turma).")
+                    if bim_filtro == "Todos" or turma_filtro == "Todas":
+                        st.error("Selecione um Bimestre E uma Turma específicos nos filtros acima para habilitar esta função.")
+                    else:
+                        confirmar_lote = st.checkbox(f"Confirmo a exclusão de todos os registros do {bim_filtro} da turma {turma_filtro}")
+                        if st.button("🚨 EXCLUIR LOTE DEFINITIVAMENTE"):
+                            if confirmar_lote:
+                                try:
+                                    all_data = wks_reg.get_all_values()
+                                    header = all_data[0]
+                                    
+                                    # Identificar índices das colunas
+                                    idx_turma = header.index('Turma') if 'Turma' in header else 2
+                                    idx_bim = header.index('Bimestre') if 'Bimestre' in header else 5
+                                    
+                                    indices_para_deletar = []
+                                    for i, row in enumerate(all_data[1:], start=2):
+                                        if str(row[idx_turma]) == str(turma_filtro) and str(row[idx_bim]) == str(bim_filtro):
+                                            indices_para_deletar.append(i)
+                                    
+                                    if indices_para_deletar:
+                                        for idx in reversed(indices_para_deletar):
+                                            wks_reg.delete_rows(idx)
+                                        st.success(f"✅ {len(indices_para_deletar)} registros removidos com sucesso!")
+                                        st.rerun()
+                                    else:
+                                        st.info("Nenhum registro encontrado para os critérios selecionados.")
+                                except Exception as e:
+                                    st.error(f"Erro ao processar exclusão em lote: {e}")
+                            else:
+                                st.error("Marque a caixa de confirmação.")
+
             else:
                 st.info("Nenhum registro encontrado na planilha.")
         except Exception as e:
