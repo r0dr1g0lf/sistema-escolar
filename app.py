@@ -279,7 +279,6 @@ else:
                             sh = conectar_google_sheets()
                             wks_a = sh.worksheet("Config_Alunos")
                             
-                            # Mantém apenas o cabeçalho (linha 1) e apaga do 2 em diante
                             rows = len(wks_a.get_all_values())
                             if rows > 1:
                                 wks_a.delete_rows(2, rows)
