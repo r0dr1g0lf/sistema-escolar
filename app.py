@@ -80,7 +80,7 @@ else:
     st.sidebar.markdown(f"<div style='text-align: center'>Professor: <b>{prof_nome}</b></div>", unsafe_allow_html=True)
     st.sidebar.divider()
     
-    if st.sidebar.button("Registro de Ocorrências", use_container_width=True):
+    if st.sidebar.button("Desempenho do aluno", use_container_width=True):
         st.session_state.pagina = "Registro"
         st.rerun()
 
