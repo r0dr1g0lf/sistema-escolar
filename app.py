@@ -50,6 +50,10 @@ if 'pagina' not in st.session_state:
 
 # TELA DE LOGIN
 if not st.session_state.logado:
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.image("logo.png", use_container_width=True)
+    
     st.title("🔑 Acesso ao Sistema")
     with st.form("login_form"):
         user_input = st.text_input("Usuário")
@@ -67,6 +71,7 @@ if not st.session_state.logado:
 
 # INTERFACE PRINCIPAL
 else:
+    st.sidebar.image("logo.png", use_container_width=True)
     prof_nome = st.session_state.user_data['Professor']
     st.sidebar.write(f"Professor: **{prof_nome}**")
     
