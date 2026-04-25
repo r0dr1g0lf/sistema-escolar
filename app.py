@@ -156,7 +156,7 @@ else:
         with tab1:
             st.subheader("Gerenciar Alunos e Turmas")
             
-            opcao_cadastro = st.radio("Selecione uma Ação", ["Individual", "Em Massa (Excel/Word)", "Excluir Aluno", "Limpar turma"])
+            opcao_cadastro = st.radio("Selecione uma Ação", ["Individual", "Em Massa (Excel/Word)", "Transferir Aluno", "Excluir Aluno", "Limpar turma"])
             
             if opcao_cadastro == "Individual":
                 with st.form("form_aluno"):
@@ -194,6 +194,35 @@ else:
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao cadastrar em massa: {e}")
+
+            elif opcao_cadastro == "Transferir Aluno":
+                st.subheader("Transferir Aluno de Turma")
+                todas_turmas_orig = sorted(df_alunos['Turma'].unique().astype(str))
+                turma_orig = st.selectbox("Turma de Origem", [""] + todas_turmas_orig)
+                
+                if turma_orig != "":
+                    alunos_orig = df_alunos[df_alunos['Turma'].astype(str) == turma_orig]['Nome_Aluno'].tolist()
+                    aluno_a_transf = st.selectbox("Selecione o Aluno para Transferir", [""] + sorted(alunos_orig))
+                    turma_dest = st.text_input("Turma de Destino (Ex: 301)")
+                    
+                    if aluno_a_transf != "" and turma_dest != "" and st.button("Executar Transferência"):
+                        try:
+                            sh = conectar_google_sheets()
+                            wks_a = sh.worksheet("Config_Alunos")
+                            data = wks_a.get_all_values()
+                            row_index = -1
+                            for i, row in enumerate(data):
+                                if row[0] == turma_orig and row[1] == aluno_a_transf:
+                                    row_index = i + 1
+                                    break
+                            
+                            if row_index != -1:
+                                wks_a.update_cell(row_index, 1, str(turma_dest))
+                                st.success(f"Aluno {aluno_a_transf} transferido para a turma {turma_dest}!")
+                                st.cache_data.clear()
+                                st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao transferir aluno: {e}")
 
             elif opcao_cadastro == "Excluir Aluno":
                 st.subheader("Excluir Aluno Específico")
