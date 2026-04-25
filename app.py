@@ -51,17 +51,19 @@ if 'pagina' not in st.session_state:
 # TELA DE LOGIN
 if not st.session_state.logado:
     st.title("🔑 Acesso ao Sistema")
-    user_input = st.text_input("Usuário")
-    pass_input = st.text_input("Senha", type="password")
-    
-    if st.button("Entrar"):
-        match = df_profs[(df_profs['Usuario'].astype(str) == user_input) & (df_profs['Senha'].astype(str) == pass_input)]
-        if not match.empty:
-            st.session_state.logado = True
-            st.session_state.user_data = match.iloc[0].to_dict()
-            st.rerun()
-        else:
-            st.error("Usuário ou senha incorretos.")
+    with st.form("login_form"):
+        user_input = st.text_input("Usuário")
+        pass_input = st.text_input("Senha", type="password")
+        entrar = st.form_submit_button("Entrar")
+        
+        if entrar:
+            match = df_profs[(df_profs['Usuario'].astype(str) == user_input) & (df_profs['Senha'].astype(str) == pass_input)]
+            if not match.empty:
+                st.session_state.logado = True
+                st.session_state.user_data = match.iloc[0].to_dict()
+                st.rerun()
+            else:
+                st.error("Usuário ou senha incorretos.")
 
 # INTERFACE PRINCIPAL
 else:
