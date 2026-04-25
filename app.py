@@ -182,13 +182,13 @@ else:
         try:
             sh = conectar_google_sheets()
             wks_reg = sh.worksheet("Registros_Ocorrencias")
-            df_reg = pd.DataFrame(wks_reg.get_all_records())
+            dados_brutos = wks_reg.get_all_values()
             
-            if not df_reg.empty:
-                col_f1, col_f2 = st.columns(2)
-                
+            if len(dados_brutos) > 1:
+                df_reg = pd.DataFrame(dados_brutos[1:], columns=dados_brutos[0])
                 colunas_df = df_reg.columns.tolist()
                 
+                col_f1, col_f2 = st.columns(2)
                 with col_f1:
                     col_bim = 'Bimestre' if 'Bimestre' in colunas_df else colunas_df[5]
                     lista_bimestres = ["Todos"] + sorted(df_reg[col_bim].unique().astype(str).tolist())
@@ -199,6 +199,7 @@ else:
                     lista_turmas_reg = ["Todas"] + sorted(df_reg[col_turma].unique().astype(str).tolist())
                     turma_filtro = st.selectbox("Filtrar por Turma", lista_turmas_reg)
                 
+                df_reg['ID_Original'] = range(2, len(df_reg) + 2)
                 df_filtrado = df_reg.copy()
                 
                 if bim_filtro != "Todos":
@@ -210,83 +211,44 @@ else:
                 if st.session_state.user_data['Usuario'] != "admin":
                     df_filtrado = df_filtrado[df_filtrado['Professor'] == prof_nome]
                 
-                col_display = df_filtrado.copy()
-                if 'Data_Hora' in col_display.columns:
-                    col_display = col_display.drop(columns=['Data_Hora'])
-                elif len(col_display.columns) > 0:
-                    col_display = col_display.drop(col_display.columns[0], axis=1)
-                
-                st.dataframe(col_display, use_container_width=True)
+                st.dataframe(df_filtrado.drop(columns=['ID_Original']), use_container_width=True)
 
                 st.divider()
-                st.subheader("Gerenciar Registros")
+                st.subheader("🗑️ Gerenciar Exclusões")
                 
-                opcoes_gestao = ["Selecionar Ação", "Excluir um registro específico"]
-                if st.session_state.user_data['Usuario'] == "admin":
-                    opcoes_gestao.append("Excluir por Bimestre e Turma (Lote)")
+                col_exc1, col_exc2 = st.columns(2)
                 
-                acao_reg = st.selectbox("O que deseja fazer?", opcoes_gestao)
-
-                if acao_reg == "Excluir um registro específico":
+                with col_exc1:
+                    st.markdown("**Excluir registro único**")
                     if not df_filtrado.empty:
-                        # Criar uma lista de identificação para o selectbox
-                        df_filtrado['ID_TEMP'] = df_filtrado.index + 2 # +2 para alinhar com a linha da planilha (header + index 0)
-                        lista_exclusao = []
-                        for idx, row in df_filtrado.iterrows():
-                            resumo = f"Linha {idx+2}: {row['Aluno']} - {row['Disciplina']} ({row.get('Bimestre', row[5])})"
-                            lista_exclusao.append(resumo)
+                        opcoes_excluir = {f"{row['Data_Hora']} - {row['Aluno']}": row['ID_Original'] for _, row in df_filtrado.iterrows()}
+                        selecionado_para_excluir = st.selectbox("Selecione o registro para apagar", [""] + list(opcoes_excluir.keys()))
                         
-                        reg_para_excluir = st.selectbox("Selecione o registro para APAGAR", [""] + lista_exclusao)
-                        
-                        if reg_para_excluir != "" and st.button("❌ CONFIRMAR EXCLUSÃO"):
-                            linha_index = int(reg_para_excluir.split(":")[0].replace("Linha ", ""))
-                            try:
-                                wks_reg.delete_rows(linha_index)
-                                st.success("Registro excluído com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao excluir: {e}")
+                        if selecionado_para_excluir != "" and st.button("Confirmar Exclusão Única"):
+                            linha_idx = opcoes_excluir[selecionado_para_excluir]
+                            wks_reg.delete_rows(linha_idx)
+                            st.success("Registro excluído!")
+                            st.rerun()
                     else:
-                        st.info("Não há registros filtrados para excluir.")
+                        st.info("Nenhum registro para excluir no filtro atual.")
 
-                elif acao_reg == "Excluir por Bimestre e Turma (Lote)":
-                    st.warning("⚠️ Esta ação excluirá TODOS os registros que correspondem ao filtro atual (Bimestre e Turma).")
-                    if bim_filtro == "Todos" or turma_filtro == "Todas":
-                        st.error("Selecione um Bimestre E uma Turma específicos nos filtros acima para habilitar esta função.")
+                with col_exc2:
+                    st.markdown("**Exclusão em massa**")
+                    if bim_filtro != "Todos" and turma_filtro != "Todas":
+                        st.warning(f"Apagar TODOS os registros de {turma_filtro} no {bim_filtro}?")
+                        if st.button(f"🚨 EXCLUIR TUDO: {turma_filtro} - {bim_filtro}"):
+                            indices_massa = sorted(df_filtrado['ID_Original'].tolist(), reverse=True)
+                            for idx in indices_massa:
+                                wks_reg.delete_rows(idx)
+                            st.success(f"Foram excluídos {len(indices_massa)} registros.")
+                            st.rerun()
                     else:
-                        confirmar_lote = st.checkbox(f"Confirmo a exclusão de todos os registros do {bim_filtro} da turma {turma_filtro}")
-                        if st.button("🚨 EXCLUIR LOTE DEFINITIVAMENTE"):
-                            if confirmar_lote:
-                                try:
-                                    all_data = wks_reg.get_all_values()
-                                    header = all_data[0]
-                                    
-                                    # Identificar índices das colunas
-                                    idx_turma = header.index('Turma') if 'Turma' in header else 2
-                                    idx_bim = header.index('Bimestre') if 'Bimestre' in header else 5
-                                    
-                                    indices_para_deletar = []
-                                    for i, row in enumerate(all_data[1:], start=2):
-                                        if str(row[idx_turma]) == str(turma_filtro) and str(row[idx_bim]) == str(bim_filtro):
-                                            indices_para_deletar.append(i)
-                                    
-                                    if indices_para_deletar:
-                                        for idx in reversed(indices_para_deletar):
-                                            wks_reg.delete_rows(idx)
-                                        st.success(f"✅ {len(indices_para_deletar)} registros removidos com sucesso!")
-                                        st.rerun()
-                                    else:
-                                        st.info("Nenhum registro encontrado para os critérios selecionados.")
-                                except Exception as e:
-                                    st.error(f"Erro ao processar exclusão em lote: {e}")
-                            else:
-                                st.error("Marque a caixa de confirmação.")
+                        st.info("Selecione uma Turma e um Bimestre específicos para habilitar a exclusão em massa.")
 
             else:
                 st.info("Nenhum registro encontrado na planilha.")
         except Exception as e:
             st.error(f"Erro ao carregar registros: {e}")
-            st.info("Certifique-se de que a aba 'Registros_Ocorrencias' possui um cabeçalho na primeira linha.")
 
     elif st.session_state.pagina == "Segurança":
         st.title("🔒 Segurança")
