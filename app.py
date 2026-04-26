@@ -442,13 +442,6 @@ else:
             elif opcao_cadastro == "Limpar turma":
                 st.subheader("Limpar Todos os Alunos de uma Turma")
                 
-                placeholder_limpar = st.empty()
-                if 'limpar_sucesso' in st.session_state:
-                    placeholder_limpar.success(st.session_state.limpar_sucesso)
-                    time.sleep(3)
-                    placeholder_limpar.empty()
-                    del st.session_state.limpar_sucesso
-
                 todas_turmas_limpar = sorted(df_alunos['Turma'].unique().astype(str))
                 turma_alvo_limpar = st.selectbox("Selecione a Turma para APAGAR TODOS os alunos", [""] + todas_turmas_limpar)
                 
@@ -456,7 +449,12 @@ else:
                     st.warning(f"⚠️ ATENÇÃO: Esta ação apagará TODOS os alunos da turma {turma_alvo_limpar}.")
                     confirmacao_turma = st.checkbox(f"Confirmo que desejo apagar todos os alunos da {turma_alvo_limpar}")
                     
-                    if st.button(f"🚨 APAGAR ALUNOS DA TURMA {turma_alvo_limpar}"):
+                    col_limpar_btn, col_limpar_msg = st.columns([1, 2])
+                    
+                    with col_limpar_btn:
+                        btn_limpar_exec = st.button(f"🚨 APAGAR ALUNOS DA TURMA {turma_alvo_limpar}")
+                    
+                    if btn_limpar_exec:
                         if confirmacao_turma:
                             try:
                                 sh = conectar_google_sheets()
@@ -469,8 +467,12 @@ else:
                                     for idx in reversed(indices_para_deletar):
                                         wks_a.delete_rows(idx)
                                     
-                                    st.session_state.limpar_sucesso = f"Todos os alunos da turma {turma_alvo_limpar} foram removidos com sucesso"
-                                    st.cache_data.clear()
+                                    with col_limpar_msg:
+                                        msg_limp_temp = st.empty()
+                                        msg_limp_temp.success(f"Todos os alunos da turma {turma_alvo_limpar} foram removidos com sucesso")
+                                        st.cache_data.clear()
+                                        time.sleep(3)
+                                        msg_limp_temp.empty()
                                     st.rerun()
                                 else:
                                     st.info("Nenhum aluno encontrado para esta turma.")
