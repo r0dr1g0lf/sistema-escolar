@@ -545,7 +545,7 @@ else:
             with st.form("form_prof"):
                 novo_prof = st.text_input("Nome do Professor")
                 novo_usuario = st.text_input("Nome de Usuário (Login)")
-                nova_senha = st.text_input("Senha", type="password")
+                nova_senha = st.text_input("Senha", type="password", help="Opcional")
                 
                 todas_turmas_disp = sorted(df_alunos['Turma'].unique().astype(str))
                 turmas_vinculo = st.multiselect("Vincular Turmas", todas_turmas_disp)
@@ -558,8 +558,8 @@ else:
                 disciplinas_vinculo = st.multiselect("Vincular Disciplinas", disciplina_opcoes)
                 
                 if st.form_submit_button("Salvar Professor"):
-                    if not novo_prof or not novo_usuario or not nova_senha:
-                        st.error("Por favor, preencha nome, usuário e senha.")
+                    if not novo_prof or not novo_usuario:
+                        st.error("Por favor, preencha o nome do professor e o nome de usuário.")
                     else:
                         # VERIFICAÇÃO DE DUPLICIDADE DE USUÁRIO
                         duplicado_user = df_profs[df_profs['Usuario'].astype(str).str.upper() == novo_usuario.strip().upper()]
@@ -573,7 +573,10 @@ else:
                                 turmas_str = ", ".join(turmas_vinculo)
                                 disciplinas_str = ", ".join(disciplinas_vinculo)
                                 
-                                wks_p.append_row([novo_prof, novo_usuario, str(nova_senha), turmas_str, disciplinas_str])
+                                # Se a senha estiver vazia, grava como string vazia
+                                senha_final = str(nova_senha) if nova_senha else ""
+                                
+                                wks_p.append_row([novo_prof, novo_usuario, senha_final, turmas_str, disciplinas_str])
                                 st.session_state.prof_sucesso = "Professor cadastrado com sucesso!"
                                 st.cache_data.clear()
                                 st.rerun()
