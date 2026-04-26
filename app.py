@@ -510,28 +510,34 @@ else:
             st.divider()
             st.subheader("Excluir Disciplina")
             
-            placeholder_disc_exc = st.empty()
-            if 'disc_exc_sucesso' in st.session_state:
-                placeholder_disc_exc.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.disc_exc_sucesso}</h3>", unsafe_allow_html=True)
-                time.sleep(3)
-                placeholder_disc_exc.empty()
-                del st.session_state.disc_exc_sucesso
-
             if not df_discs.empty:
                 disc_lista = sorted(df_discs['Disciplina'].unique().astype(str))
                 disc_excluir = st.selectbox("Selecione a disciplina para remover", [""] + disc_lista)
                 
-                if disc_excluir != "" and st.button("❌ REMOVER DISCIPLINA"):
-                    try:
-                        sh = conectar_google_sheets()
-                        wks_d = sh.worksheet("Config_Disciplinas")
-                        celula = wks_d.find(str(disc_excluir))
-                        wks_d.delete_rows(celula.row)
-                        st.session_state.disc_exc_sucesso = f"Disciplina '{disc_excluir}' removida com sucesso"
-                        st.cache_data.clear()
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao excluir: {e}")
+                col_exc_d1, col_exc_d2 = st.columns([1, 2])
+                
+                with col_exc_d1:
+                    btn_remover_disc = st.button("❌ REMOVER DISCIPLINA")
+                
+                if btn_remover_disc:
+                    if disc_excluir != "":
+                        try:
+                            sh = conectar_google_sheets()
+                            wks_d = sh.worksheet("Config_Disciplinas")
+                            celula = wks_d.find(str(disc_excluir))
+                            wks_d.delete_rows(celula.row)
+                            
+                            with col_exc_d2:
+                                placeholder_disc_exc = st.empty()
+                                placeholder_disc_exc.success(f"Disciplina '{disc_excluir}' removida com sucesso")
+                                st.cache_data.clear()
+                                time.sleep(3)
+                                placeholder_disc_exc.empty()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao excluir: {e}")
+                    else:
+                        st.error("Selecione uma disciplina.")
             else:
                 st.info("Nenhuma disciplina cadastrada.")
 
