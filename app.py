@@ -80,29 +80,29 @@ else:
     st.sidebar.markdown(f"<div style='text-align: center'>Professor: <b>{prof_nome}</b></div>", unsafe_allow_html=True)
     st.sidebar.divider()
     
-    if st.sidebar.button("Desempenho do aluno", use_container_width=True):
+    if st.sidebar.button("Desempenho do aluno", key="btn_desempenho", use_container_width=True):
         st.session_state.pagina = "Registro"
         st.rerun()
 
-    if st.sidebar.button("Registros", use_container_width=True):
+    if st.sidebar.button("Registros", key="btn_registros", use_container_width=True):
         st.session_state.pagina = "VisualizarRegistros"
         st.rerun()
 
     if st.session_state.user_data['Usuario'] != "admin":
-        if st.sidebar.button("Segurança", use_container_width=True):
+        if st.sidebar.button("Segurança", key="btn_seguranca", use_container_width=True):
             st.session_state.pagina = "Segurança"
             st.rerun()
 
     if st.session_state.user_data['Usuario'] == "admin":
-        if st.sidebar.button("Cadastro", use_container_width=True):
+        if st.sidebar.button("Cadastro", key="btn_cadastro", use_container_width=True):
             st.session_state.pagina = "Cadastro"
             st.rerun()
         
-        if st.sidebar.button("Atualizar Dados", use_container_width=True):
+        if st.sidebar.button("Atualizar Dados", key="btn_atualizar", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
 
-    if st.sidebar.button("Sair", use_container_width=True):
+    if st.sidebar.button("Sair", key="btn_sair", use_container_width=True):
         st.session_state.logado = False
         st.session_state.pagina = "Registro"
         st.rerun()
@@ -297,7 +297,6 @@ else:
                     nova_turma = st.text_input("Turma (Ex: 101, 202)")
                     novo_aluno = st.text_input("Nome Completo do Aluno")
                     if st.form_submit_button("Salvar Aluno"):
-                        # VERIFICAÇÃO DE DUPLICIDADE INDIVIDUAL
                         duplicado = df_alunos[(df_alunos['Turma'].astype(str) == nova_turma) & (df_alunos['Nome_Aluno'].astype(str).str.upper() == novo_aluno.strip().upper())]
                         if not duplicado.empty:
                             st.error(f"Erro: O aluno '{novo_aluno}' já está cadastrado na turma '{nova_turma}'.")
@@ -332,7 +331,6 @@ else:
                                 novas_linhas = []
                                 ja_existentes = []
 
-                                # VERIFICAÇÃO DE DUPLICIDADE EM MASSA
                                 for nome in nomes:
                                     existe = df_alunos[(df_alunos['Turma'].astype(str) == turma_massa) & (df_alunos['Nome_Aluno'].astype(str).str.upper() == nome.upper())]
                                     if existe.empty:
@@ -482,7 +480,6 @@ else:
                 nova_disc = st.text_input("Nome da Disciplina")
                 if st.form_submit_button("Cadastrar Disciplina"):
                     if nova_disc:
-                        # VERIFICAÇÃO DE DUPLICIDADE DE DISCIPLINA
                         duplicada_disc = df_discs[df_discs['Disciplina'].astype(str).str.upper() == nova_disc.strip().upper()]
                         if not duplicada_disc.empty:
                             st.error(f"Erro: A disciplina '{nova_disc}' já está cadastrada.")
@@ -535,6 +532,13 @@ else:
         with tab3:
             st.subheader("Cadastrar Novo Professor")
             
+            placeholder_prof = st.empty()
+            if 'prof_sucesso' in st.session_state:
+                placeholder_prof.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.prof_sucesso}</h3>", unsafe_allow_html=True)
+                time.sleep(3)
+                placeholder_prof.empty()
+                del st.session_state.prof_sucesso
+            
             with st.form("form_prof", clear_on_submit=True):
                 novo_prof = st.text_input("Nome do Professor")
                 novo_usuario = st.text_input("Nome de Usuário (Login)")
@@ -551,18 +555,11 @@ else:
                 disciplinas_vinculo = st.multiselect("Vincular Disciplinas", disciplina_opcoes)
                 
                 btn_salvar_prof = st.form_submit_button("Salvar Professor")
-
-                # Mensagem de confirmação logo abaixo do botão dentro do formulário
-                if 'prof_sucesso' in st.session_state:
-                    st.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.prof_sucesso}</h3>", unsafe_allow_html=True)
-                    # O time.sleep e o delete aqui podem atrapalhar o rerun, mas mantive a lógica do usuário
-                    # Para uma UX melhor em produção, o ideal é mostrar e o usuário ver ao recarregar.
                 
                 if btn_salvar_prof:
                     if not novo_prof or not novo_usuario:
                         st.error("Por favor, preencha o nome do professor e o nome de usuário.")
                     else:
-                        # VERIFICAÇÃO DE DUPLICIDADE DE USUÁRIO
                         duplicado_user = df_profs[df_profs['Usuario'].astype(str).str.upper() == novo_usuario.strip().upper()]
                         if not duplicado_user.empty:
                             st.error(f"Erro: O nome de usuário '{novo_usuario}' já está em uso.")
@@ -574,7 +571,6 @@ else:
                                 turmas_str = ", ".join(turmas_vinculo)
                                 disciplinas_str = ", ".join(disciplinas_vinculo)
                                 
-                                # Se a senha estiver vazia, grava como string vazia
                                 senha_final = str(nova_senha) if nova_senha else ""
                                 
                                 wks_p.append_row([novo_prof, novo_usuario, senha_final, turmas_str, disciplinas_str])
