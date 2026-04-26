@@ -319,20 +319,15 @@ else:
                                 st.error(f"Erro: {e}")
             
             elif opcao_cadastro == "Em Massa (Excel/Word)":
-                st.subheader("Cadastrar Alunos em Massa")
-                
-                # Placeholder para a mensagem de sucesso igual ao Transferir Aluno
-                placeholder_massa = st.empty()
-                if 'massa_sucesso' in st.session_state:
-                    placeholder_massa.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.massa_sucesso}</h3>", unsafe_allow_html=True)
-                    time.sleep(3)
-                    placeholder_massa.empty()
-                    del st.session_state.massa_sucesso
-
                 with st.form("form_aluno_massa", clear_on_submit=True):
                     turma_massa = st.text_input("Turma para todos os alunos (Ex: 101)")
                     lista_nomes = st.text_area("Cole aqui a lista de nomes (um por linha)")
-                    if st.form_submit_button("Salvar Todos os Alunos"):
+                    
+                    col_btn_massa, col_msg_massa = st.columns([1, 2])
+                    with col_btn_massa:
+                        btn_salvar_massa = st.form_submit_button("Salvar Todos os Alunos")
+                    
+                    if btn_salvar_massa:
                         if not turma_massa or not lista_nomes:
                             st.error("Preencha a turma e a lista de nomes.")
                         else:
@@ -355,9 +350,12 @@ else:
                                     wks_a = sh.worksheet("Config_Alunos")
                                     wks_a.append_rows(novas_linhas)
                                     
-                                    # Define a mensagem de sucesso no session_state para ser mostrada após o rerun
-                                    st.session_state.massa_sucesso = f"{len(nomes)} alunos cadastrados com sucesso!"
-                                    st.cache_data.clear()
+                                    with col_msg_massa:
+                                        msg_placeholder_massa = st.empty()
+                                        msg_placeholder_massa.success(f"{len(nomes)} alunos cadastrados com sucesso!")
+                                        st.cache_data.clear()
+                                        time.sleep(3)
+                                        msg_placeholder_massa.empty()
                                     st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao cadastrar em massa: {e}")
@@ -365,13 +363,6 @@ else:
             elif opcao_cadastro == "Transferir Aluno":
                 st.subheader("Transferir Aluno de Turma")
                 
-                placeholder_transf = st.empty()
-                if 'transf_sucesso' in st.session_state:
-                    placeholder_transf.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.transf_sucesso}</h3>", unsafe_allow_html=True)
-                    time.sleep(3)
-                    placeholder_transf.empty()
-                    del st.session_state.transf_sucesso
-
                 todas_turmas_cadastradas = sorted(df_alunos['Turma'].unique().astype(str))
                 turma_orig = st.selectbox("Turma de Origem", [""] + todas_turmas_cadastradas)
                 
@@ -380,7 +371,12 @@ else:
                     aluno_a_transf = st.selectbox("Selecione o Aluno para Transferir", [""] + sorted(alunos_orig))
                     turma_dest = st.selectbox("Turma de Destino", [""] + todas_turmas_cadastradas)
                     
-                    if aluno_a_transf != "" and turma_dest != "" and st.button("Executar Transferência"):
+                    col_transf_btn, col_transf_msg = st.columns([1, 2])
+                    
+                    with col_transf_btn:
+                        executar = st.button("Executar Transferência")
+                        
+                    if aluno_a_transf != "" and turma_dest != "" and executar:
                         try:
                             sh = conectar_google_sheets()
                             wks_a = sh.worksheet("Config_Alunos")
@@ -393,8 +389,12 @@ else:
                             
                             if row_index != -1:
                                 wks_a.update_cell(row_index, 1, str(turma_dest))
-                                st.session_state.transf_sucesso = "Aluno transferido com sucesso"
-                                st.cache_data.clear()
+                                with col_transf_msg:
+                                    msg_temp = st.empty()
+                                    msg_temp.markdown("<h3 style='color: #28a745; margin: 0;'>Aluno transferido com sucesso</h3>", unsafe_allow_html=True)
+                                    st.cache_data.clear()
+                                    time.sleep(3)
+                                    msg_temp.empty()
                                 st.rerun()
                             else:
                                 st.error("Aluno não encontrado na base de dados para atualização.")
