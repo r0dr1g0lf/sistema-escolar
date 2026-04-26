@@ -757,22 +757,23 @@ else:
             if not df_periodos.empty:
                 st.dataframe(df_periodos, use_container_width=True)
                 
-                placeholder_per_del = st.empty()
-                if 'per_del_sucesso' in st.session_state:
-                    placeholder_per_del.success(st.session_state.per_del_sucesso)
-                    time.sleep(3)
-                    placeholder_per_del.empty()
-                    del st.session_state.per_del_sucesso
-
-                if st.button("Limpar Todos os Períodos"):
+                col_btn_limp, col_msg_limp = st.columns([1, 2])
+                with col_btn_limp:
+                    btn_limpar_per = st.button("Limpar Todos os Períodos")
+                
+                if btn_limpar_per:
                     try:
                         sh = conectar_google_sheets()
                         wks_per = sh.worksheet("Config_Periodos")
                         rows = len(wks_per.get_all_values())
                         if rows > 1:
                             wks_per.delete_rows(2, rows)
-                            st.session_state.per_del_sucesso = "Todos os períodos foram removidos com sucesso!"
-                            st.cache_data.clear()
+                            with col_msg_limp:
+                                msg_placeholder_limp = st.empty()
+                                msg_placeholder_limp.success("Todos os períodos foram removidos com sucesso!")
+                                st.cache_data.clear()
+                                time.sleep(3)
+                                msg_placeholder_limp.empty()
                             st.rerun()
                     except Exception as e:
                         st.error(f"Erro: {e}")
