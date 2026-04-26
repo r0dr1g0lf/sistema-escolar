@@ -532,13 +532,6 @@ else:
         with tab3:
             st.subheader("Cadastrar Novo Professor")
             
-            placeholder_prof = st.empty()
-            if 'prof_sucesso' in st.session_state:
-                placeholder_prof.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.prof_sucesso}</h3>", unsafe_allow_html=True)
-                time.sleep(3)
-                placeholder_prof.empty()
-                del st.session_state.prof_sucesso
-            
             with st.form("form_prof", clear_on_submit=True):
                 novo_prof = st.text_input("Nome do Professor")
                 novo_usuario = st.text_input("Nome de Usuário (Login)")
@@ -554,7 +547,9 @@ else:
                 
                 disciplinas_vinculo = st.multiselect("Vincular Disciplinas", disciplina_opcoes)
                 
-                btn_salvar_prof = st.form_submit_button("Salvar Professor")
+                col_btn_salvar, col_msg_salvar = st.columns([1, 2])
+                with col_btn_salvar:
+                    btn_salvar_prof = st.form_submit_button("Salvar Professor")
                 
                 if btn_salvar_prof:
                     if not novo_prof or not novo_usuario:
@@ -574,8 +569,10 @@ else:
                                 senha_final = str(nova_senha) if nova_senha else ""
                                 
                                 wks_p.append_row([novo_prof, novo_usuario, senha_final, turmas_str, disciplinas_str])
-                                st.session_state.prof_sucesso = "Professor cadastrado com sucesso!"
+                                with col_msg_salvar:
+                                    st.success("Professor cadastrado com sucesso!")
                                 st.cache_data.clear()
+                                time.sleep(2)
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro: {e}")
