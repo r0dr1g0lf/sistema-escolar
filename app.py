@@ -308,6 +308,13 @@ else:
                             st.error(f"Erro: {e}")
             
             elif opcao_cadastro == "Em Massa (Excel/Word)":
+                placeholder_msg_massa = st.empty()
+                if 'massa_sucesso' in st.session_state:
+                    placeholder_msg_massa.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.massa_sucesso}</h3>", unsafe_allow_html=True)
+                    time.sleep(3)
+                    placeholder_msg_massa.empty()
+                    del st.session_state.massa_sucesso
+
                 with st.form("form_aluno_massa"):
                     turma_massa = st.text_input("Turma para todos os alunos (Ex: 101)")
                     lista_nomes = st.text_area("Cole aqui a lista de nomes (um por linha)")
@@ -323,7 +330,7 @@ else:
                                 wks_a = sh.worksheet("Config_Alunos")
                                 wks_a.append_rows(novas_linhas)
                                 
-                                st.success(f"✅ {len(nomes)} alunos cadastrados com sucesso na turma {turma_massa}!")
+                                st.session_state.massa_sucesso = f"{len(nomes)} alunos cadastrados com sucesso!"
                                 st.cache_data.clear()
                                 st.rerun()
                             except Exception as e:
