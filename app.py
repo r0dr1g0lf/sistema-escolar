@@ -236,7 +236,7 @@ else:
                 with col_exc2:
                     st.markdown("**Exclusão em massa**")
                     if bim_filtro != "Todos" and turma_filtro != "Todas":
-                        st.warning(f"Apagar TODOS os registros de {turma_filtro} no {bim_filtro}?")
+                        st.warning(f"Apagar TODOS os registros de {turma_filtro} on {bim_filtro}?")
                         if st.button(f"🚨 EXCLUIR TUDO: {turma_filtro} - {bim_filtro}"):
                             indices_massa = sorted(df_filtrado['ID_Original'].tolist(), reverse=True)
                             for idx in indices_massa:
@@ -404,13 +404,6 @@ else:
             elif opcao_cadastro == "Excluir Aluno":
                 st.subheader("Excluir Aluno Específico")
                 
-                placeholder_exc = st.empty()
-                if 'exc_sucesso' in st.session_state:
-                    placeholder_exc.success(st.session_state.exc_sucesso)
-                    time.sleep(3)
-                    placeholder_exc.empty()
-                    del st.session_state.exc_sucesso
-
                 todas_turmas_exc = sorted(df_alunos['Turma'].unique().astype(str))
                 turma_exc = st.selectbox("Selecione a Turma", [""] + todas_turmas_exc)
                 
@@ -418,7 +411,12 @@ else:
                     alunos_exc = df_alunos[df_alunos['Turma'].astype(str) == turma_exc]['Nome_Aluno'].tolist()
                     aluno_a_excluir = st.selectbox("Selecione o Aluno para Excluir", [""] + sorted(alunos_exc))
                     
-                    if aluno_a_excluir != "" and st.button("❌ EXCLUIR ALUNO DEFINITIVAMENTE"):
+                    col_exc_btn, col_exc_msg = st.columns([1, 2])
+                    
+                    with col_exc_btn:
+                        btn_excluir_def = st.button("❌ EXCLUIR ALUNO DEFINITIVAMENTE")
+                    
+                    if aluno_a_excluir != "" and btn_excluir_def:
                         try:
                             sh = conectar_google_sheets()
                             wks_a = sh.worksheet("Config_Alunos")
@@ -431,8 +429,12 @@ else:
                             
                             if row_index != -1:
                                 wks_a.delete_rows(row_index)
-                                st.session_state.exc_sucesso = f"Aluno {aluno_a_excluir} removido com sucesso"
-                                st.cache_data.clear()
+                                with col_exc_msg:
+                                    placeholder_exc_msg = st.empty()
+                                    placeholder_exc_msg.success(f"Aluno {aluno_a_excluir} removido com sucesso")
+                                    st.cache_data.clear()
+                                    time.sleep(3)
+                                    placeholder_exc_msg.empty()
                                 st.rerun()
                         except Exception as e:
                             st.error(f"Erro ao excluir aluno: {e}")
