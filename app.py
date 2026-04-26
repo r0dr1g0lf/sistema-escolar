@@ -297,15 +297,20 @@ else:
                     nova_turma = st.text_input("Turma (Ex: 101, 202)")
                     novo_aluno = st.text_input("Nome Completo do Aluno")
                     if st.form_submit_button("Salvar Aluno"):
-                        try:
-                            sh = conectar_google_sheets()
-                            wks_a = sh.worksheet("Config_Alunos")
-                            wks_a.append_row([nova_turma, novo_aluno])
-                            st.session_state.aluno_sucesso = "Aluno cadastrado com sucesso"
-                            st.cache_data.clear()
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro: {e}")
+                        # VERIFICAÇÃO DE DUPLICIDADE INDIVIDUAL
+                        duplicado = df_alunos[(df_alunos['Turma'].astype(str) == nova_turma) & (df_alunos['Nome_Aluno'].astype(str).str.upper() == novo_aluno.strip().upper())]
+                        if not duplicado.empty:
+                            st.error(f"Erro: O aluno '{novo_aluno}' já está cadastrado na turma '{nova_turma}'.")
+                        else:
+                            try:
+                                sh = conectar_google_sheets()
+                                wks_a = sh.worksheet("Config_Alunos")
+                                wks_a.append_row([nova_turma, novo_aluno])
+                                st.session_state.aluno_sucesso = "Aluno cadastrado com sucesso"
+                                st.cache_data.clear()
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro: {e}")
             
             elif opcao_cadastro == "Em Massa (Excel/Word)":
                 placeholder_msg_massa = st.empty()
@@ -324,15 +329,27 @@ else:
                         else:
                             try:
                                 nomes = [n.strip() for n in lista_nomes.split('\n') if n.strip()]
-                                novas_linhas = [[turma_massa, nome] for nome in nomes]
+                                novas_linhas = []
+                                ja_existentes = []
+
+                                # VERIFICAÇÃO DE DUPLICIDADE EM MASSA
+                                for nome in nomes:
+                                    existe = df_alunos[(df_alunos['Turma'].astype(str) == turma_massa) & (df_alunos['Nome_Aluno'].astype(str).str.upper() == nome.upper())]
+                                    if existe.empty:
+                                        novas_linhas.append([turma_massa, nome])
+                                    else:
+                                        ja_existentes.append(nome)
                                 
-                                sh = conectar_google_sheets()
-                                wks_a = sh.worksheet("Config_Alunos")
-                                wks_a.append_rows(novas_linhas)
-                                
-                                st.session_state.massa_sucesso = f"{len(nomes)} alunos cadastrados com sucesso!"
-                                st.cache_data.clear()
-                                st.rerun()
+                                if ja_existentes:
+                                    st.error(f"Não foi possível cadastrar: Os seguintes alunos já existem nesta turma: {', '.join(ja_existentes)}")
+                                elif novas_linhas:
+                                    sh = conectar_google_sheets()
+                                    wks_a = sh.worksheet("Config_Alunos")
+                                    wks_a.append_rows(novas_linhas)
+                                    
+                                    st.session_state.massa_sucesso = f"{len(nomes)} alunos cadastrados com sucesso!"
+                                    st.cache_data.clear()
+                                    st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao cadastrar em massa: {e}")
 
