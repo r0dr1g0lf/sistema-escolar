@@ -377,6 +377,14 @@ else:
 
             elif opcao_cadastro == "Excluir Aluno":
                 st.subheader("Excluir Aluno Específico")
+                
+                placeholder_exc = st.empty()
+                if 'exc_sucesso' in st.session_state:
+                    placeholder_exc.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.exc_sucesso}</h3>", unsafe_allow_html=True)
+                    time.sleep(3)
+                    placeholder_exc.empty()
+                    del st.session_state.exc_sucesso
+
                 todas_turmas_exc = sorted(df_alunos['Turma'].unique().astype(str))
                 turma_exc = st.selectbox("Selecione a Turma", [""] + todas_turmas_exc)
                 
@@ -397,7 +405,7 @@ else:
                             
                             if row_index != -1:
                                 wks_a.delete_rows(row_index)
-                                st.warning(f"Aluno {aluno_a_excluir} removido.")
+                                st.session_state.exc_sucesso = f"Aluno {aluno_a_excluir} removido com sucesso"
                                 st.cache_data.clear()
                                 st.rerun()
                         except Exception as e:
@@ -405,6 +413,14 @@ else:
 
             elif opcao_cadastro == "Limpar turma":
                 st.subheader("Limpar Todos os Alunos de uma Turma")
+                
+                placeholder_limpar = st.empty()
+                if 'limpar_sucesso' in st.session_state:
+                    placeholder_limpar.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.limpar_sucesso}</h3>", unsafe_allow_html=True)
+                    time.sleep(3)
+                    placeholder_limpar.empty()
+                    del st.session_state.limpar_sucesso
+
                 todas_turmas_limpar = sorted(df_alunos['Turma'].unique().astype(str))
                 turma_alvo_limpar = st.selectbox("Selecione a Turma para APAGAR TODOS os alunos", [""] + todas_turmas_limpar)
                 
@@ -425,7 +441,7 @@ else:
                                     for idx in reversed(indices_para_deletar):
                                         wks_a.delete_rows(idx)
                                     
-                                    st.success(f"✅ Todos os alunos da turma {turma_alvo_limpar} foram removidos!")
+                                    st.session_state.limpar_sucesso = f"Todos os alunos da turma {turma_alvo_limpar} foram removidos com sucesso"
                                     st.cache_data.clear()
                                     st.rerun()
                                 else:
