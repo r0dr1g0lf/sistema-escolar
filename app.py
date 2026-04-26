@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
+import time
 
 # --- CONFIGURAÇÕES DE CONEXÃO ---
 SHEET_ID = "153ohv6YsmfOZHjoLpb8He2VM2P-DYTVGh9zDVNRBdS0"
@@ -285,8 +286,11 @@ else:
             opcao_cadastro = st.radio("Selecione uma Ação", ["Individual", "Em Massa (Excel/Word)", "Transferir Aluno", "Excluir Aluno", "Limpar turma"])
             
             if opcao_cadastro == "Individual":
+                placeholder_msg = st.empty()
                 if 'aluno_sucesso' in st.session_state:
-                    st.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.aluno_sucesso}</h3>", unsafe_allow_html=True)
+                    placeholder_msg.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.aluno_sucesso}</h3>", unsafe_allow_html=True)
+                    time.sleep(3)
+                    placeholder_msg.empty()
                     del st.session_state.aluno_sucesso
                 
                 with st.form("form_aluno"):
