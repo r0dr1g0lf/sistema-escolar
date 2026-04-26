@@ -474,16 +474,13 @@ else:
         with tab2:
             st.subheader("Gerenciar Disciplinas")
             
-            placeholder_disc = st.empty()
-            if 'disc_sucesso' in st.session_state:
-                placeholder_disc.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.disc_sucesso}</h3>", unsafe_allow_html=True)
-                time.sleep(3)
-                placeholder_disc.empty()
-                del st.session_state.disc_sucesso
-            
             with st.form("form_disciplina", clear_on_submit=True):
                 nova_disc = st.text_input("Nome da Disciplina")
-                if st.form_submit_button("Cadastrar Disciplina"):
+                col_btn_d, col_msg_d = st.columns([1, 2])
+                with col_btn_d:
+                    btn_cadastrar_disc = st.form_submit_button("Cadastrar Disciplina")
+                
+                if btn_cadastrar_disc:
                     if nova_disc:
                         duplicada_disc = df_discs[df_discs['Disciplina'].astype(str).str.upper() == nova_disc.strip().upper()]
                         if not duplicada_disc.empty:
@@ -498,7 +495,11 @@ else:
                                     wks_d.append_row(["Disciplina"])
                                     
                                 wks_d.append_row([nova_disc])
-                                st.session_state.disc_sucesso = f"Disciplina '{nova_disc}' cadastrada com sucesso"
+                                with col_msg_d:
+                                    msg_placeholder = st.empty()
+                                    msg_placeholder.success(f"Disciplina '{nova_disc}' cadastrada!")
+                                    time.sleep(3)
+                                    msg_placeholder.empty()
                                 st.cache_data.clear()
                                 st.rerun()
                             except Exception as e:
