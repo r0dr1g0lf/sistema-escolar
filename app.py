@@ -609,7 +609,7 @@ else:
                     disciplinas_atuais = str(dados_atuais.get('Disciplinas', "")).split(", ") if dados_atuais.get('Disciplinas') else []
                     edit_disciplinas = st.multiselect("Alterar Disciplinas", disciplina_opcoes, default=[d for d in disciplinas_atuais if d in disciplina_opcoes])
                     
-                    col_btn1, col_btn2 = st.columns(2)
+                    col_btn1, col_btn_msg, col_btn2 = st.columns([1, 1, 1])
                     with col_btn1:
                         btn_update = st.form_submit_button("SALVAR ALTERAÇÕES")
                     with col_btn2:
@@ -629,8 +629,12 @@ else:
                         wks_p.update_cell(celula.row, 4, turmas_edit_str)
                         wks_p.update_cell(celula.row, 5, disciplinas_edit_str)
                         
+                        with col_btn_msg:
+                            st.success("Atualizado!")
+                        
                         st.session_state.prof_edit_sucesso = f"Dados de {user_selecionado} atualizados com sucesso!"
                         st.cache_data.clear()
+                        time.sleep(1)
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao atualizar: {e}")
