@@ -478,7 +478,7 @@ else:
                 placeholder_disc.empty()
                 del st.session_state.disc_sucesso
             
-            with st.form("form_disciplina"):
+            with st.form("form_disciplina", clear_on_submit=True):
                 nova_disc = st.text_input("Nome da Disciplina")
                 if st.form_submit_button("Cadastrar Disciplina"):
                     if nova_disc:
@@ -542,7 +542,7 @@ else:
                 placeholder_prof_cad.empty()
                 del st.session_state.prof_sucesso
                 
-            with st.form("form_prof"):
+            with st.form("form_prof", clear_on_submit=True):
                 novo_prof = st.text_input("Nome do Professor")
                 novo_usuario = st.text_input("Nome de Usuário (Login)")
                 nova_senha = st.text_input("Senha", type="password", help="Opcional")
