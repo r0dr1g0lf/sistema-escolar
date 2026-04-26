@@ -708,19 +708,16 @@ else:
         with tab5:
             st.subheader("Configurar Período de Lançamento")
             
-            placeholder_per = st.empty()
-            if 'per_sucesso' in st.session_state:
-                placeholder_per.success(st.session_state.per_sucesso)
-                time.sleep(3)
-                placeholder_per.empty()
-                del st.session_state.per_sucesso
-
             with st.form("form_periodo"):
                 bim_sel = st.selectbox("Bimestre", ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
                 data_inicio = st.date_input("Início do Lançamento", format="DD/MM/YYYY")
                 data_fim = st.date_input("Fim do Lançamento", format="DD/MM/YYYY")
                 
-                if st.form_submit_button("Salvar Período"):
+                col_btn_per, col_msg_per = st.columns([1, 2])
+                with col_btn_per:
+                    btn_salvar_per = st.form_submit_button("Salvar Período")
+                
+                if btn_salvar_per:
                     try:
                         sh = conectar_google_sheets()
                         try:
@@ -745,8 +742,12 @@ else:
                         if not found:
                             wks_per.append_row([bim_sel, inicio_str, fim_str])
                             
-                        st.session_state.per_sucesso = f"Período do {bim_sel} configurado com sucesso!"
-                        st.cache_data.clear()
+                        with col_msg_per:
+                            msg_placeholder_per = st.empty()
+                            msg_placeholder_per.success(f"Período do {bim_sel} configurado com sucesso!")
+                            st.cache_data.clear()
+                            time.sleep(3)
+                            msg_placeholder_per.empty()
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao salvar período: {e}")
