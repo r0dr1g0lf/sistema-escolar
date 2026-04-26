@@ -261,7 +261,11 @@ else:
             nova_senha_prof = st.text_input("Nova Senha", type="password")
             confirmar_senha_prof = st.text_input("Confirmar Nova Senha", type="password")
             
-            if st.form_submit_button("Atualizar Minha Senha"):
+            col_senha_p1, col_senha_p2 = st.columns([1, 2])
+            with col_senha_p1:
+                btn_p = st.form_submit_button("Atualizar Minha Senha")
+            
+            if btn_p:
                 if nova_senha_prof != confirmar_senha_prof:
                     st.error("As senhas não coincidem.")
                 else:
@@ -270,7 +274,8 @@ else:
                         wks_p = sh.worksheet("Config_Professores")
                         celula = wks_p.find(str(user_atual))
                         wks_p.update_cell(celula.row, 3, str(nova_senha_prof))
-                        st.success("Sua senha foi atualizada com sucesso!")
+                        with col_senha_p2:
+                            st.success("✅ Senha atualizada!")
                         st.cache_data.clear()
                     except Exception as e:
                         st.error(f"Erro ao atualizar: {e}")
@@ -659,13 +664,6 @@ else:
         with tab4:
             st.subheader("Alterar Senha de Usuário")
             
-            placeholder_senha = st.empty()
-            if 'senha_sucesso' in st.session_state:
-                placeholder_senha.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.senha_sucesso}</h3>", unsafe_allow_html=True)
-                time.sleep(3)
-                placeholder_senha.empty()
-                del st.session_state.senha_sucesso
-
             lista_usuarios = df_profs['Usuario'].tolist()
             user_alvo = st.selectbox("Selecione o Usuário", [""] + lista_usuarios)
             nova_senha_input = st.text_input("Nova Senha", type="password")
@@ -686,12 +684,9 @@ else:
                         wks_p = sh.worksheet("Config_Professores")
                         celula = wks_p.find(str(user_alvo))
                         wks_p.update_cell(celula.row, 3, str(nova_senha_input))
-                        st.session_state.senha_sucesso = f"Senha de {user_alvo} atualizada com sucesso!"
                         with col_senha2:
                             st.success(f"✅ Senha de {user_alvo} atualizada!")
                         st.cache_data.clear()
-                        time.sleep(2)
-                        st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao atualizar: {e}")
 
