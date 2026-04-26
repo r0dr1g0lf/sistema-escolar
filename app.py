@@ -671,7 +671,11 @@ else:
             nova_senha_input = st.text_input("Nova Senha", type="password")
             confirmar_senha = st.text_input("Confirmar Nova Senha", type="password")
             
-            if st.button("Atualizar Senha"):
+            col_senha1, col_senha2 = st.columns([1, 2])
+            with col_senha1:
+                btn_senha = st.button("Atualizar Senha")
+            
+            if btn_senha:
                 if not user_alvo:
                     st.error("Selecione um usuário.")
                 elif nova_senha_input != confirmar_senha:
@@ -683,7 +687,10 @@ else:
                         celula = wks_p.find(str(user_alvo))
                         wks_p.update_cell(celula.row, 3, str(nova_senha_input))
                         st.session_state.senha_sucesso = f"Senha de {user_alvo} atualizada com sucesso!"
+                        with col_senha2:
+                            st.success(f"✅ Senha de {user_alvo} atualizada!")
                         st.cache_data.clear()
+                        time.sleep(2)
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao atualizar: {e}")
