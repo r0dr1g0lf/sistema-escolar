@@ -482,20 +482,25 @@ else:
                 nova_disc = st.text_input("Nome da Disciplina")
                 if st.form_submit_button("Cadastrar Disciplina"):
                     if nova_disc:
-                        try:
-                            sh = conectar_google_sheets()
+                        # VERIFICAÇÃO DE DUPLICIDADE DE DISCIPLINA
+                        duplicada_disc = df_discs[df_discs['Disciplina'].astype(str).str.upper() == nova_disc.strip().upper()]
+                        if not duplicada_disc.empty:
+                            st.error(f"Erro: A disciplina '{nova_disc}' já está cadastrada.")
+                        else:
                             try:
-                                wks_d = sh.worksheet("Config_Disciplinas")
-                            except:
-                                wks_d = sh.add_worksheet(title="Config_Disciplinas", rows="100", cols="2")
-                                wks_d.append_row(["Disciplina"])
-                                
-                            wks_d.append_row([nova_disc])
-                            st.session_state.disc_sucesso = f"Disciplina '{nova_disc}' cadastrada com sucesso"
-                            st.cache_data.clear()
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro: {e}")
+                                sh = conectar_google_sheets()
+                                try:
+                                    wks_d = sh.worksheet("Config_Disciplinas")
+                                except:
+                                    wks_d = sh.add_worksheet(title="Config_Disciplinas", rows="100", cols="2")
+                                    wks_d.append_row(["Disciplina"])
+                                    
+                                wks_d.append_row([nova_disc])
+                                st.session_state.disc_sucesso = f"Disciplina '{nova_disc}' cadastrada com sucesso"
+                                st.cache_data.clear()
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro: {e}")
                     else:
                         st.error("Informe o nome da disciplina.")
 
