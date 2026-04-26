@@ -640,8 +640,6 @@ else:
                     st.error("Selecione um usuário.")
                 elif nova_senha_input != confirmar_senha:
                     st.error("As senhas não coincidem.")
-                elif not nova_senha_input:
-                    st.error("Informe a nova senha.")
                 else:
                     try:
                         sh = conectar_google_sheets()
