@@ -454,6 +454,13 @@ else:
         with tab2:
             st.subheader("Gerenciar Disciplinas")
             
+            placeholder_disc = st.empty()
+            if 'disc_sucesso' in st.session_state:
+                placeholder_disc.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.disc_sucesso}</h3>", unsafe_allow_html=True)
+                time.sleep(3)
+                placeholder_disc.empty()
+                del st.session_state.disc_sucesso
+            
             with st.form("form_disciplina"):
                 nova_disc = st.text_input("Nome da Disciplina")
                 if st.form_submit_button("Cadastrar Disciplina"):
@@ -467,7 +474,7 @@ else:
                                 wks_d.append_row(["Disciplina"])
                                 
                             wks_d.append_row([nova_disc])
-                            st.success(f"Disciplina '{nova_disc}' cadastrada!")
+                            st.session_state.disc_sucesso = f"Disciplina '{nova_disc}' cadastrada com sucesso"
                             st.cache_data.clear()
                             st.rerun()
                         except Exception as e:
@@ -477,6 +484,14 @@ else:
 
             st.divider()
             st.subheader("Excluir Disciplina")
+            
+            placeholder_disc_exc = st.empty()
+            if 'disc_exc_sucesso' in st.session_state:
+                placeholder_disc_exc.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.disc_exc_sucesso}</h3>", unsafe_allow_html=True)
+                time.sleep(3)
+                placeholder_disc_exc.empty()
+                del st.session_state.disc_exc_sucesso
+
             if not df_discs.empty:
                 disc_lista = sorted(df_discs['Disciplina'].unique().astype(str))
                 disc_excluir = st.selectbox("Selecione a disciplina para remover", [""] + disc_lista)
@@ -487,7 +502,7 @@ else:
                         wks_d = sh.worksheet("Config_Disciplinas")
                         celula = wks_d.find(str(disc_excluir))
                         wks_d.delete_rows(celula.row)
-                        st.warning(f"Disciplina '{disc_excluir}' removida.")
+                        st.session_state.disc_exc_sucesso = f"Disciplina '{disc_excluir}' removida com sucesso"
                         st.cache_data.clear()
                         st.rerun()
                     except Exception as e:
