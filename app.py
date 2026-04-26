@@ -319,15 +319,20 @@ else:
                                 st.error(f"Erro: {e}")
             
             elif opcao_cadastro == "Em Massa (Excel/Word)":
+                st.subheader("Cadastrar Alunos em Massa")
+                
+                # Placeholder para a mensagem de sucesso igual ao Transferir Aluno
+                placeholder_massa = st.empty()
+                if 'massa_sucesso' in st.session_state:
+                    placeholder_massa.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.massa_sucesso}</h3>", unsafe_allow_html=True)
+                    time.sleep(3)
+                    placeholder_massa.empty()
+                    del st.session_state.massa_sucesso
+
                 with st.form("form_aluno_massa", clear_on_submit=True):
                     turma_massa = st.text_input("Turma para todos os alunos (Ex: 101)")
                     lista_nomes = st.text_area("Cole aqui a lista de nomes (um por linha)")
-                    
-                    col_btn_massa, col_msg_massa = st.columns([1, 2])
-                    with col_btn_massa:
-                        btn_salvar_massa = st.form_submit_button("Salvar Todos os Alunos")
-                    
-                    if btn_salvar_massa:
+                    if st.form_submit_button("Salvar Todos os Alunos"):
                         if not turma_massa or not lista_nomes:
                             st.error("Preencha a turma e a lista de nomes.")
                         else:
@@ -350,12 +355,9 @@ else:
                                     wks_a = sh.worksheet("Config_Alunos")
                                     wks_a.append_rows(novas_linhas)
                                     
-                                    with col_msg_massa:
-                                        msg_placeholder_massa = st.empty()
-                                        msg_placeholder_massa.success(f"{len(nomes)} alunos cadastrados com sucesso!")
-                                        st.cache_data.clear()
-                                        time.sleep(3)
-                                        msg_placeholder_massa.empty()
+                                    # Define a mensagem de sucesso no session_state para ser mostrada após o rerun
+                                    st.session_state.massa_sucesso = f"{len(nomes)} alunos cadastrados com sucesso!"
+                                    st.cache_data.clear()
                                     st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao cadastrar em massa: {e}")
