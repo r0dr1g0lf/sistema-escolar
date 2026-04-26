@@ -609,7 +609,7 @@ else:
                     disciplinas_atuais = str(dados_atuais.get('Disciplinas', "")).split(", ") if dados_atuais.get('Disciplinas') else []
                     edit_disciplinas = st.multiselect("Alterar Disciplinas", disciplina_opcoes, default=[d for d in disciplinas_atuais if d in disciplina_opcoes])
                     
-                    col_btn1, col_btn_msg, col_btn2 = st.columns([1, 1, 1])
+                    col_btn1, col_btn_msg, col_btn2 = st.columns([1, 2, 1])
                     with col_btn1:
                         btn_update = st.form_submit_button("SALVAR ALTERAÇÕES")
                     with col_btn2:
@@ -645,8 +645,13 @@ else:
                         wks_p = sh.worksheet("Config_Professores")
                         celula = wks_p.find(str(user_selecionado))
                         wks_p.delete_rows(celula.row)
+                        
+                        with col_btn_msg:
+                            st.success(f"Usuário {user_selecionado} excluído!")
+                        
                         st.session_state.prof_edit_sucesso = f"Usuário {user_selecionado} excluído com sucesso!"
                         st.cache_data.clear()
+                        time.sleep(1)
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao excluir: {e}")
