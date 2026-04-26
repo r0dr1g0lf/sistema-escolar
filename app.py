@@ -513,13 +513,13 @@ else:
         with tab3:
             st.subheader("Cadastrar Novo Professor")
             
-            placeholder_prof = st.empty()
+            placeholder_prof_cad = st.empty()
             if 'prof_sucesso' in st.session_state:
-                placeholder_prof.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.prof_sucesso}</h3>", unsafe_allow_html=True)
+                placeholder_prof_cad.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.prof_sucesso}</h3>", unsafe_allow_html=True)
                 time.sleep(3)
-                placeholder_prof.empty()
+                placeholder_prof_cad.empty()
                 del st.session_state.prof_sucesso
-
+                
             with st.form("form_prof"):
                 novo_prof = st.text_input("Nome do Professor")
                 novo_usuario = st.text_input("Nome de Usuário (Login)")
@@ -544,7 +544,7 @@ else:
                         disciplinas_str = ", ".join(disciplinas_vinculo)
                         
                         wks_p.append_row([novo_prof, novo_usuario, str(nova_senha), turmas_str, disciplinas_str])
-                        st.session_state.prof_sucesso = "Professor cadastrado com sucesso"
+                        st.session_state.prof_sucesso = "Professor cadastrado com sucesso!"
                         st.cache_data.clear()
                         st.rerun()
                     except Exception as e:
@@ -559,7 +559,7 @@ else:
                 time.sleep(3)
                 placeholder_prof_edit.empty()
                 del st.session_state.prof_edit_sucesso
-
+            
             lista_usuarios_edit = df_profs['Usuario'].tolist()
             user_selecionado = st.selectbox("Selecione o Usuário para Modificar", [""] + lista_usuarios_edit)
             
@@ -602,7 +602,7 @@ else:
                         wks_p.update_cell(celula.row, 4, turmas_edit_str)
                         wks_p.update_cell(celula.row, 5, disciplinas_edit_str)
                         
-                        st.session_state.prof_edit_sucesso = f"Dados de {user_selecionado} atualizados com sucesso"
+                        st.session_state.prof_edit_sucesso = f"Dados de {user_selecionado} atualizados com sucesso!"
                         st.cache_data.clear()
                         st.rerun()
                     except Exception as e:
@@ -614,7 +614,7 @@ else:
                         wks_p = sh.worksheet("Config_Professores")
                         celula = wks_p.find(str(user_selecionado))
                         wks_p.delete_rows(celula.row)
-                        st.session_state.prof_edit_sucesso = f"Usuário {user_selecionado} excluído com sucesso"
+                        st.session_state.prof_edit_sucesso = f"Usuário {user_selecionado} excluído com sucesso!"
                         st.cache_data.clear()
                         st.rerun()
                     except Exception as e:
