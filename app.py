@@ -622,21 +622,33 @@ else:
 
         with tab4:
             st.subheader("Alterar Senha de Usuário")
+            
+            placeholder_senha = st.empty()
+            if 'senha_sucesso' in st.session_state:
+                placeholder_senha.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.senha_sucesso}</h3>", unsafe_allow_html=True)
+                time.sleep(3)
+                placeholder_senha.empty()
+                del st.session_state.senha_sucesso
+
             lista_usuarios = df_profs['Usuario'].tolist()
-            user_alvo = st.selectbox("Selecione o Usuário", lista_usuarios)
+            user_alvo = st.selectbox("Selecione o Usuário", [""] + lista_usuarios)
             nova_senha_input = st.text_input("Nova Senha", type="password")
             confirmar_senha = st.text_input("Confirmar Nova Senha", type="password")
             
             if st.button("Atualizar Senha"):
-                if nova_senha_input != confirmar_senha:
+                if not user_alvo:
+                    st.error("Selecione um usuário.")
+                elif nova_senha_input != confirmar_senha:
                     st.error("As senhas não coincidem.")
+                elif not nova_senha_input:
+                    st.error("Informe a nova senha.")
                 else:
                     try:
                         sh = conectar_google_sheets()
                         wks_p = sh.worksheet("Config_Professores")
                         celula = wks_p.find(str(user_alvo))
                         wks_p.update_cell(celula.row, 3, str(nova_senha_input))
-                        st.success(f"Senha de {user_alvo} atualizada com sucesso!")
+                        st.session_state.senha_sucesso = f"Senha de {user_alvo} atualizada com sucesso!"
                         st.cache_data.clear()
                         st.rerun()
                     except Exception as e:
@@ -645,6 +657,13 @@ else:
         with tab5:
             st.subheader("Configurar Período de Lançamento")
             
+            placeholder_per = st.empty()
+            if 'per_sucesso' in st.session_state:
+                placeholder_per.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.per_sucesso}</h3>", unsafe_allow_html=True)
+                time.sleep(3)
+                placeholder_per.empty()
+                del st.session_state.per_sucesso
+
             with st.form("form_periodo"):
                 bim_sel = st.selectbox("Bimestre", ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
                 data_inicio = st.date_input("Início do Lançamento", format="DD/MM/YYYY")
@@ -675,7 +694,7 @@ else:
                         if not found:
                             wks_per.append_row([bim_sel, inicio_str, fim_str])
                             
-                        st.success(f"Período do {bim_sel} configurado!")
+                        st.session_state.per_sucesso = f"Período do {bim_sel} configurado com sucesso!"
                         st.cache_data.clear()
                         st.rerun()
                     except Exception as e:
@@ -685,6 +704,14 @@ else:
             st.subheader("Períodos Configurados")
             if not df_periodos.empty:
                 st.dataframe(df_periodos, use_container_width=True)
+                
+                placeholder_per_del = st.empty()
+                if 'per_del_sucesso' in st.session_state:
+                    placeholder_per_del.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.per_del_sucesso}</h3>", unsafe_allow_html=True)
+                    time.sleep(3)
+                    placeholder_per_del.empty()
+                    del st.session_state.per_del_sucesso
+
                 if st.button("Limpar Todos os Períodos"):
                     try:
                         sh = conectar_google_sheets()
@@ -692,7 +719,7 @@ else:
                         rows = len(wks_per.get_all_values())
                         if rows > 1:
                             wks_per.delete_rows(2, rows)
-                            st.success("Períodos removidos.")
+                            st.session_state.per_del_sucesso = "Todos os períodos foram removidos com sucesso!"
                             st.cache_data.clear()
                             st.rerun()
                     except Exception as e:
