@@ -35,7 +35,7 @@ def carregar_dados():
     return df_p, df_a, df_d, df_per
 
 # --- INTERFACE ---
-st.set_page_config(page_title="Sistema Escola Diva", layout="centered")
+st.set_page_config(page_title="Sistema Escola Diva Lima", layout="centered")
 
 try:
     df_profs, df_alunos, df_discs, df_periodos = carregar_dados()
@@ -391,7 +391,7 @@ else:
                                 wks_a.update_cell(row_index, 1, str(turma_dest))
                                 with col_transf_msg:
                                     msg_temp = st.empty()
-                                    msg_temp.markdown("<h3 style='color: #28a745; margin: 0;'>Aluno transferido com sucesso</h3>", unsafe_allow_html=True)
+                                    msg_temp.success("Aluno transferido com sucesso")
                                     st.cache_data.clear()
                                     time.sleep(3)
                                     msg_temp.empty()
@@ -406,7 +406,7 @@ else:
                 
                 placeholder_exc = st.empty()
                 if 'exc_sucesso' in st.session_state:
-                    placeholder_exc.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.exc_sucesso}</h3>", unsafe_allow_html=True)
+                    placeholder_exc.success(st.session_state.exc_sucesso)
                     time.sleep(3)
                     placeholder_exc.empty()
                     del st.session_state.exc_sucesso
@@ -442,7 +442,7 @@ else:
                 
                 placeholder_limpar = st.empty()
                 if 'limpar_sucesso' in st.session_state:
-                    placeholder_limpar.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.limpar_sucesso}</h3>", unsafe_allow_html=True)
+                    placeholder_limpar.success(st.session_state.limpar_sucesso)
                     time.sleep(3)
                     placeholder_limpar.empty()
                     del st.session_state.limpar_sucesso
@@ -600,7 +600,7 @@ else:
             
             placeholder_prof_edit = st.empty()
             if 'prof_edit_sucesso' in st.session_state:
-                placeholder_prof_edit.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.prof_edit_sucesso}</h3>", unsafe_allow_html=True)
+                placeholder_prof_edit.success(st.session_state.prof_edit_sucesso)
                 time.sleep(3)
                 placeholder_prof_edit.empty()
                 del st.session_state.prof_edit_sucesso
@@ -708,7 +708,7 @@ else:
             
             placeholder_per = st.empty()
             if 'per_sucesso' in st.session_state:
-                placeholder_per.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.per_sucesso}</h3>", unsafe_allow_html=True)
+                placeholder_per.success(st.session_state.per_sucesso)
                 time.sleep(3)
                 placeholder_per.empty()
                 del st.session_state.per_sucesso
@@ -756,7 +756,7 @@ else:
                 
                 placeholder_per_del = st.empty()
                 if 'per_del_sucesso' in st.session_state:
-                    placeholder_per_del.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.per_del_sucesso}</h3>", unsafe_allow_html=True)
+                    placeholder_per_del.success(st.session_state.per_del_sucesso)
                     time.sleep(3)
                     placeholder_per_del.empty()
                     del st.session_state.per_del_sucesso
