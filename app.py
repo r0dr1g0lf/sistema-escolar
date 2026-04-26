@@ -293,7 +293,7 @@ else:
                     placeholder_msg.empty()
                     del st.session_state.aluno_sucesso
                 
-                with st.form("form_aluno"):
+                with st.form("form_aluno", clear_on_submit=True):
                     nova_turma = st.text_input("Turma (Ex: 101, 202)")
                     novo_aluno = st.text_input("Nome Completo do Aluno")
                     if st.form_submit_button("Salvar Aluno"):
@@ -320,7 +320,7 @@ else:
                     placeholder_msg_massa.empty()
                     del st.session_state.massa_sucesso
 
-                with st.form("form_aluno_massa"):
+                with st.form("form_aluno_massa", clear_on_submit=True):
                     turma_massa = st.text_input("Turma para todos os alunos (Ex: 101)")
                     lista_nomes = st.text_area("Cole aqui a lista de nomes (um por linha)")
                     if st.form_submit_button("Salvar Todos os Alunos"):
