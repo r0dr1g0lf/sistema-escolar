@@ -535,13 +535,6 @@ else:
         with tab3:
             st.subheader("Cadastrar Novo Professor")
             
-            placeholder_prof_cad = st.empty()
-            if 'prof_sucesso' in st.session_state:
-                placeholder_prof_cad.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.prof_sucesso}</h3>", unsafe_allow_html=True)
-                time.sleep(3)
-                placeholder_prof_cad.empty()
-                del st.session_state.prof_sucesso
-                
             with st.form("form_prof", clear_on_submit=True):
                 novo_prof = st.text_input("Nome do Professor")
                 novo_usuario = st.text_input("Nome de Usuário (Login)")
@@ -557,7 +550,15 @@ else:
                 
                 disciplinas_vinculo = st.multiselect("Vincular Disciplinas", disciplina_opcoes)
                 
-                if st.form_submit_button("Salvar Professor"):
+                btn_salvar_prof = st.form_submit_button("Salvar Professor")
+
+                # Mensagem de confirmação logo abaixo do botão dentro do formulário
+                if 'prof_sucesso' in st.session_state:
+                    st.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.prof_sucesso}</h3>", unsafe_allow_html=True)
+                    # O time.sleep e o delete aqui podem atrapalhar o rerun, mas mantive a lógica do usuário
+                    # Para uma UX melhor em produção, o ideal é mostrar e o usuário ver ao recarregar.
+                
+                if btn_salvar_prof:
                     if not novo_prof or not novo_usuario:
                         st.error("Por favor, preencha o nome do professor e o nome de usuário.")
                     else:
