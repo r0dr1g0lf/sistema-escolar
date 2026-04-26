@@ -289,15 +289,18 @@ else:
                     nova_turma = st.text_input("Turma (Ex: 101, 202)")
                     novo_aluno = st.text_input("Nome Completo do Aluno")
                     if st.form_submit_button("Salvar Aluno"):
-                        try:
-                            sh = conectar_google_sheets()
-                            wks_a = sh.worksheet("Config_Alunos")
-                            wks_a.append_row([nova_turma, novo_aluno])
-                            st.success("Aluno cadastrado!")
-                            st.cache_data.clear()
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro: {e}")
+                        if not nova_turma or not novo_aluno:
+                            st.error("Preencha a turma e o nome do aluno.")
+                        else:
+                            try:
+                                sh = conectar_google_sheets()
+                                wks_a = sh.worksheet("Config_Alunos")
+                                wks_a.append_row([nova_turma, novo_aluno])
+                                st.success(f"✅ Aluno {novo_aluno} cadastrado com sucesso na turma {nova_turma}!")
+                                st.cache_data.clear()
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro: {e}")
             
             elif opcao_cadastro == "Em Massa (Excel/Word)":
                 with st.form("form_aluno_massa"):
@@ -346,7 +349,7 @@ else:
                             
                             if row_index != -1:
                                 wks_a.update_cell(row_index, 1, str(turma_dest))
-                                st.success(f"Aluno {aluno_a_transf} transferido para a turma {turma_dest}!")
+                                st.success(f"✅ Aluno {aluno_a_transf} transferido para a turma {turma_dest}!")
                                 st.cache_data.clear()
                                 st.rerun()
                             else:
@@ -376,7 +379,7 @@ else:
                             
                             if row_index != -1:
                                 wks_a.delete_rows(row_index)
-                                st.warning(f"Aluno {aluno_a_excluir} removido.")
+                                st.warning(f"✅ Aluno {aluno_a_excluir} removido com sucesso!")
                                 st.cache_data.clear()
                                 st.rerun()
                         except Exception as e:
@@ -404,7 +407,7 @@ else:
                                     for idx in reversed(indices_para_deletar):
                                         wks_a.delete_rows(idx)
                                     
-                                    st.success(f"✅ Todos os alunos da turma {turma_alvo_limpar} foram removidos!")
+                                    st.success(f"✅ Todos os alunos da turma {turma_alvo_limpar} foram removidos com sucesso!")
                                     st.cache_data.clear()
                                     st.rerun()
                                 else:
@@ -430,7 +433,7 @@ else:
                                 wks_d.append_row(["Disciplina"])
                                 
                             wks_d.append_row([nova_disc])
-                            st.success(f"Disciplina '{nova_disc}' cadastrada!")
+                            st.success(f"✅ Disciplina '{nova_disc}' cadastrada com sucesso!")
                             st.cache_data.clear()
                             st.rerun()
                         except Exception as e:
@@ -450,7 +453,7 @@ else:
                         wks_d = sh.worksheet("Config_Disciplinas")
                         celula = wks_d.find(str(disc_excluir))
                         wks_d.delete_rows(celula.row)
-                        st.warning(f"Disciplina '{disc_excluir}' removida.")
+                        st.warning(f"✅ Disciplina '{disc_excluir}' removida com sucesso!")
                         st.cache_data.clear()
                         st.rerun()
                     except Exception as e:
@@ -484,7 +487,7 @@ else:
                         disciplinas_str = ", ".join(disciplinas_vinculo)
                         
                         wks_p.append_row([novo_prof, novo_usuario, str(nova_senha), turmas_str, disciplinas_str])
-                        st.success("Professor cadastrado com turmas e disciplinas vinculadas!")
+                        st.success(f"✅ Professor {novo_prof} cadastrado com sucesso!")
                         st.cache_data.clear()
                         st.rerun()
                     except Exception as e:
@@ -534,7 +537,7 @@ else:
                         wks_p.update_cell(celula.row, 4, turmas_edit_str)
                         wks_p.update_cell(celula.row, 5, disciplinas_edit_str)
                         
-                        st.success(f"Dados de {user_selecionado} atualizados!")
+                        st.success(f"✅ Dados de {user_selecionado} atualizados com sucesso!")
                         st.cache_data.clear()
                         st.rerun()
                     except Exception as e:
@@ -546,7 +549,7 @@ else:
                         wks_p = sh.worksheet("Config_Professores")
                         celula = wks_p.find(str(user_selecionado))
                         wks_p.delete_rows(celula.row)
-                        st.warning(f"Usuário {user_selecionado} foi excluído.")
+                        st.warning(f"✅ Usuário {user_selecionado} excluído com sucesso!")
                         st.cache_data.clear()
                         st.rerun()
                     except Exception as e:
@@ -568,7 +571,7 @@ else:
                         wks_p = sh.worksheet("Config_Professores")
                         celula = wks_p.find(str(user_alvo))
                         wks_p.update_cell(celula.row, 3, str(nova_senha_input))
-                        st.success(f"Senha de {user_alvo} atualizada com sucesso!")
+                        st.success(f"✅ Senha de {user_alvo} atualizada com sucesso!")
                         st.cache_data.clear()
                         st.rerun()
                     except Exception as e:
@@ -607,7 +610,7 @@ else:
                         if not found:
                             wks_per.append_row([bim_sel, inicio_str, fim_str])
                             
-                        st.success(f"Período do {bim_sel} configurado!")
+                        st.success(f"✅ Período do {bim_sel} configurado com sucesso!")
                         st.cache_data.clear()
                         st.rerun()
                     except Exception as e:
@@ -624,7 +627,7 @@ else:
                         rows = len(wks_per.get_all_values())
                         if rows > 1:
                             wks_per.delete_rows(2, rows)
-                            st.success("Períodos removidos.")
+                            st.success("✅ Todos os períodos foram removidos!")
                             st.cache_data.clear()
                             st.rerun()
                     except Exception as e:
