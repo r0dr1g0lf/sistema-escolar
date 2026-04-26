@@ -291,17 +291,15 @@ else:
             opcao_cadastro = st.radio("Selecione uma Ação", ["Individual", "Em Massa (Excel/Word)", "Transferir Aluno", "Excluir Aluno", "Limpar turma"])
             
             if opcao_cadastro == "Individual":
-                placeholder_msg = st.empty()
-                if 'aluno_sucesso' in st.session_state:
-                    placeholder_msg.markdown(f"<h3 style='color: #28a745; text-align: center;'>{st.session_state.aluno_sucesso}</h3>", unsafe_allow_html=True)
-                    time.sleep(3)
-                    placeholder_msg.empty()
-                    del st.session_state.aluno_sucesso
-                
                 with st.form("form_aluno", clear_on_submit=True):
                     nova_turma = st.text_input("Turma (Ex: 101, 202)")
                     novo_aluno = st.text_input("Nome Completo do Aluno")
-                    if st.form_submit_button("Salvar Aluno"):
+                    
+                    col_btn_ind, col_msg_ind = st.columns([1, 2])
+                    with col_btn_ind:
+                        btn_salvar_ind = st.form_submit_button("Salvar Aluno")
+                    
+                    if btn_salvar_ind:
                         duplicado = df_alunos[(df_alunos['Turma'].astype(str) == nova_turma) & (df_alunos['Nome_Aluno'].astype(str).str.upper() == novo_aluno.strip().upper())]
                         if not duplicado.empty:
                             st.error(f"Erro: O aluno '{novo_aluno}' já está cadastrado na turma '{nova_turma}'.")
@@ -310,8 +308,12 @@ else:
                                 sh = conectar_google_sheets()
                                 wks_a = sh.worksheet("Config_Alunos")
                                 wks_a.append_row([nova_turma, novo_aluno])
-                                st.session_state.aluno_sucesso = "Aluno cadastrado com sucesso"
-                                st.cache_data.clear()
+                                with col_msg_ind:
+                                    msg_placeholder_ind = st.empty()
+                                    msg_placeholder_ind.success("Aluno cadastrado com sucesso")
+                                    st.cache_data.clear()
+                                    time.sleep(3)
+                                    msg_placeholder_ind.empty()
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro: {e}")
