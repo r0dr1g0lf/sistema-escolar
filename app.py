@@ -302,7 +302,11 @@ else:
                     if btn_salvar_ind:
                         duplicado = df_alunos[(df_alunos['Turma'].astype(str) == nova_turma) & (df_alunos['Nome_Aluno'].astype(str).str.upper() == novo_aluno.strip().upper())]
                         if not duplicado.empty:
-                            st.error(f"Erro: O aluno '{novo_aluno}' já está cadastrado na turma '{nova_turma}'.")
+                            with col_msg_ind:
+                                msg_placeholder_err = st.empty()
+                                msg_placeholder_err.error(f"Erro: O aluno '{novo_aluno}' já está cadastrado na turma '{nova_turma}'.")
+                                time.sleep(3)
+                                msg_placeholder_err.empty()
                         else:
                             try:
                                 sh = conectar_google_sheets()
