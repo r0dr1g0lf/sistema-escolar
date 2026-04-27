@@ -154,8 +154,7 @@ else:
             disciplina = st.selectbox("Disciplina", disciplina_opcoes)
             periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True)
             
-            # OPÇÃO ALTERADA: Retirado "Aprovado"
-            desempenho_escolha = st.radio("Desempenho do aluno", ["Nenhum", "Reprovado", "Aprovado após recuperação"], horizontal=True)
+            desempenho_escolha = st.radio("Desempenho do aluno", ["Reprovado", "Aprovado após recuperação"], horizontal=True)
             tipo_selecao = st.multiselect("Valores e atitudes", ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas"])
             obs = st.text_area("Observações")
             
@@ -164,7 +163,7 @@ else:
                 btn_salvar = st.form_submit_button("GRAVAR NA PLANILHA", disabled=(bimestre_ativo == "Bloqueado"))
 
         if btn_salvar:
-            if not tipo_selecao and desempenho_escolha == "Nenhum":
+            if not tipo_selecao and not desempenho_escolha:
                 with col_mensagem:
                     placeholder_erro = st.empty()
                     placeholder_erro.error("Selecione pelo menos um item ou desempenho.")
@@ -176,7 +175,7 @@ else:
                     wks = sh.worksheet("Registros_Ocorrencias")
                     
                     itens_finais = []
-                    if desempenho_escolha != "Nenhum":
+                    if desempenho_escolha:
                         itens_finais.append(desempenho_escolha)
                     itens_finais.extend(tipo_selecao)
                     
