@@ -231,7 +231,9 @@ else:
                 if st.session_state.user_data['Usuario'] != "admin":
                     df_filtrado = df_filtrado[df_filtrado['Professor'] == prof_nome]
                 
-                st.dataframe(df_filtrado.drop(columns=['ID_Original']), use_container_width=True)
+                # AQUI É ONDE EXCLUÍMOS A COLUNA DE DATAS DA VISUALIZAÇÃO
+                col_data = colunas_df[0]
+                st.dataframe(df_filtrado.drop(columns=['ID_Original', col_data]), use_container_width=True)
 
                 st.divider()
                 st.subheader("🗑️ Gerenciar Exclusões")
@@ -241,7 +243,7 @@ else:
                 with col_exc1:
                     st.markdown("**Excluir registro único**")
                     if not df_filtrado.empty:
-                        opcoes_excluir = {f"{row['Data_Hora']} - {row['Aluno']}": row['ID_Original'] for _, row in df_filtrado.iterrows()}
+                        opcoes_excluir = {f"{row[col_data]} - {row['Aluno']}": row['ID_Original'] for _, row in df_filtrado.iterrows()}
                         selecionado_para_excluir = st.selectbox("Selecione o registro para apagar", [""] + list(opcoes_excluir.keys()))
                         
                         if selecionado_para_excluir != "" and st.button("Confirmar Exclusão Única"):
