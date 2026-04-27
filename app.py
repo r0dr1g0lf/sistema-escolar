@@ -348,7 +348,11 @@ else:
                                         ja_existentes.append(nome)
                                 
                                 if ja_existentes:
-                                    st.error(f"Não foi possível cadastrar: Os seguintes alunos já existem nesta turma: {', '.join(ja_existentes)}")
+                                    with col_msg_massa:
+                                        msg_placeholder_massa_err = st.empty()
+                                        msg_placeholder_massa_err.error(f"Não foi possível cadastrar: Os seguintes alunos já existem nesta turma: {', '.join(ja_existentes)}")
+                                        time.sleep(3)
+                                        msg_placeholder_massa_err.empty()
                                 elif novas_linhas:
                                     sh = conectar_google_sheets()
                                     wks_a = sh.worksheet("Config_Alunos")
