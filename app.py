@@ -159,11 +159,17 @@ else:
             tipo_selecao = st.multiselect("Valores e atitudes", ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas"])
             obs = st.text_area("Observações")
             
-            btn_salvar = st.form_submit_button("GRAVAR NA PLANILHA", disabled=(bimestre_ativo == "Bloqueado"))
+            col_salvar, col_mensagem = st.columns([1, 2])
+            with col_salvar:
+                btn_salvar = st.form_submit_button("GRAVAR NA PLANILHA", disabled=(bimestre_ativo == "Bloqueado"))
 
         if btn_salvar:
             if not tipo_selecao:
-                st.error("Selecione pelo menos um item em 'Valores e atitudes'.")
+                with col_mensagem:
+                    placeholder_erro = st.empty()
+                    placeholder_erro.error("Selecione pelo menos um item.")
+                    time.sleep(3)
+                    placeholder_erro.empty()
             else:
                 try:
                     sh = conectar_google_sheets()
@@ -183,7 +189,11 @@ else:
                     ]
                     
                     wks.append_row(nova_linha)
-                    st.success(f"✅ Sucesso! Registro de {aluno_sel} salvo na planilha.")
+                    with col_mensagem:
+                        placeholder_sucesso = st.empty()
+                        placeholder_sucesso.success(f"✅ Sucesso! Registro salvo.")
+                        time.sleep(3)
+                        placeholder_sucesso.empty()
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
 
