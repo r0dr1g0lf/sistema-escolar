@@ -502,7 +502,11 @@ else:
                     if nova_disc:
                         duplicada_disc = df_discs[df_discs['Disciplina'].astype(str).str.upper() == nova_disc.strip().upper()]
                         if not duplicada_disc.empty:
-                            st.error(f"Erro: A disciplina '{nova_disc}' já está cadastrada.")
+                            with col_msg_d:
+                                msg_placeholder_d_err = st.empty()
+                                msg_placeholder_d_err.error(f"Erro: A disciplina '{nova_disc}' já está cadastrada.")
+                                time.sleep(3)
+                                msg_placeholder_d_err.empty()
                         else:
                             try:
                                 sh = conectar_google_sheets()
@@ -515,10 +519,10 @@ else:
                                 wks_d.append_row([nova_disc])
                                 with col_msg_d:
                                     msg_placeholder = st.empty()
-                                    msg_placeholder.success(f"Disciplina '{nova_disc}' cadastrada!")
+                                    msg_placeholder.success(f"Disciplina '{nova_disc}' cadastrada com sucesso")
+                                    st.cache_data.clear()
                                     time.sleep(3)
                                     msg_placeholder.empty()
-                                st.cache_data.clear()
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro: {e}")
