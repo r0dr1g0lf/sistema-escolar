@@ -152,31 +152,36 @@ else:
                 
             disciplina = st.selectbox("Disciplina", disciplina_opcoes)
             periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True)
-            tipo = st.radio("Valores e atitudes", ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas"])
+            tipo_selecao = st.multiselect("Valores e atitudes", ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas"])
             obs = st.text_area("Observações")
             
             btn_salvar = st.form_submit_button("GRAVAR NA PLANILHA", disabled=(bimestre_ativo == "Bloqueado"))
 
         if btn_salvar:
-            try:
-                sh = conectar_google_sheets()
-                wks = sh.worksheet("Registros_Ocorrencias")
-                
-                nova_linha = [
-                    datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-                    prof_nome,
-                    turma_sel,
-                    aluno_sel,
-                    disciplina,
-                    periodo,
-                    tipo,
-                    obs
-                ]
-                
-                wks.append_row(nova_linha)
-                st.success(f"✅ Sucesso! Registro de {aluno_sel} salvo na planilha.")
-            except Exception as e:
-                st.error(f"Erro ao salvar: {e}")
+            if not tipo_selecao:
+                st.error("Selecione pelo menos um item em 'Valores e atitudes'.")
+            else:
+                try:
+                    sh = conectar_google_sheets()
+                    wks = sh.worksheet("Registros_Ocorrencias")
+                    
+                    tipo_formatado = ", ".join(tipo_selecao)
+                    
+                    nova_linha = [
+                        datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                        prof_nome,
+                        turma_sel,
+                        aluno_sel,
+                        disciplina,
+                        periodo,
+                        tipo_formatado,
+                        obs
+                    ]
+                    
+                    wks.append_row(nova_linha)
+                    st.success(f"✅ Sucesso! Registro de {aluno_sel} salvo na planilha.")
+                except Exception as e:
+                    st.error(f"Erro ao salvar: {e}")
 
     elif st.session_state.pagina == "VisualizarRegistros":
         st.title("📋 Registros Realizados")
