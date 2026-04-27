@@ -433,7 +433,7 @@ else:
                             for i, row in enumerate(data):
                                 if row[0] == turma_exc and row[1] == aluno_a_excluir:
                                     row_index = i + 1
-                                    break
+                                break
                             
                             if row_index != -1:
                                 wks_a.delete_rows(row_index)
@@ -591,7 +591,11 @@ else:
                     else:
                         duplicado_user = df_profs[df_profs['Usuario'].astype(str).str.upper() == novo_usuario.strip().upper()]
                         if not duplicado_user.empty:
-                            st.error(f"Erro: O nome de usuário '{novo_usuario}' já está em uso.")
+                            with col_msg_salvar:
+                                msg_placeholder_prof_err = st.empty()
+                                msg_placeholder_prof_err.error(f"Erro: O nome de usuário '{novo_usuario}' já está cadastrado.")
+                                time.sleep(3)
+                                msg_placeholder_prof_err.empty()
                         else:
                             try:
                                 sh = conectar_google_sheets()
@@ -604,9 +608,11 @@ else:
                                 
                                 wks_p.append_row([novo_prof, novo_usuario, senha_final, turmas_str, disciplinas_str])
                                 with col_msg_salvar:
-                                    st.success("Professor cadastrado com sucesso!")
-                                st.cache_data.clear()
-                                time.sleep(2)
+                                    msg_placeholder_prof = st.empty()
+                                    msg_placeholder_prof.success("Professor cadastrado com sucesso")
+                                    st.cache_data.clear()
+                                    time.sleep(3)
+                                    msg_placeholder_prof.empty()
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro: {e}")
