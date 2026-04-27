@@ -153,6 +153,8 @@ else:
                 
             disciplina = st.selectbox("Disciplina", disciplina_opcoes)
             periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True)
+            
+            desempenho_escolha = st.radio("Desempenho do aluno", ["Nenhum", "Reprovado", "Aprovado após recuperação"], horizontal=True)
             tipo_selecao = st.multiselect("Valores e atitudes", ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas"])
             obs = st.text_area("Observações")
             
@@ -161,10 +163,10 @@ else:
                 btn_salvar = st.form_submit_button("GRAVAR NA PLANILHA", disabled=(bimestre_ativo == "Bloqueado"))
 
         if btn_salvar:
-            if not tipo_selecao:
+            if not tipo_selecao and desempenho_escolha == "Nenhum":
                 with col_mensagem:
                     placeholder_erro = st.empty()
-                    placeholder_erro.error("Selecione pelo menos um item.")
+                    placeholder_erro.error("Selecione pelo menos um item ou desempenho.")
                     time.sleep(3)
                     placeholder_erro.empty()
             else:
@@ -172,7 +174,12 @@ else:
                     sh = conectar_google_sheets()
                     wks = sh.worksheet("Registros_Ocorrencias")
                     
-                    tipo_formatado = ", ".join(tipo_selecao)
+                    itens_finais = []
+                    if desempenho_escolha != "Nenhum":
+                        itens_finais.append(desempenho_escolha)
+                    itens_finais.extend(tipo_selecao)
+                    
+                    tipo_formatado = ", ".join(itens_finais)
                     
                     nova_linha = [
                         datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
