@@ -5,7 +5,6 @@ import gspread
 from google.oauth2.service_account import Credentials
 import time
 
-# --- CONFIGURAÇÕES DE CONEXÃO ---
 SHEET_ID = "153ohv6YsmfOZHjoLpb8He2VM2P-DYTVGh9zDVNRBdS0"
 
 def conectar_google_sheets():
@@ -15,7 +14,6 @@ def conectar_google_sheets():
     client = gspread.authorize(credentials)
     return client.open_by_key(SHEET_ID)
 
-# --- CARREGAMENTO DE DADOS ---
 @st.cache_data(ttl=60)
 def carregar_dados():
     sh = conectar_google_sheets()
@@ -34,7 +32,6 @@ def carregar_dados():
         
     return df_p, df_a, df_d, df_per
 
-# --- INTERFACE ---
 st.set_page_config(page_title="Sistema Escola Diva Lima", layout="centered")
 
 try:
@@ -49,7 +46,6 @@ if 'logado' not in st.session_state:
 if 'pagina' not in st.session_state:
     st.session_state.pagina = "Registro"
 
-# TELA DE LOGIN
 if not st.session_state.logado:
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
@@ -70,7 +66,6 @@ if not st.session_state.logado:
             else:
                 st.error("Usuário ou senha incorretos.")
 
-# INTERFACE PRINCIPAL
 else:
     col_side1, col_side2, col_side3 = st.sidebar.columns([1, 2, 1])
     with col_side2:
@@ -232,8 +227,22 @@ else:
                     df_filtrado = df_filtrado[df_filtrado['Professor'] == prof_nome]
                 
                 col_data = colunas_df[0]
-                # AQUI REMOVEMOS A NUMERAÇÃO AUTOMÁTICA (INDEX) DO DATAFRAME
-                st.dataframe(df_filtrado.drop(columns=['ID_Original', col_data]), use_container_width=True, hide_index=True)
+
+                mapeamento_colunas = {
+                    colunas_df[2]: "Turma",
+                    colunas_df[3]: "Aluno",
+                    colunas_df[5]: "Periodo",
+                    colunas_df[4]: "Disciplina",
+                    colunas_df[1]: "Professor",
+                    colunas_df[6]: "Tipo_Registro",
+                    colunas_df[7]: "Descrição_Detalhada"
+                }
+                
+                df_exibicao = df_filtrado.rename(columns=mapeamento_colunas)
+                ordem_colunas = ["Turma", "Aluno", "Periodo", "Disciplina", "Professor", "Tipo_Registro", "Descrição_Detalhada"]
+                df_exibicao = df_exibicao[ordem_colunas]
+                
+                st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
 
                 st.divider()
                 st.subheader("🗑️ Gerenciar Exclusões")
@@ -243,7 +252,7 @@ else:
                 with col_exc1:
                     st.markdown("**Excluir registro único**")
                     if not df_filtrado.empty:
-                        opcoes_excluir = {f"{row[col_data]} - {row['Aluno']}": row['ID_Original'] for _, row in df_filtrado.iterrows()}
+                        opcoes_excluir = {f"{row[col_data]} - {row[colunas_df[3]]}": row['ID_Original'] for _, row in df_filtrado.iterrows()}
                         selecionado_para_excluir = st.selectbox("Selecione o registro para apagar", [""] + list(opcoes_excluir.keys()))
                         
                         if selecionado_para_excluir != "" and st.button("Confirmar Exclusão Única"):
