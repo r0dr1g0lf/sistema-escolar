@@ -249,7 +249,8 @@ else:
                 
                 column_config = {
                     "Turma": st.column_config.TextColumn("Turma", width=50),
-                    "Periodo": st.column_config.TextColumn("Periodo", width=65)
+                    "Periodo": st.column_config.TextColumn("Periodo", width=65),
+                    "Disciplina / Prof.": st.column_config.TextColumn("Disciplina / Prof.", width=None)
                 }
                 
                 st.dataframe(df_exibicao, use_container_width=True, hide_index=True, column_config=column_config)
