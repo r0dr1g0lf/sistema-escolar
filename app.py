@@ -247,7 +247,7 @@ else:
                 df_exibicao = df_exibicao[ordem_colunas]
                 
                 column_config = {
-                    "Turma": st.column_config.TextColumn("Turma", width=50)
+                    "Turma": st.column_config.TextColumn("Turma", width=40)
                 }
                 
                 st.dataframe(df_exibicao, use_container_width=True, hide_index=True, column_config=column_config)
