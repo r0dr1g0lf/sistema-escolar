@@ -231,9 +231,9 @@ else:
                 if st.session_state.user_data['Usuario'] != "admin":
                     df_filtrado = df_filtrado[df_filtrado['Professor'] == prof_nome]
                 
-                # AQUI É ONDE EXCLUÍMOS A COLUNA DE DATAS DA VISUALIZAÇÃO
                 col_data = colunas_df[0]
-                st.dataframe(df_filtrado.drop(columns=['ID_Original', col_data]), use_container_width=True)
+                # AQUI REMOVEMOS A NUMERAÇÃO AUTOMÁTICA (INDEX) DO DATAFRAME
+                st.dataframe(df_filtrado.drop(columns=['ID_Original', col_data]), use_container_width=True, hide_index=True)
 
                 st.divider()
                 st.subheader("🗑️ Gerenciar Exclusões")
