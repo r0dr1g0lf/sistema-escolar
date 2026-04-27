@@ -260,7 +260,7 @@ else:
                 df_exibicao = df_exibicao.sort_values(by=["Periodo", "Turma", "Aluno"])
                 
                 ordem_colunas = ["Turma", "Aluno", "Periodo", "Disciplina / Prof.", "Tipo_Registro", "Descrição_Detalhada"]
-                df_exibicao = df_exibicao[ordem_colunas]
+                df_exibicao_viz = df_exibicao[ordem_colunas]
                 
                 column_config = {
                     "Turma": st.column_config.TextColumn("Turma", width=50),
@@ -268,28 +268,72 @@ else:
                     "Disciplina / Prof.": st.column_config.TextColumn("Disciplina / Prof.", width=None)
                 }
                 
-                st.dataframe(df_exibicao, use_container_width=True, hide_index=True, column_config=column_config)
+                st.dataframe(df_exibicao_viz, use_container_width=True, hide_index=True, column_config=column_config)
 
                 st.divider()
-                st.subheader("🗑️ Gerenciar Exclusões")
+                st.subheader("📝 Editar ou 🗑️ Excluir Registros")
                 
                 col_exc1, col_exc2 = st.columns(2)
                 
                 with col_exc1:
-                    st.markdown("**Excluir registro único**")
-                    df_excluir_proprio = df_filtrado[df_filtrado['Professor'] == prof_nome] if st.session_state.user_data['Usuario'] != "admin" else df_filtrado
+                    st.markdown("**Gerenciar registro individual**")
+                    df_edit_proprio = df_filtrado[df_filtrado['Professor'] == prof_nome] if st.session_state.user_data['Usuario'] != "admin" else df_filtrado
                     
-                    if not df_excluir_proprio.empty:
-                        opcoes_excluir = {f"{row[col_data]} - {row[colunas_df[3]]}": row['ID_Original'] for _, row in df_excluir_proprio.iterrows()}
-                        selecionado_para_excluir = st.selectbox("Selecione o registro para apagar", [""] + list(opcoes_excluir.keys()))
+                    if not df_edit_proprio.empty:
+                        opcoes_edit = {f"{row[col_data]} - {row[colunas_df[3]]}": row['ID_Original'] for _, row in df_edit_proprio.iterrows()}
+                        selecionado_para_edit = st.selectbox("Selecione o registro para modificar", [""] + list(opcoes_edit.keys()))
                         
-                        if selecionado_para_excluir != "" and st.button("Confirmar Exclusão Única"):
-                            linha_idx = opcoes_excluir[selecionado_para_excluir]
-                            wks_reg.delete_rows(linha_idx)
-                            st.success("Registro excluído!")
-                            st.rerun()
+                        if selecionado_para_edit != "":
+                            linha_idx = opcoes_edit[selecionado_para_edit]
+                            dados_reg_edit = df_edit_proprio[df_edit_proprio['ID_Original'] == linha_idx].iloc[0]
+                            
+                            with st.form("form_editar_registro"):
+                                st.markdown(f"Editando registro de: **{dados_reg_edit[colunas_df[3]]}**")
+                                
+                                itens_atuais = str(dados_reg_edit[colunas_df[6]]).split(", ")
+                                opcoes_radio = ["Reprovado", "Aprovado após recuperação"]
+                                desemp_atual = next((i for i in itens_atuais if i in opcoes_radio), None)
+                                
+                                edit_desempenho = st.radio("Desempenho", opcoes_radio, index=opcoes_radio.index(desemp_atual) if desemp_atual else 0, horizontal=True)
+                                
+                                opcoes_multi = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas"]
+                                itens_multi_atuais = [i for i in itens_atuais if i in opcoes_multi]
+                                edit_tipo_selecao = st.multiselect("Valores e atitudes", opcoes_multi, default=itens_multi_atuais)
+                                
+                                edit_obs = st.text_area("Observações", value=dados_reg_edit[colunas_df[7]])
+                                
+                                col_at1, col_at2 = st.columns(2)
+                                with col_at1:
+                                    btn_confirmar_edit = st.form_submit_button("SALVAR ALTERAÇÕES")
+                                with col_at2:
+                                    btn_confirmar_exc = st.form_submit_button("❌ EXCLUIR REGISTRO")
+                                    
+                                if btn_confirmar_edit:
+                                    try:
+                                        itens_finais_edit = []
+                                        if edit_desempenho:
+                                            itens_finais_edit.append(edit_desempenho)
+                                        itens_finais_edit.extend(edit_tipo_selecao)
+                                        tipo_formatado_edit = ", ".join(itens_finais_edit)
+                                        
+                                        wks_reg.update_cell(linha_idx, 7, tipo_formatado_edit)
+                                        wks_reg.update_cell(linha_idx, 8, edit_obs)
+                                        st.success("Registro atualizado!")
+                                        time.sleep(2)
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Erro ao editar: {e}")
+                                        
+                                if btn_confirmar_exc:
+                                    try:
+                                        wks_reg.delete_rows(linha_idx)
+                                        st.success("Registro excluído!")
+                                        time.sleep(2)
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Erro ao excluir: {e}")
                     else:
-                        st.info("Nenhum registro seu disponível para excluir no filtro atual.")
+                        st.info("Nenhum registro disponível para gerenciar no filtro atual.")
 
                 with col_exc2:
                     st.markdown("**Exclusão em massa**")
@@ -804,7 +848,7 @@ else:
                         try:
                             wks_per = sh.worksheet("Config_Periodos")
                         except:
-                            wks_per = sh.add_worksheet(title="Config_Periodos", rows="10", cols="3")
+                            wks_per = st.add_worksheet(title="Config_Periodos", rows="10", cols="3")
                             wks_per.append_row(["Bimestre", "Inicio", "Fim"])
                         
                         data_per = wks_per.get_all_values()
