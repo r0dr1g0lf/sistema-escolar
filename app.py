@@ -241,9 +241,10 @@ else:
                 }
                 
                 df_exibicao = df_filtrado.rename(columns=mapeamento_colunas)
+                df_exibicao["Disciplina / Prof."] = df_exibicao["Disciplina"].astype(str) + " (" + df_exibicao["Professor"].astype(str) + ")"
                 df_exibicao = df_exibicao.sort_values(by=["Periodo", "Turma", "Aluno"])
                 
-                ordem_colunas = ["Turma", "Aluno", "Periodo", "Disciplina", "Professor", "Tipo_Registro", "Descrição_Detalhada"]
+                ordem_colunas = ["Turma", "Aluno", "Periodo", "Disciplina / Prof.", "Tipo_Registro", "Descrição_Detalhada"]
                 df_exibicao = df_exibicao[ordem_colunas]
                 
                 column_config = {
