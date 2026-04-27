@@ -246,9 +246,8 @@ else:
                 ordem_colunas = ["Turma", "Aluno", "Periodo", "Disciplina", "Professor", "Tipo_Registro", "Descrição_Detalhada"]
                 df_exibicao = df_exibicao[ordem_colunas]
                 
-                # Configuração da largura da coluna Turma
                 column_config = {
-                    "Turma": st.column_config.TextColumn("Turma", width="small")
+                    "Turma": st.column_config.TextColumn("Turma", width=50)
                 }
                 
                 st.dataframe(df_exibicao, use_container_width=True, hide_index=True, column_config=column_config)
