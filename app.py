@@ -4,7 +4,6 @@ from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
 import time
-import io
 
 SHEET_ID = "153ohv6YsmfOZHjoLpb8He2VM2P-DYTVGh9zDVNRBdS0"
 
@@ -270,44 +269,6 @@ else:
                 }
                 
                 st.dataframe(df_exibicao, use_container_width=True, hide_index=True, column_config=column_config)
-
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    df_exibicao.to_excel(writer, index=False, sheet_name='Registros')
-                    workbook = writer.book
-                    worksheet = writer.sheets['Registros']
-                    
-                    header_format = workbook.add_format({
-                        'bold': True,
-                        'text_wrap': True,
-                        'valign': 'top',
-                        'fg_color': '#D7E4BC',
-                        'border': 1
-                    })
-                    
-                    cell_format = workbook.add_format({
-                        'text_wrap': True,
-                        'valign': 'top',
-                        'border': 1
-                    })
-
-                    for col_num, value in enumerate(df_exibicao.columns.values):
-                        worksheet.write(0, col_num, value, header_format)
-
-                    worksheet.set_column('A:A', 10, cell_format)
-                    worksheet.set_column('B:B', 35, cell_format)
-                    worksheet.set_column('C:C', 12, cell_format)
-                    worksheet.set_column('D:D', 40, cell_format)
-                    worksheet.set_column('E:E', 45, cell_format)
-                    worksheet.set_column('F:F', 60, cell_format)
-
-                st.download_button(
-                    label="📥 Baixar Relatório (Excel)",
-                    data=output.getvalue(),
-                    file_name=f"Relatorio_Registros_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
 
                 st.divider()
                 st.subheader("🗑️ Gerenciar Exclusões")
