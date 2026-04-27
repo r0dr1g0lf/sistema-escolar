@@ -247,7 +247,8 @@ else:
                 df_exibicao = df_exibicao[ordem_colunas]
                 
                 column_config = {
-                    "Turma": st.column_config.TextColumn("Turma", width=50)
+                    "Turma": st.column_config.TextColumn("Turma", width=50),
+                    "Periodo": st.column_config.TextColumn("Periodo", width=65)
                 }
                 
                 st.dataframe(df_exibicao, use_container_width=True, hide_index=True, column_config=column_config)
@@ -274,7 +275,7 @@ else:
                 with col_exc2:
                     st.markdown("**Exclusão em massa**")
                     if bim_filtro != "Todos" and turma_filtro != "Todas":
-                        st.warning(f"Apagar TODOS os registros de {turma_filtro} on {bim_filtro}?")
+                        st.warning(f"Apagar TODOS os registros de {turma_filtro} no {bim_filtro}?")
                         if st.button(f"🚨 EXCLUIR TUDO: {turma_filtro} - {bim_filtro}"):
                             indices_massa = sorted(df_filtrado['ID_Original'].tolist(), reverse=True)
                             for idx in indices_massa:
