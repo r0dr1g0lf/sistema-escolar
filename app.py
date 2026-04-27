@@ -267,7 +267,11 @@ else:
             
             if btn_p:
                 if nova_senha_prof != confirmar_senha_prof:
-                    st.error("As senhas não coincidem.")
+                    with col_senha_p2:
+                        msg_placeholder_err_p = st.empty()
+                        msg_placeholder_err_p.error("As senhas não coincidem.")
+                        time.sleep(3)
+                        msg_placeholder_err_p.empty()
                 else:
                     try:
                         sh = conectar_google_sheets()
@@ -275,7 +279,10 @@ else:
                         celula = wks_p.find(str(user_atual))
                         wks_p.update_cell(celula.row, 3, str(nova_senha_prof))
                         with col_senha_p2:
-                            st.success("✅ Senha atualizada!")
+                            msg_placeholder_ok_p = st.empty()
+                            msg_placeholder_ok_p.success("✅ Senha atualizada!")
+                            time.sleep(3)
+                            msg_placeholder_ok_p.empty()
                         st.cache_data.clear()
                     except Exception as e:
                         st.error(f"Erro ao atualizar: {e}")
