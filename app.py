@@ -620,13 +620,6 @@ else:
             st.divider()
             st.subheader("Editar ou Excluir Usuário Existente")
             
-            placeholder_prof_edit = st.empty()
-            if 'prof_edit_sucesso' in st.session_state:
-                placeholder_prof_edit.success(st.session_state.prof_edit_sucesso)
-                time.sleep(3)
-                placeholder_prof_edit.empty()
-                del st.session_state.prof_edit_sucesso
-            
             lista_usuarios_edit = df_profs['Usuario'].tolist()
             user_selecionado = st.selectbox("Selecione o Usuário para Modificar", [""] + lista_usuarios_edit)
             
@@ -670,11 +663,11 @@ else:
                         wks_p.update_cell(celula.row, 5, disciplinas_edit_str)
                         
                         with col_btn_msg:
-                            st.success("Atualizado!")
-                        
-                        st.session_state.prof_edit_sucesso = f"Dados de {user_selecionado} atualizados com sucesso!"
-                        st.cache_data.clear()
-                        time.sleep(1)
+                            msg_placeholder_edit = st.empty()
+                            msg_placeholder_edit.success(f"Dados de {user_selecionado} atualizados com sucesso!")
+                            st.cache_data.clear()
+                            time.sleep(3)
+                            msg_placeholder_edit.empty()
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao atualizar: {e}")
@@ -687,11 +680,11 @@ else:
                         wks_p.delete_rows(celula.row)
                         
                         with col_btn_msg:
-                            st.success(f"Usuário {user_selecionado} excluído!")
-                        
-                        st.session_state.prof_edit_sucesso = f"Usuário {user_selecionado} excluído com sucesso!"
-                        st.cache_data.clear()
-                        time.sleep(1)
+                            msg_placeholder_del = st.empty()
+                            msg_placeholder_del.success(f"Usuário {user_selecionado} excluído com sucesso!")
+                            st.cache_data.clear()
+                            time.sleep(3)
+                            msg_placeholder_del.empty()
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao excluir: {e}")
