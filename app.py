@@ -111,7 +111,7 @@ else:
         st.title("📝 Novo Registro")
         
         hoje = datetime.now().date()
-        bimestre_ativo = "Bloqueado"
+        bimestres_disponiveis = []
         
         if not df_periodos.empty:
             for _, row in df_periodos.iterrows():
@@ -119,15 +119,19 @@ else:
                     inicio = datetime.strptime(str(row['Inicio']), "%d/%m/%Y").date()
                     fim = datetime.strptime(str(row['Fim']), "%d/%m/%Y").date()
                     if inicio <= hoje <= fim:
-                        bimestre_ativo = row['Bimestre']
-                        break
+                        bimestres_disponiveis.append(row['Bimestre'])
                 except:
                     continue
 
-        if bimestre_ativo == "Bloqueado":
+        if not bimestres_disponiveis:
             st.warning("🏮 O período de lançamentos está fechado ou não configurado.")
+            bimestre_ativo = "Bloqueado"
         else:
-            st.info(f"📅 Período de lançamento aberto: **{bimestre_ativo}**")
+            if len(bimestres_disponiveis) > 1:
+                bimestre_ativo = st.selectbox("📅 Mais de um período aberto. Selecione o Bimestre:", bimestres_disponiveis)
+            else:
+                bimestre_ativo = bimestres_disponiveis[0]
+                st.info(f"📅 Período de lançamento aberto: **{bimestre_ativo}**")
 
         if st.session_state.user_data['Usuario'] == "admin":
             todas_turmas = sorted(df_alunos['Turma'].unique().astype(str))
