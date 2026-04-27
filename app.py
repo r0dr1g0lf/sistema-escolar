@@ -239,6 +239,10 @@ else:
                 }
                 
                 df_exibicao = df_filtrado.rename(columns=mapeamento_colunas)
+                
+                # Ordenação solicitada: Bimestre (Periodo), Turma e depois Aluno (ordem alfabética)
+                df_exibicao = df_exibicao.sort_values(by=["Periodo", "Turma", "Aluno"])
+                
                 ordem_colunas = ["Turma", "Aluno", "Periodo", "Disciplina", "Professor", "Tipo_Registro", "Descrição_Detalhada"]
                 df_exibicao = df_exibicao[ordem_colunas]
                 
