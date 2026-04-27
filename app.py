@@ -220,7 +220,13 @@ else:
                 
                 with col_f2:
                     col_turma = 'Turma' if 'Turma' in colunas_df else colunas_df[2]
-                    lista_turmas_reg = ["Todas"] + sorted(df_reg[col_turma].unique().astype(str).tolist())
+                    if st.session_state.user_data['Usuario'] == "admin":
+                        lista_turmas_reg = ["Todas"] + sorted(df_reg[col_turma].unique().astype(str).tolist())
+                    else:
+                        turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
+                        turmas_vinc = [t.strip() for t in turmas_vinc if t.strip()]
+                        lista_turmas_reg = ["Todas"] + sorted(turmas_vinc)
+                        
                     turma_filtro = st.selectbox("Filtrar por Turma", lista_turmas_reg)
                 
                 df_reg['ID_Original'] = range(2, len(df_reg) + 2)
@@ -231,9 +237,11 @@ else:
                 
                 if turma_filtro != "Todas":
                     df_filtrado = df_filtrado[df_filtrado[col_turma].astype(str) == turma_filtro]
-                
-                if st.session_state.user_data['Usuario'] != "admin":
-                    df_filtrado = df_filtrado[df_filtrado['Professor'] == prof_nome]
+                else:
+                    if st.session_state.user_data['Usuario'] != "admin":
+                        turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
+                        turmas_vinc = [t.strip() for t in turmas_vinc if t.strip()]
+                        df_filtrado = df_filtrado[df_filtrado[col_turma].astype(str).isin(turmas_vinc)]
                 
                 col_data = colunas_df[0]
 
@@ -269,8 +277,10 @@ else:
                 
                 with col_exc1:
                     st.markdown("**Excluir registro único**")
-                    if not df_filtrado.empty:
-                        opcoes_excluir = {f"{row[col_data]} - {row[colunas_df[3]]}": row['ID_Original'] for _, row in df_filtrado.iterrows()}
+                    df_excluir_proprio = df_filtrado[df_filtrado['Professor'] == prof_nome] if st.session_state.user_data['Usuario'] != "admin" else df_filtrado
+                    
+                    if not df_excluir_proprio.empty:
+                        opcoes_excluir = {f"{row[col_data]} - {row[colunas_df[3]]}": row['ID_Original'] for _, row in df_excluir_proprio.iterrows()}
                         selecionado_para_excluir = st.selectbox("Selecione o registro para apagar", [""] + list(opcoes_excluir.keys()))
                         
                         if selecionado_para_excluir != "" and st.button("Confirmar Exclusão Única"):
@@ -279,20 +289,23 @@ else:
                             st.success("Registro excluído!")
                             st.rerun()
                     else:
-                        st.info("Nenhum registro para excluir no filtro atual.")
+                        st.info("Nenhum registro seu disponível para excluir no filtro atual.")
 
                 with col_exc2:
                     st.markdown("**Exclusão em massa**")
-                    if bim_filtro != "Todos" and turma_filtro != "Todas":
-                        st.warning(f"Apagar TODOS os registros de {turma_filtro} no {bim_filtro}?")
-                        if st.button(f"🚨 EXCLUIR TUDO: {turma_filtro} - {bim_filtro}"):
-                            indices_massa = sorted(df_filtrado['ID_Original'].tolist(), reverse=True)
-                            for idx in indices_massa:
-                                wks_reg.delete_rows(idx)
-                            st.success(f"Foram excluídos {len(indices_massa)} registros.")
-                            st.rerun()
+                    if st.session_state.user_data['Usuario'] == "admin":
+                        if bim_filtro != "Todos" and turma_filtro != "Todas":
+                            st.warning(f"Apagar TODOS os registros de {turma_filtro} no {bim_filtro}?")
+                            if st.button(f"🚨 EXCLUIR TUDO: {turma_filtro} - {bim_filtro}"):
+                                indices_massa = sorted(df_filtrado['ID_Original'].tolist(), reverse=True)
+                                for idx in indices_massa:
+                                    wks_reg.delete_rows(idx)
+                                st.success(f"Foram excluídos {len(indices_massa)} registros.")
+                                st.rerun()
+                        else:
+                            st.info("Selecione uma Turma e um Bimestre específicos para habilitar a exclusão em massa.")
                     else:
-                        st.info("Selecione uma Turma e um Bimestre específicos para habilitar a exclusão em massa.")
+                        st.info("Exclusão em massa permitida apenas para administradores.")
 
             else:
                 st.info("Nenhum registro encontrado na planilha.")
