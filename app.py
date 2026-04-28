@@ -43,12 +43,12 @@ st.markdown("""
         padding-right: 1rem;
         max-width: 100% !important;
     }
-    .login-container {
+    .login-header {
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
-        text-align: center;
+        gap: 10px;
+        margin-bottom: 10px;
     }
     .stForm {
         margin: 0 auto;
@@ -71,9 +71,14 @@ if 'pagina' not in st.session_state:
 if not st.session_state.logado:
     col_l1, col_l2, col_l3 = st.columns([1.5, 1, 1.5])
     with col_l2:
-        st.markdown('<div class="login-container">', unsafe_allow_html=True)
-        st.image("logo.png", width=80)
-        st.markdown("<h2 style='text-align: center; margin-top: -10px;'>🔑 Acesso</h2>", unsafe_allow_html=True)
+        # Layout centralizado com logo ao lado da chave e palavra Acesso
+        st.markdown('<div class="login-header">', unsafe_allow_html=True)
+        col_img, col_txt = st.columns([1, 3])
+        with col_img:
+            st.image("logo.png", width=50)
+        with col_txt:
+            st.markdown("<h2 style='margin: 0; padding-top: 5px;'>🔑 Acesso</h2>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         
         with st.form("login_form"):
             user_input = st.text_input("Usuário")
@@ -103,7 +108,6 @@ if not st.session_state.logado:
                             st.rerun()
                     else:
                         st.error("Usuário ou senha incorretos.")
-        st.markdown('</div>', unsafe_allow_html=True)
 
 else:
     col_side1, col_side2, col_side3 = st.sidebar.columns([1, 2, 1])
