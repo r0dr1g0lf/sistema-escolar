@@ -43,6 +43,11 @@ st.markdown("""
         padding-right: 1rem;
         max-width: 100% !important;
     }
+    .stImage > img {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -61,7 +66,7 @@ if 'pagina' not in st.session_state:
 if not st.session_state.logado:
     col_l1, col_l2, col_l3 = st.columns([1.5, 1, 1.5])
     with col_l2:
-        st.image("logo.png", width=200)
+        st.image("logo.png", width=120)
         st.markdown("<h2 style='text-align: center;'>🔑 Acesso</h2>", unsafe_allow_html=True)
         with st.form("login_form"):
             user_input = st.text_input("Usuário")
