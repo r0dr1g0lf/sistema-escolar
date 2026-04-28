@@ -53,6 +53,13 @@ st.markdown("""
     .stForm {
         margin: 0 auto;
     }
+    /* Estilo para centralizar verticalmente na tela */
+    [data-testid="stVerticalBlock"] > div:has(div.login-header) {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 80vh;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -71,7 +78,6 @@ if 'pagina' not in st.session_state:
 if not st.session_state.logado:
     col_l1, col_l2, col_l3 = st.columns([1.5, 1, 1.5])
     with col_l2:
-        # Layout centralizado com logo ao lado da chave e palavra Acesso
         st.markdown('<div class="login-header">', unsafe_allow_html=True)
         col_img, col_txt = st.columns([1, 3])
         with col_img:
