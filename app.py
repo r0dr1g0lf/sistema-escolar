@@ -37,29 +37,37 @@ st.set_page_config(page_title="Sistema Escola Diva Lima", layout="wide")
 st.markdown("""
     <style>
     .block-container {
-        padding-top: 1rem;
+        padding-top: 0rem;
         padding-bottom: 0rem;
         padding-left: 1rem;
         padding-right: 1rem;
         max-width: 100% !important;
     }
+    .login-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 90vh;
+        overflow: hidden;
+    }
     .login-header {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 10px;
-        margin-bottom: 10px;
+        gap: 15px;
+        margin-bottom: 20px;
+        width: 100%;
     }
-    .stForm {
-        margin: 0 auto;
+    .login-box {
+        width: 100%;
+        max-width: 400px;
+        padding: 20px;
     }
-    /* Estilo para centralizar verticalmente na tela */
-    [data-testid="stVerticalBlock"] > div:has(div.login-header) {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        min-height: 80vh;
-    }
+    /* Esconde elementos nativos que criam espaço extra */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -76,44 +84,47 @@ if 'pagina' not in st.session_state:
     st.session_state.pagina = "Registro"
 
 if not st.session_state.logado:
-    col_l1, col_l2, col_l3 = st.columns([1.5, 1, 1.5])
-    with col_l2:
-        st.markdown('<div class="login-header">', unsafe_allow_html=True)
-        col_img, col_txt = st.columns([1, 3])
-        with col_img:
-            st.image("logo.png", width=50)
-        with col_txt:
-            st.markdown("<h2 style='margin: 0; padding-top: 5px;'>🔑 Acesso</h2>", unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div class="login-container">', unsafe_allow_html=True)
+    st.markdown('<div class="login-box">', unsafe_allow_html=True)
+    
+    # Header Centralizado (Logo + Acesso)
+    st.markdown("""
+        <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 20px;">
+            <img src="https://raw.githubusercontent.com/seu-usuario/seu-repo/main/logo.png" width="50" style="vertical-align: middle;">
+            <h2 style="margin: 0; padding: 0; display: inline-block; vertical-align: middle;">🔑 Acesso</h2>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    with st.form("login_form"):
+        user_input = st.text_input("Usuário")
+        pass_input = st.text_input("Senha", type="password")
+        entrar = st.form_submit_button("Entrar", use_container_width=True)
         
-        with st.form("login_form"):
-            user_input = st.text_input("Usuário")
-            pass_input = st.text_input("Senha", type="password")
-            entrar = st.form_submit_button("Entrar", use_container_width=True)
-            
-            if entrar:
-                if user_input == "master" and pass_input == "master123":
-                    st.session_state.logado = True
-                    st.session_state.user_data = {
-                        'Professor': 'Administrador Master',
-                        'Usuario': 'master',
-                        'Senha': 'master123',
-                        'Turmas': 'Todas',
-                        'Disciplinas': 'Todas'
-                    }
-                    st.rerun()
-                else:
-                    match = df_profs[(df_profs['Usuario'].astype(str) == user_input) & (df_profs['Senha'].astype(str) == pass_input)]
-                    if not match.empty:
-                        status_bloqueio = str(match.iloc[0].get('Status', 'Ativo'))
-                        if status_bloqueio == 'Bloqueado':
-                            st.error("Este usuário está bloqueado. Contate o Administrador Master.")
-                        else:
-                            st.session_state.logado = True
-                            st.session_state.user_data = match.iloc[0].to_dict()
-                            st.rerun()
+        if entrar:
+            if user_input == "master" and pass_input == "master123":
+                st.session_state.logado = True
+                st.session_state.user_data = {
+                    'Professor': 'Administrador Master',
+                    'Usuario': 'master',
+                    'Senha': 'master123',
+                    'Turmas': 'Todas',
+                    'Disciplinas': 'Todas'
+                }
+                st.rerun()
+            else:
+                match = df_profs[(df_profs['Usuario'].astype(str) == user_input) & (df_profs['Senha'].astype(str) == pass_input)]
+                if not match.empty:
+                    status_bloqueio = str(match.iloc[0].get('Status', 'Ativo'))
+                    if status_bloqueio == 'Bloqueado':
+                        st.error("Este usuário está bloqueado. Contate o Administrador Master.")
                     else:
-                        st.error("Usuário ou senha incorretos.")
+                        st.session_state.logado = True
+                        st.session_state.user_data = match.iloc[0].to_dict()
+                        st.rerun()
+                else:
+                    st.error("Usuário ou senha incorretos.")
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 else:
     col_side1, col_side2, col_side3 = st.sidebar.columns([1, 2, 1])
