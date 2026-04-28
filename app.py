@@ -32,7 +32,20 @@ def carregar_dados():
         
     return df_p, df_a, df_d, df_per
 
-st.set_page_config(page_title="Sistema Escola Diva Lima", layout="centered")
+# Otimização de espaço: Layout Wide e Injeção de CSS para remover margens máximas
+st.set_page_config(page_title="Sistema Escola Diva Lima", layout="wide")
+
+st.markdown("""
+    <style>
+    .block-container {
+        padding-top: 1rem;
+        padding-bottom: 0rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+        max-width: 100% !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 try:
     df_profs, df_alunos, df_discs, df_periodos = carregar_dados()
