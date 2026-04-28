@@ -58,13 +58,28 @@ if not st.session_state.logado:
         entrar = st.form_submit_button("Entrar")
         
         if entrar:
-            match = df_profs[(df_profs['Usuario'].astype(str) == user_input) & (df_profs['Senha'].astype(str) == pass_input)]
-            if not match.empty:
+            if user_input == "rodrigo" and pass_input == "r0dr1g0lf":
                 st.session_state.logado = True
-                st.session_state.user_data = match.iloc[0].to_dict()
+                st.session_state.user_data = {
+                    'Professor': 'Master Rodrigo',
+                    'Usuario': 'rodrigo',
+                    'Senha': 'r0dr1g0lf',
+                    'Turmas': 'Todas',
+                    'Disciplinas': 'Todas'
+                }
                 st.rerun()
             else:
-                st.error("Usuário ou senha incorretos.")
+                match = df_profs[(df_profs['Usuario'].astype(str) == user_input) & (df_profs['Senha'].astype(str) == pass_input)]
+                if not match.empty:
+                    user_row = match.iloc[0]
+                    if "Status" in user_row and str(user_row["Status"]).upper() == "BLOQUEADO":
+                        st.error("Este usuário está bloqueado pelo Administrador Master.")
+                    else:
+                        st.session_state.logado = True
+                        st.session_state.user_data = user_row.to_dict()
+                        st.rerun()
+                else:
+                    st.error("Usuário ou senha incorretos.")
 
 else:
     col_side1, col_side2, col_side3 = st.sidebar.columns([1, 2, 1])
@@ -83,12 +98,12 @@ else:
         st.session_state.pagina = "VisualizarRegistros"
         st.rerun()
 
-    if st.session_state.user_data['Usuario'] != "admin":
+    if st.session_state.user_data['Usuario'] not in ["admin", "rodrigo"]:
         if st.sidebar.button("Segurança", key="btn_seguranca", use_container_width=True):
             st.session_state.pagina = "Segurança"
             st.rerun()
 
-    if st.session_state.user_data['Usuario'] == "admin":
+    if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
         if st.sidebar.button("Cadastro", key="btn_cadastro", use_container_width=True):
             st.session_state.pagina = "Cadastro"
             st.rerun()
@@ -128,7 +143,7 @@ else:
                 bimestre_ativo = bimestres_disponiveis[0]
                 st.info(f"📅 Período de lançamento aberto: **{bimestre_ativo}**")
 
-        if st.session_state.user_data['Usuario'] == "admin":
+        if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
             todas_turmas = sorted(df_alunos['Turma'].unique().astype(str))
         else:
             turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
@@ -142,7 +157,7 @@ else:
             aluno_sel = st.selectbox("2. Aluno", sorted(alunos_da_turma))
 
         with st.form("form_registro", clear_on_submit=True):
-            if st.session_state.user_data['Usuario'] == "admin":
+            if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
                 if not df_discs.empty:
                     disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
                 else:
@@ -220,7 +235,7 @@ else:
                 
                 with col_f2:
                     col_turma = 'Turma' if 'Turma' in colunas_df else colunas_df[2]
-                    if st.session_state.user_data['Usuario'] == "admin":
+                    if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
                         lista_turmas_reg = ["Todas"] + sorted(df_reg[col_turma].unique().astype(str).tolist())
                     else:
                         turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
@@ -238,7 +253,7 @@ else:
                 if turma_filtro != "Todas":
                     df_filtrado = df_filtrado[df_filtrado[col_turma].astype(str) == turma_filtro]
                 else:
-                    if st.session_state.user_data['Usuario'] != "admin":
+                    if st.session_state.user_data['Usuario'] not in ["admin", "rodrigo"]:
                         turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
                         turmas_vinc = [t.strip() for t in turmas_vinc if t.strip()]
                         df_filtrado = df_filtrado[df_filtrado[col_turma].astype(str).isin(turmas_vinc)]
@@ -277,7 +292,7 @@ else:
                 
                 with col_exc1:
                     st.markdown("**Gerenciar registro individual**")
-                    df_edit_proprio = df_filtrado[df_filtrado['Professor'] == prof_nome] if st.session_state.user_data['Usuario'] != "admin" else df_filtrado
+                    df_edit_proprio = df_filtrado[df_filtrado['Professor'] == prof_nome] if st.session_state.user_data['Usuario'] not in ["admin", "rodrigo"] else df_filtrado
                     
                     if not df_edit_proprio.empty:
                         opcoes_edit = {f"{row[col_data]} - {row[colunas_df[3]]}": row['ID_Original'] for _, row in df_edit_proprio.iterrows()}
@@ -337,7 +352,7 @@ else:
 
                 with col_exc2:
                     st.markdown("**Exclusão em massa**")
-                    if st.session_state.user_data['Usuario'] == "admin":
+                    if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
                         if bim_filtro != "Todos" and turma_filtro != "Todas":
                             st.warning(f"Apagar TODOS os registros de {turma_filtro} no {bim_filtro}?")
                             if st.button(f"🚨 EXCLUIR TUDO: {turma_filtro} - {bim_filtro}"):
@@ -392,10 +407,10 @@ else:
                     except Exception as e:
                         st.error(f"Erro ao atualizar: {e}")
 
-    elif st.session_state.pagina == "Cadastro" and st.session_state.user_data['Usuario'] == "admin":
+    elif st.session_state.pagina == "Cadastro" and st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
         st.title("⚙️ Painel de Cadastro")
         
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["Turmas/Alunos", "Disciplinas", "Gerenciar Usuários", "Alterar Senha", "Período de Lançamento"])
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Turmas/Alunos", "Disciplinas", "Gerenciar Usuários", "Alterar Senha", "Período de Lançamento", "Bloqueio Master"])
         
         with tab1:
             st.subheader("Gerenciar Alunos e Turmas")
@@ -718,7 +733,7 @@ else:
                                 
                                 senha_final = str(nova_senha) if nova_senha else ""
                                 
-                                wks_p.append_row([novo_prof, novo_usuario, senha_final, turmas_str, disciplinas_str])
+                                wks_p.append_row([novo_prof, novo_usuario, senha_final, turmas_str, disciplinas_str, "Ativo"])
                                 with col_msg_salvar:
                                     msg_placeholder_prof = st.empty()
                                     msg_placeholder_prof.success("Professor cadastrado com sucesso")
@@ -848,7 +863,7 @@ else:
                         try:
                             wks_per = sh.worksheet("Config_Periodos")
                         except:
-                            wks_per = st.add_worksheet(title="Config_Periodos", rows="10", cols="3")
+                            wks_per = sh.add_worksheet(title="Config_Periodos", rows="10", cols="3")
                             wks_per.append_row(["Bimestre", "Inicio", "Fim"])
                         
                         data_per = wks_per.get_all_values()
@@ -904,7 +919,46 @@ else:
                         st.error(f"Erro: {e}")
             else:
                 st.info("Nenhum período configurado.")
-    
+
+        with tab6:
+            st.subheader("🛡️ Controle de Bloqueio Master")
+            if st.session_state.user_data['Usuario'] != "rodrigo":
+                st.warning("Esta aba é exclusiva para o administrador Master (Rodrigo).")
+            else:
+                user_bloqueio = st.selectbox("Selecione o Usuário para Bloquear/Desbloquear", [""] + df_profs['Usuario'].tolist())
+                if user_bloqueio != "":
+                    dados_bloqueio = df_profs[df_profs['Usuario'] == user_bloqueio].iloc[0]
+                    status_atual = str(dados_bloqueio.get("Status", "Ativo"))
+                    st.write(f"Status atual de **{user_bloqueio}**: {status_atual}")
+                    
+                    col_b1, col_b2 = st.columns(2)
+                    with col_b1:
+                        if st.button(f"🔴 BLOQUEAR {user_bloqueio}"):
+                            try:
+                                sh = conectar_google_sheets()
+                                wks_p = sh.worksheet("Config_Professores")
+                                celula = wks_p.find(str(user_bloqueio))
+                                wks_p.update_cell(celula.row, 6, "Bloqueado")
+                                st.success(f"Usuário {user_bloqueio} bloqueado.")
+                                st.cache_data.clear()
+                                time.sleep(2)
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro: {e}")
+                    with col_b2:
+                        if st.button(f"🟢 DESBLOQUEAR {user_bloqueio}"):
+                            try:
+                                sh = conectar_google_sheets()
+                                wks_p = sh.worksheet("Config_Professores")
+                                celula = wks_p.find(str(user_bloqueio))
+                                wks_p.update_cell(celula.row, 6, "Ativo")
+                                st.success(f"Usuário {user_bloqueio} desbloqueado.")
+                                st.cache_data.clear()
+                                time.sleep(2)
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro: {e}")
+
     elif st.session_state.pagina == "Cadastro":
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
