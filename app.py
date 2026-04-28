@@ -32,6 +32,7 @@ def carregar_dados():
         
     return df_p, df_a, df_d, df_per
 
+# Otimização de espaço: Layout Wide e Injeção de CSS para remover margens máximas
 st.set_page_config(page_title="Sistema Escola Diva Lima", layout="wide")
 
 st.markdown("""
@@ -42,16 +43,6 @@ st.markdown("""
         padding-left: 1rem;
         padding-right: 1rem;
         max-width: 100% !important;
-    }
-    [data-testid="stForm"] {
-        max-width: 400px;
-        margin: 0 auto;
-    }
-    .login-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -69,16 +60,15 @@ if 'pagina' not in st.session_state:
     st.session_state.pagina = "Registro"
 
 if not st.session_state.logado:
-    st.markdown('<div class="login-container">', unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 0.5, 1])
+    col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        st.image("logo.png", width=80)
+        st.image("logo.png", width=120)
     
-    st.markdown("<h1 style='text-align: center;'>🔑 Acesso ao Sistema</h1>", unsafe_allow_html=True)
+    st.title("🔑 Acesso ao Sistema")
     with st.form("login_form"):
         user_input = st.text_input("Usuário")
         pass_input = st.text_input("Senha", type="password")
-        entrar = st.form_submit_button("Entrar", use_container_width=True)
+        entrar = st.form_submit_button("Entrar")
         
         if entrar:
             if user_input == "master" and pass_input == "master123":
@@ -103,7 +93,6 @@ if not st.session_state.logado:
                         st.rerun()
                 else:
                     st.error("Usuário ou senha incorretos.")
-    st.markdown('</div>', unsafe_allow_html=True)
 
 else:
     col_side1, col_side2, col_side3 = st.sidebar.columns([1, 2, 1])
@@ -180,7 +169,7 @@ else:
             alunos_da_turma = df_alunos[df_alunos['Turma'].astype(str) == turma_sel]['Nome_Aluno'].tolist()
             aluno_sel = st.selectbox("2. Aluno", sorted(alunos_da_turma))
 
-        with st.form("form_registro_main", clear_on_submit=True):
+        with st.form("form_registro", clear_on_submit=True):
             if st.session_state.user_data['Usuario'] in ["admin", "master"]:
                 if not df_discs.empty:
                     disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
