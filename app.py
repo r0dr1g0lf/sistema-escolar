@@ -32,7 +32,6 @@ def carregar_dados():
         
     return df_p, df_a, df_d, df_per
 
-# Otimização de espaço: Layout Wide e Injeção de CSS para remover margens máximas
 st.set_page_config(page_title="Sistema Escola Diva Lima", layout="wide")
 
 st.markdown("""
@@ -64,7 +63,7 @@ if not st.session_state.logado:
     with col2:
         st.image("logo.png", width=120)
     
-    st.title("🔑 Acesso ao Sistema")
+    st.title("Escola Diva Lima")
     with st.form("login_form"):
         user_input = st.text_input("Usuário")
         pass_input = st.text_input("Senha", type="password")
