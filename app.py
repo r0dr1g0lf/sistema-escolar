@@ -32,7 +32,6 @@ def carregar_dados():
         
     return df_p, df_a, df_d, df_per
 
-# Otimização de espaço: Layout Wide e Injeção de CSS para remover margens máximas
 st.set_page_config(page_title="Sistema Escola Diva Lima", layout="wide")
 
 st.markdown("""
@@ -60,39 +59,38 @@ if 'pagina' not in st.session_state:
     st.session_state.pagina = "Registro"
 
 if not st.session_state.logado:
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col2:
-        st.image("logo.png", width=120)
-    
-    st.title("🔑 Acesso ao Sistema")
-    with st.form("login_form"):
-        user_input = st.text_input("Usuário")
-        pass_input = st.text_input("Senha", type="password")
-        entrar = st.form_submit_button("Entrar")
-        
-        if entrar:
-            if user_input == "master" and pass_input == "master123":
-                st.session_state.logado = True
-                st.session_state.user_data = {
-                    'Professor': 'Administrador Master',
-                    'Usuario': 'master',
-                    'Senha': 'master123',
-                    'Turmas': 'Todas',
-                    'Disciplinas': 'Todas'
-                }
-                st.rerun()
-            else:
-                match = df_profs[(df_profs['Usuario'].astype(str) == user_input) & (df_profs['Senha'].astype(str) == pass_input)]
-                if not match.empty:
-                    status_bloqueio = str(match.iloc[0].get('Status', 'Ativo'))
-                    if status_bloqueio == 'Bloqueado':
-                        st.error("Este usuário está bloqueado. Contate o Administrador Master.")
-                    else:
-                        st.session_state.logado = True
-                        st.session_state.user_data = match.iloc[0].to_dict()
-                        st.rerun()
+    col_l1, col_l2, col_l3 = st.columns([1.5, 1, 1.5])
+    with col_l2:
+        st.image("logo.png", use_container_width=True)
+        st.markdown("<h2 style='text-align: center;'>🔑 Acesso</h2>", unsafe_allow_html=True)
+        with st.form("login_form"):
+            user_input = st.text_input("Usuário")
+            pass_input = st.text_input("Senha", type="password")
+            entrar = st.form_submit_button("Entrar", use_container_width=True)
+            
+            if entrar:
+                if user_input == "master" and pass_input == "master123":
+                    st.session_state.logado = True
+                    st.session_state.user_data = {
+                        'Professor': 'Administrador Master',
+                        'Usuario': 'master',
+                        'Senha': 'master123',
+                        'Turmas': 'Todas',
+                        'Disciplinas': 'Todas'
+                    }
+                    st.rerun()
                 else:
-                    st.error("Usuário ou senha incorretos.")
+                    match = df_profs[(df_profs['Usuario'].astype(str) == user_input) & (df_profs['Senha'].astype(str) == pass_input)]
+                    if not match.empty:
+                        status_bloqueio = str(match.iloc[0].get('Status', 'Ativo'))
+                        if status_bloqueio == 'Bloqueado':
+                            st.error("Este usuário está bloqueado. Contate o Administrador Master.")
+                        else:
+                            st.session_state.logado = True
+                            st.session_state.user_data = match.iloc[0].to_dict()
+                            st.rerun()
+                    else:
+                        st.error("Usuário ou senha incorretos.")
 
 else:
     col_side1, col_side2, col_side3 = st.sidebar.columns([1, 2, 1])
