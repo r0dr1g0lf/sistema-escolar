@@ -32,7 +32,13 @@ def carregar_dados():
         
     return df_p, df_a, df_d, df_per
 
-st.set_page_config(page_title="Sistema Escola Diva Lima", layout="centered")
+if 'logado' not in st.session_state:
+    st.session_state.logado = False
+
+if not st.session_state.logado:
+    st.set_page_config(page_title="Sistema Escola Diva Lima", layout="centered")
+else:
+    st.set_page_config(page_title="Sistema Escola Diva Lima", layout="wide")
 
 try:
     df_profs, df_alunos, df_discs, df_periodos = carregar_dados()
@@ -41,8 +47,6 @@ except Exception as e:
     st.info("Dica: Verifique se a planilha foi compartilhada como EDITOR com o e-mail da conta de serviço e se as abas têm os nomes corretos.")
     st.stop()
 
-if 'logado' not in st.session_state:
-    st.session_state.logado = False
 if 'pagina' not in st.session_state:
     st.session_state.pagina = "Registro"
 
