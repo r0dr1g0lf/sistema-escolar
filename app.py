@@ -32,42 +32,18 @@ def carregar_dados():
         
     return df_p, df_a, df_d, df_per
 
+# Otimização de espaço: Layout Wide e Injeção de CSS para remover margens máximas
 st.set_page_config(page_title="Sistema Escola Diva Lima", layout="wide")
 
 st.markdown("""
     <style>
     .block-container {
-        padding-top: 0rem;
+        padding-top: 1rem;
         padding-bottom: 0rem;
         padding-left: 1rem;
         padding-right: 1rem;
         max-width: 100% !important;
     }
-    .login-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 90vh;
-        overflow: hidden;
-    }
-    .login-header {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 15px;
-        margin-bottom: 20px;
-        width: 100%;
-    }
-    .login-box {
-        width: 100%;
-        max-width: 400px;
-        padding: 20px;
-    }
-    /* Esconde elementos nativos que criam espaço extra */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -84,21 +60,15 @@ if 'pagina' not in st.session_state:
     st.session_state.pagina = "Registro"
 
 if not st.session_state.logado:
-    st.markdown('<div class="login-container">', unsafe_allow_html=True)
-    st.markdown('<div class="login-box">', unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        st.image("logo.png", width=120)
     
-    # Header Centralizado (Logo + Acesso)
-    st.markdown("""
-        <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 20px;">
-            <img src="https://raw.githubusercontent.com/seu-usuario/seu-repo/main/logo.png" width="50" style="vertical-align: middle;">
-            <h2 style="margin: 0; padding: 0; display: inline-block; vertical-align: middle;">🔑 Acesso</h2>
-        </div>
-    """, unsafe_allow_html=True)
-    
+    st.title("🔑 Acesso ao Sistema")
     with st.form("login_form"):
         user_input = st.text_input("Usuário")
         pass_input = st.text_input("Senha", type="password")
-        entrar = st.form_submit_button("Entrar", use_container_width=True)
+        entrar = st.form_submit_button("Entrar")
         
         if entrar:
             if user_input == "master" and pass_input == "master123":
@@ -123,8 +93,6 @@ if not st.session_state.logado:
                         st.rerun()
                 else:
                     st.error("Usuário ou senha incorretos.")
-    st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
 else:
     col_side1, col_side2, col_side3 = st.sidebar.columns([1, 2, 1])
