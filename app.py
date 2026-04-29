@@ -357,16 +357,30 @@ else:
                 with col_exc2:
                     st.markdown("**Exclusão em massa**")
                     if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
-                        if bim_filtro != "Todos" and turma_filtro != "Todas":
-                            st.warning(f"Apagar TODOS os registros de {turma_filtro} no {bim_filtro}?")
-                            if st.button(f"🚨 EXCLUIR TUDO: {turma_filtro} - {bim_filtro}"):
-                                indices_massa = sorted(df_filtrado['ID_Original'].tolist(), reverse=True)
-                                for idx in indices_massa:
-                                    wks_reg.delete_rows(idx)
-                                st.success(f"Foram excluídos {len(indices_massa)} registros.")
-                                st.rerun()
+                        if bim_filtro != "Todos":
+                            if turma_filtro != "Todas":
+                                st.warning(f"Apagar TODOS os registros de {turma_filtro} no {bim_filtro}?")
+                                if st.button(f"🚨 EXCLUIR TURMA: {turma_filtro} - {bim_filtro}"):
+                                    indices_massa = sorted(df_filtrado['ID_Original'].tolist(), reverse=True)
+                                    for idx in indices_massa:
+                                        wks_reg.delete_rows(idx)
+                                    st.success(f"Foram excluídos {len(indices_massa)} registros.")
+                                    st.rerun()
+                            
+                            st.divider()
+                            st.error(f"Zerar BIMESTRE: Apagar TODOS os registros do {bim_filtro}?")
+                            if st.button(f"💥 EXCLUIR TUDO DO {bim_filtro}"):
+                                df_massa_bim = df_reg[df_reg[col_bim].astype(str) == bim_filtro]
+                                if not df_massa_bim.empty:
+                                    indices_bim = sorted(df_massa_bim['ID_Original'].tolist(), reverse=True)
+                                    for idx in indices_bim:
+                                        wks_reg.delete_rows(idx)
+                                    st.success(f"Foram excluídos {len(indices_bim)} registros do {bim_filtro}.")
+                                    st.rerun()
+                                else:
+                                    st.info("Não há registros para este bimestre.")
                         else:
-                            st.info("Selecione uma Turma e um Bimestre específicos para habilitar a exclusão em massa.")
+                            st.info("Selecione um Bimestre específico para habilitar a exclusão em massa.")
                     else:
                         st.info("Exclusão em massa permitida apenas para administradores.")
 
