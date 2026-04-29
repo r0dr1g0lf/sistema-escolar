@@ -414,9 +414,13 @@ else:
     elif st.session_state.pagina == "Cadastro" and st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
         st.title("⚙️ Painel de Cadastro")
         
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Turmas/Alunos", "Disciplinas", "Gerenciar Usuários", "Alterar Senha", "Período de Lançamento", "Bloqueio Master"])
+        abas = ["Turmas/Alunos", "Disciplinas", "Gerenciar Usuários", "Alterar Senha", "Período de Lançamento"]
+        if st.session_state.user_data['Usuario'] == "rodrigo":
+            abas.append("Bloqueio Master")
+            
+        tabs = st.tabs(abas)
         
-        with tab1:
+        with tabs[0]:
             st.subheader("Gerenciar Alunos e Turmas")
             
             opcao_cadastro = st.radio("Selecione uma Ação", ["Individual", "Em Massa (Excel/Word)", "Transferir Aluno", "Excluir Aluno", "Limpar turma"])
@@ -620,7 +624,7 @@ else:
                         else:
                             st.error("Marque a caixa de confirmação.")
 
-        with tab2:
+        with tabs[1]:
             st.subheader("Gerenciar Disciplinas")
             
             with st.form("form_disciplina", clear_on_submit=True):
@@ -694,7 +698,7 @@ else:
             else:
                 st.info("Nenhuma disciplina cadastrada.")
 
-        with tab3:
+        with tabs[2]:
             st.subheader("Cadastrar Novo Professor")
             
             with st.form("form_prof", clear_on_submit=True):
@@ -820,7 +824,7 @@ else:
                     except Exception as e:
                         st.error(f"Erro ao excluir: {e}")
 
-        with tab4:
+        with tabs[3]:
             st.subheader("Alterar Senha de Usuário")
             
             lista_usuarios = df_profs['Usuario'].tolist()
@@ -849,7 +853,7 @@ else:
                     except Exception as e:
                         st.error(f"Erro ao atualizar: {e}")
 
-        with tab5:
+        with tabs[4]:
             st.subheader("Configurar Período de Lançamento")
             
             with st.form("form_periodo"):
@@ -924,11 +928,9 @@ else:
             else:
                 st.info("Nenhum período configurado.")
 
-        with tab6:
-            st.subheader("🛡️ Controle de Bloqueio Master")
-            if st.session_state.user_data['Usuario'] != "rodrigo":
-                st.warning("Esta aba é exclusiva para o administrador Master (Rodrigo).")
-            else:
+        if st.session_state.user_data['Usuario'] == "rodrigo":
+            with tabs[5]:
+                st.subheader("🛡️ Controle de Bloqueio Master")
                 user_bloqueio = st.selectbox("Selecione o Usuário para Bloquear/Desbloquear", [""] + df_profs['Usuario'].tolist())
                 if user_bloqueio != "":
                     dados_bloqueio = df_profs[df_profs['Usuario'] == user_bloqueio].iloc[0]
