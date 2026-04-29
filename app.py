@@ -5,13 +5,16 @@ import gspread
 from google.oauth2.service_account import Credentials
 import time
 
-# Ocultar menus e botões padrão do Streamlit
+# Ocultar menus, botões padrão e o botão "Gerenciar aplicativo" (Manage app)
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
             footer {visibility: hidden;}
             header {visibility: hidden;}
             .stDeployButton {display:none;}
+            [data-testid="stStatusWidget"] {display:none;}
+            button[title="Manage app"] {display: none;}
+            #stManageAppButton {display: none;}
             </style>
             """
 
