@@ -5,6 +5,25 @@ import gspread
 from google.oauth2.service_account import Credentials
 import time
 
+# Configuração da página para remover elementos da interface padrão do Streamlit
+st.set_page_config(
+    page_title="Sistema Escola Diva Lima",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# CSS para ocultar botões e símbolos secundários (Header, Footer e Menu)
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            header {visibility: hidden;}
+            footer {visibility: hidden;}
+            .stDeployButton {display:none;}
+            #stDecoration {display:none;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
+
 SHEET_ID = "153ohv6YsmfOZHjoLpb8He2VM2P-DYTVGh9zDVNRBdS0"
 
 def conectar_google_sheets():
@@ -34,11 +53,6 @@ def carregar_dados():
 
 if 'logado' not in st.session_state:
     st.session_state.logado = False
-
-if not st.session_state.logado:
-    st.set_page_config(page_title="Sistema Escola Diva Lima", layout="centered")
-else:
-    st.set_page_config(page_title="Sistema Escola Diva Lima", layout="wide")
 
 try:
     df_profs, df_alunos, df_discs, df_periodos = carregar_dados()
