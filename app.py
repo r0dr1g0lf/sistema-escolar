@@ -945,39 +945,77 @@ else:
         if st.session_state.user_data['Usuario'] == "rodrigo":
             with tabs[5]:
                 st.subheader("🛡️ Controle de Bloqueio Master")
-                user_bloqueio = st.selectbox("Selecione o Usuário para Bloquear/Desbloquear", [""] + df_profs['Usuario'].tolist())
-                if user_bloqueio != "":
-                    dados_bloqueio = df_profs[df_profs['Usuario'] == user_bloqueio].iloc[0]
-                    status_atual = str(dados_bloqueio.get("Status", "Ativo"))
-                    st.write(f"Status atual de **{user_bloqueio}**: {status_atual}")
+                
+                col_m1, col_m2 = st.columns(2)
+                with col_m1:
+                    st.markdown("**Bloqueio por Usuário Individual**")
+                    user_bloqueio = st.selectbox("Selecione o Usuário", [""] + df_profs['Usuario'].tolist())
+                    if user_bloqueio != "":
+                        dados_bloqueio = df_profs[df_profs['Usuario'] == user_bloqueio].iloc[0]
+                        status_atual = str(dados_bloqueio.get("Status", "Ativo"))
+                        st.write(f"Status atual de **{user_bloqueio}**: {status_atual}")
+                        
+                        col_b1, col_b2 = st.columns(2)
+                        with col_b1:
+                            if st.button(f"🔴 BLOQUEAR {user_bloqueio}"):
+                                try:
+                                    sh = conectar_google_sheets()
+                                    wks_p = sh.worksheet("Config_Professores")
+                                    celula = wks_p.find(str(user_bloqueio))
+                                    wks_p.update_cell(celula.row, 6, "Bloqueado")
+                                    st.success(f"Usuário {user_bloqueio} bloqueado.")
+                                    st.cache_data.clear()
+                                    time.sleep(2)
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro: {e}")
+                        with col_b2:
+                            if st.button(f"🟢 DESBLOQUEAR {user_bloqueio}"):
+                                try:
+                                    sh = conectar_google_sheets()
+                                    wks_p = sh.worksheet("Config_Professores")
+                                    celula = wks_p.find(str(user_bloqueio))
+                                    wks_p.update_cell(celula.row, 6, "Ativo")
+                                    st.success(f"Usuário {user_bloqueio} desbloqueado.")
+                                    st.cache_data.clear()
+                                    time.sleep(2)
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro: {e}")
+                
+                with col_m2:
+                    st.markdown("**Bloqueio/Desbloqueio em Massa**")
+                    st.write("Ações para todos os professores cadastrados.")
                     
-                    col_b1, col_b2 = st.columns(2)
-                    with col_b1:
-                        if st.button(f"🔴 BLOQUEAR {user_bloqueio}"):
-                            try:
-                                sh = conectar_google_sheets()
-                                wks_p = sh.worksheet("Config_Professores")
-                                celula = wks_p.find(str(user_bloqueio))
-                                wks_p.update_cell(celula.row, 6, "Bloqueado")
-                                st.success(f"Usuário {user_bloqueio} bloqueado.")
+                    if st.button("🔴 BLOQUEAR TODOS OS USUÁRIOS"):
+                        try:
+                            sh = conectar_google_sheets()
+                            wks_p = sh.worksheet("Config_Professores")
+                            dados_p = wks_p.get_all_values()
+                            if len(dados_p) > 1:
+                                for i in range(2, len(dados_p) + 1):
+                                    wks_p.update_cell(i, 6, "Bloqueado")
+                                st.success("Todos os usuários foram bloqueados.")
                                 st.cache_data.clear()
                                 time.sleep(2)
                                 st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro: {e}")
-                    with col_b2:
-                        if st.button(f"🟢 DESBLOQUEAR {user_bloqueio}"):
-                            try:
-                                sh = conectar_google_sheets()
-                                wks_p = sh.worksheet("Config_Professores")
-                                celula = wks_p.find(str(user_bloqueio))
-                                wks_p.update_cell(celula.row, 6, "Ativo")
-                                st.success(f"Usuário {user_bloqueio} desbloqueado.")
+                        except Exception as e:
+                            st.error(f"Erro no bloqueio em massa: {e}")
+                            
+                    if st.button("🟢 DESBLOQUEAR TODOS OS USUÁRIOS"):
+                        try:
+                            sh = conectar_google_sheets()
+                            wks_p = sh.worksheet("Config_Professores")
+                            dados_p = wks_p.get_all_values()
+                            if len(dados_p) > 1:
+                                for i in range(2, len(dados_p) + 1):
+                                    wks_p.update_cell(i, 6, "Ativo")
+                                st.success("Todos os usuários foram desbloqueados.")
                                 st.cache_data.clear()
                                 time.sleep(2)
                                 st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro: {e}")
+                        except Exception as e:
+                            st.error(f"Erro no desbloqueio em massa: {e}")
 
     elif st.session_state.pagina == "Cadastro":
         st.error("Acesso restrito.")
