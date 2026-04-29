@@ -5,19 +5,6 @@ import gspread
 from google.oauth2.service_account import Credentials
 import time
 
-# Ocultar menus, botões padrão e o botão "Gerenciar aplicativo" (Manage app)
-hide_st_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            .stDeployButton {display:none;}
-            [data-testid="stStatusWidget"] {display:none;}
-            button[title="Manage app"] {display: none;}
-            #stManageAppButton {display: none;}
-            </style>
-            """
-
 SHEET_ID = "153ohv6YsmfOZHjoLpb8He2VM2P-DYTVGh9zDVNRBdS0"
 
 def conectar_google_sheets():
@@ -52,8 +39,6 @@ if not st.session_state.logado:
     st.set_page_config(page_title="Sistema Escola Diva Lima", layout="centered")
 else:
     st.set_page_config(page_title="Sistema Escola Diva Lima", layout="wide")
-
-st.markdown(hide_st_style, unsafe_allow_html=True)
 
 try:
     df_profs, df_alunos, df_discs, df_periodos = carregar_dados()
