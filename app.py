@@ -355,8 +355,8 @@ else:
                         st.info("Nenhum registro disponível para gerenciar no filtro atual.")
 
                 with col_exc2:
-                    st.markdown("**Exclusão em massa**")
                     if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
+                        st.markdown("**Exclusão em massa**")
                         if bim_filtro != "Todos":
                             if turma_filtro != "Todas":
                                 st.warning(f"Apagar TODOS os registros de {turma_filtro} no {bim_filtro}?")
@@ -382,7 +382,7 @@ else:
                         else:
                             st.info("Selecione um Bimestre específico para habilitar a exclusão em massa.")
                     else:
-                        st.info("Exclusão em massa permitida apenas para administradores.")
+                        st.empty()
 
             else:
                 st.info("Nenhum registro encontrado na planilha.")
