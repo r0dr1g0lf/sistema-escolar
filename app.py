@@ -51,26 +51,6 @@ if 'pagina' not in st.session_state:
     st.session_state.pagina = "Registro"
 
 if not st.session_state.logado:
-    st.markdown(
-        f"""
-        <style>
-        .stApp {{
-            background-image: url("https://raw.githubusercontent.com/r0dr1g0lf/sistema-escolar/main/fundo_escola.PNG");
-            background-attachment: fixed;
-            background-size: cover;
-            background-position: center;
-        }}
-        [data-testid="stForm"] {{
-            background-color: rgba(255, 255, 255, 0.9);
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-    
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
         st.image("logo.png", width=120)
