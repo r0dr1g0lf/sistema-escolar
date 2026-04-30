@@ -231,7 +231,7 @@ else:
                 df_reg = pd.DataFrame(dados_brutos[1:], columns=dados_brutos[0])
                 colunas_df = df_reg.columns.tolist()
                 
-                col_f1, col_f2 = st.columns(2)
+                col_f1, col_f2, col_f3 = st.columns(3)
                 with col_f1:
                     col_bim = 'Bimestre' if 'Bimestre' in colunas_df else colunas_df[5]
                     lista_bimestres = ["Todos"] + sorted(df_reg[col_bim].unique().astype(str).tolist())
@@ -244,8 +244,12 @@ else:
                     else:
                         turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
                         opcoes_turmas_reg = sorted([t.strip() for t in turmas_vinc if t.strip()])
-                        
                     turma_filtro = st.multiselect("Filtrar por Turma", opcoes_turmas_reg, default=[])
+
+                with col_f3:
+                    col_disc_data = colunas_df[4]
+                    opcoes_disciplinas_reg = sorted(df_reg[col_disc_data].unique().astype(str).tolist())
+                    disciplina_filtro = st.multiselect("Filtrar por Disciplina", opcoes_disciplinas_reg, default=[])
                 
                 df_reg['ID_Original'] = range(2, len(df_reg) + 2)
                 df_filtrado = df_reg.copy()
@@ -260,6 +264,9 @@ else:
                         turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
                         turmas_vinc = [t.strip() for t in turmas_vinc if t.strip()]
                         df_filtrado = df_filtrado[df_filtrado[col_turma].astype(str).isin(turmas_vinc)]
+
+                if disciplina_filtro:
+                    df_filtrado = df_filtrado[df_filtrado[col_disc_data].astype(str).isin(disciplina_filtro)]
                 
                 col_data = colunas_df[0]
 
