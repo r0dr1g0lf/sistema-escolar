@@ -972,6 +972,13 @@ else:
         if st.session_state.user_data['Usuario'] == "rodrigo":
             with tabs[5]:
                 st.subheader("🛡️ Controle de Bloqueio Master")
+                
+                st.markdown("### 📊 Status Atual de Usuários")
+                df_status = df_profs[['Professor', 'Usuario', 'Status']].copy()
+                df_status['Status'] = df_status['Status'].apply(lambda x: "🔴 BLOQUEADO" if str(x).upper() == "BLOQUEADO" else "🟢 ATIVO")
+                st.table(df_status)
+                
+                st.divider()
                 user_bloqueio = st.selectbox("Selecione o Usuário para Bloquear/Desbloquear", [""] + ["Todos"] + df_profs['Usuario'].tolist())
                 if user_bloqueio != "":
                     if user_bloqueio == "Todos":
