@@ -211,23 +211,27 @@ else:
                     
                     tipo_formatado = ", ".join(itens_finais)
                     
+                    # CORREÇÃO PARA EXCEL: Cada item da lista será uma COLUNA diferente no Sheets
                     nova_linha = [
                         datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-                        prof_nome,
-                        turma_sel,
-                        aluno_sel,
-                        disciplina,
-                        periodo,
-                        tipo_formatado,
-                        obs
+                        str(prof_nome),
+                        str(turma_sel),
+                        str(aluno_sel),
+                        str(disciplina),
+                        str(periodo),
+                        str(tipo_formatado),
+                        str(obs)
                     ]
                     
-                    wks.append_row(nova_linha)
+                    # O parâmetro value_input_option="USER_ENTERED" garante que o Sheets separe as colunas corretamente
+                    wks.append_row(nova_linha, value_input_option="USER_ENTERED")
+                    
                     with col_mensagem:
                         placeholder_sucesso = st.empty()
-                        placeholder_sucesso.success(f"✅ Sucesso! Registro salvo.")
+                        placeholder_sucesso.success(f"✅ Sucesso! Registro salvo corretamente em colunas.")
                         time.sleep(3)
                         placeholder_sucesso.empty()
+                        st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
 
@@ -305,13 +309,6 @@ else:
                 }
                 
                 st.dataframe(df_exibicao_viz, use_container_width=True, hide_index=True, column_config=column_config)
-
-                st.download_button(
-                    label="📥 Salvar Relatórios",
-                    data=df_exibicao_viz.to_csv(index=False).encode('utf-8'),
-                    file_name=f"Relatorio_{datetime.now().strftime('%d_%m_%Y')}.csv",
-                    mime='text/csv'
-                )
 
                 st.divider()
                 st.subheader("📝 Editar ou 🗑️ Excluir Registros")
