@@ -306,12 +306,11 @@ else:
                 
                 st.dataframe(df_exibicao_viz, use_container_width=True, hide_index=True, column_config=column_config)
 
-                csv = df_exibicao_viz.to_csv(index=False, sep=';').encode('utf-8-sig')
                 st.download_button(
-                    label="Baixar Relatórios",
-                    data=csv,
-                    file_name=f"relatorio_escola_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv",
+                    label="📥 Salvar Relatórios",
+                    data=df_exibicao_viz.to_csv(index=False).encode('utf-8'),
+                    file_name=f"Relatorio_{datetime.now().strftime('%d_%m_%Y')}.csv",
+                    mime='text/csv'
                 )
 
                 st.divider()
