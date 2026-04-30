@@ -173,7 +173,7 @@ else:
             disciplina = st.selectbox("Disciplina", disciplina_opcoes)
             periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True)
             
-            desempenho_escolha = st.radio("Desempenho do aluno", ["Reprovado", "Aprovado após recuperação"], horizontal=True)
+            desempenho_escolha = st.radio("Desempenho do aluno", ["Reprovado", "Aprovado após recuperação", "Ponto de atenção"], horizontal=True)
             tipo_selecao = st.multiselect("Valores e atitudes", ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas"])
             obs = st.text_area("Observações")
             
@@ -310,7 +310,7 @@ else:
                                 st.markdown(f"Editando registro de: **{dados_reg_edit[colunas_df[3]]}**")
                                 
                                 itens_atuais = str(dados_reg_edit[colunas_df[6]]).split(", ")
-                                opcoes_radio = ["Reprovado", "Aprovado após recuperação"]
+                                opcoes_radio = ["Reprovado", "Aprovado após recuperação", "Ponto de atenção"]
                                 desemp_atual = next((i for i in itens_atuais if i in opcoes_radio), None)
                                 
                                 edit_desempenho = st.radio("Desempenho", opcoes_radio, index=opcoes_radio.index(desemp_atual) if desemp_atual else 0, horizontal=True)
