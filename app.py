@@ -4,6 +4,7 @@ from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
 import time
+import io
 
 SHEET_ID = "153ohv6YsmfOZHjoLpb8He2VM2P-DYTVGh9zDVNRBdS0"
 
@@ -305,6 +306,19 @@ else:
                 }
                 
                 st.dataframe(df_exibicao_viz, use_container_width=True, hide_index=True, column_config=column_config)
+
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    df_exibicao_viz.to_excel(writer, index=False, sheet_name='Registros')
+                processed_data = output.getvalue()
+
+                st.download_button(
+                    label="📥 SALVAR REGISTROS (EXCEL)",
+                    data=processed_data,
+                    file_name=f'registros_escola_{datetime.now().strftime("%d_%m_%Y")}.xlsx',
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    use_container_width=True
+                )
 
                 st.divider()
                 st.subheader("📝 Editar ou 🗑️ Excluir Registros")
