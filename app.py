@@ -4,7 +4,6 @@ from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
 import time
-import io
 
 SHEET_ID = "153ohv6YsmfOZHjoLpb8He2VM2P-DYTVGh9zDVNRBdS0"
 
@@ -307,16 +306,12 @@ else:
                 
                 st.dataframe(df_exibicao_viz, use_container_width=True, hide_index=True, column_config=column_config)
 
-                # --- BOTÃO DE DOWNLOAD CONFIGURADO ---
-                csv_buffer = io.StringIO()
-                df_exibicao_viz.to_csv(csv_buffer, sep=';', index=False, encoding='utf-8-sig')
                 st.download_button(
-                    label="📥 SALVAR RELATÓRIO (.TXT)",
-                    data=csv_buffer.getvalue(),
-                    file_name=f"Relatorio_{datetime.now().strftime('%d_%m_%Y')}.txt",
-                    mime="text/plain",
+                    label="📥 Salvar Relatórios",
+                    data=df_exibicao_viz.to_csv(index=False).encode('utf-8'),
+                    file_name=f"Relatorio_{datetime.now().strftime('%d_%m_%Y')}.csv",
+                    mime='text/csv'
                 )
-                # -------------------------------------
 
                 st.divider()
                 st.subheader("📝 Editar ou 🗑️ Excluir Registros")
