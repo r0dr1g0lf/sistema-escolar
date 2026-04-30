@@ -180,7 +180,12 @@ else:
                 opcoes_desempenho = ["Reprovado", "Aprovado após recuperação", "Ponto de atenção"]
             
             desempenho_escolha = st.radio("Desempenho do aluno", opcoes_desempenho, horizontal=True)
-            tipo_selecao = st.multiselect("Valores e atitudes", ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho"])
+            
+            opcoes_valores_atitudes = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho"]
+            if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
+                opcoes_valores_atitudes.append("Não fez o questionário participativo")
+                
+            tipo_selecao = st.multiselect("Valores e atitudes", opcoes_valores_atitudes)
             obs = st.text_area("Observações")
             
             col_salvar, col_mensagem = st.columns([1, 2])
@@ -334,6 +339,9 @@ else:
                                 edit_desempenho = st.radio("Desempenho", opcoes_radio, index=opcoes_radio.index(desemp_atual) if desemp_atual else 0, horizontal=True)
                                 
                                 opcoes_multi = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho"]
+                                if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
+                                    opcoes_multi.append("Não fez o questionário participativo")
+                                    
                                 itens_multi_atuais = [i for i in itens_atuais if i in opcoes_multi]
                                 edit_tipo_selecao = st.multiselect("Valores e atitudes", opcoes_multi, default=itens_multi_atuais)
                                 
