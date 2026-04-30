@@ -211,27 +211,23 @@ else:
                     
                     tipo_formatado = ", ".join(itens_finais)
                     
-                    # CORREÇÃO PARA EXCEL: Cada item da lista será uma COLUNA diferente no Sheets
                     nova_linha = [
                         datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-                        str(prof_nome),
-                        str(turma_sel),
-                        str(aluno_sel),
-                        str(disciplina),
-                        str(periodo),
-                        str(tipo_formatado),
-                        str(obs)
+                        prof_nome,
+                        turma_sel,
+                        aluno_sel,
+                        disciplina,
+                        periodo,
+                        tipo_formatado,
+                        obs
                     ]
                     
-                    # O parâmetro value_input_option="USER_ENTERED" garante que o Sheets separe as colunas corretamente
-                    wks.append_row(nova_linha, value_input_option="USER_ENTERED")
-                    
+                    wks.append_row(nova_linha)
                     with col_mensagem:
                         placeholder_sucesso = st.empty()
-                        placeholder_sucesso.success(f"✅ Sucesso! Registro salvo corretamente em colunas.")
+                        placeholder_sucesso.success(f"✅ Sucesso! Registro salvo.")
                         time.sleep(3)
                         placeholder_sucesso.empty()
-                        st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
 
