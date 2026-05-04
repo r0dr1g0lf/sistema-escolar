@@ -33,6 +33,39 @@ def carregar_dados():
         
     return df_p, df_a, df_d, df_per
 
+def atualizar_presenca(usuario):
+    try:
+        sh = conectar_google_sheets()
+        try:
+            wks_log = sh.worksheet("Log_Presenca")
+        except:
+            wks_log = sh.add_worksheet(title="Log_Presenca", rows="1000", cols="2")
+            wks_log.append_row(["Usuario", "Ultimo_Acesso"])
+        
+        celula = wks_log.find(usuario)
+        if celula:
+            wks_log.update_cell(celula.row, 2, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        else:
+            wks_log.append_row([usuario, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+    except:
+        pass
+
+def obter_usuarios_online():
+    try:
+        sh = conectar_google_sheets()
+        wks_log = sh.worksheet("Log_Presenca")
+        dados = wks_log.get_all_records()
+        agora = datetime.now()
+        online = []
+        for d in dados:
+            ult_acesso = datetime.strptime(d['Ultimo_Acesso'], "%Y-%m-%d %H:%M:%S")
+            diff = (agora - ult_acesso).total_seconds()
+            if diff < 300:
+                online.append(d['Usuario'])
+        return online
+    except:
+        return []
+
 if 'logado' not in st.session_state:
     st.session_state.logado = False
 
@@ -72,6 +105,7 @@ if not st.session_state.logado:
                     'Turmas': 'Todas',
                     'Disciplinas': 'Todas'
                 }
+                atualizar_presenca("rodrigo")
                 st.rerun()
             else:
                 match = df_profs[(df_profs['Usuario'].astype(str) == user_input) & (df_profs['Senha'].astype(str) == pass_input)]
@@ -82,17 +116,26 @@ if not st.session_state.logado:
                     else:
                         st.session_state.logado = True
                         st.session_state.user_data = user_row.to_dict()
+                        atualizar_presenca(user_input)
                         st.rerun()
                 else:
                     st.error("Usuário ou senha incorretos.")
 
 else:
+    atualizar_presenca(st.session_state.user_data['Usuario'])
+    
     col_side1, col_side2, col_side3 = st.sidebar.columns([1, 2, 1])
     with col_side2:
         st.image("logo.png", width=80)
         
     prof_nome = st.session_state.user_data['Professor']
     st.sidebar.markdown(f"<div style='text-align: center'>Professor: <b>{prof_nome}</b></div>", unsafe_allow_html=True)
+    
+    usuarios_online = obter_usuarios_online()
+    st.sidebar.markdown(f"🟢 **Usuários Online ({len(usuarios_online)}):**")
+    for u in usuarios_online:
+        st.sidebar.caption(f"• {u}")
+    
     st.sidebar.divider()
     
     if st.sidebar.button("Desempenho do aluno", key="btn_desempenho", use_container_width=True):
@@ -320,20 +363,18 @@ else:
                         'valign': 'vcenter'
                     })
                     
-                    # Formato para quebra automática de texto e alinhamento no topo
                     wrap_format = workbook.add_format({
                         'text_wrap': True, 
                         'valign': 'top',
                         'border': 1
                     })
 
-                    # AJUSTE DE COLUNAS PARA EVITAR CORTES[cite: 4]
-                    worksheet.set_column('A:A', 8, wrap_format)   # Turma
-                    worksheet.set_column('B:B', 28, wrap_format)  # Aluno (mais largo)
-                    worksheet.set_column('C:C', 12, wrap_format)  # Periodo
-                    worksheet.set_column('D:D', 30, wrap_format)  # Disciplina / Prof.
-                    worksheet.set_column('E:E', 25, wrap_format)  # Tipo_Registro
-                    worksheet.set_column('F:F', 60, wrap_format)  # Descrição_Detalhada (bastante espaço)
+                    worksheet.set_column('A:A', 8, wrap_format)
+                    worksheet.set_column('B:B', 28, wrap_format)
+                    worksheet.set_column('C:C', 12, wrap_format)
+                    worksheet.set_column('D:D', 30, wrap_format)
+                    worksheet.set_column('E:E', 25, wrap_format)
+                    worksheet.set_column('F:F', 60, wrap_format)
 
                     for col_num, value in enumerate(df_exibicao_viz.columns.values):
                         worksheet.write(0, col_num, value, header_format)
