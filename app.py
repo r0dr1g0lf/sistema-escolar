@@ -310,11 +310,31 @@ else:
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                     df_exibicao_viz.to_excel(writer, index=False, sheet_name='Relatorio')
+                    workbook = writer.book
                     worksheet = writer.sheets['Relatorio']
-                    for idx, col in enumerate(df_exibicao_viz.columns):
-                        series = df_exibicao_viz[col]
-                        max_len = max(series.astype(str).map(len).max(), len(str(col))) + 2
-                        worksheet.set_column(idx, idx, max_len)
+                    
+                    # Configurações de Impressão para A4 Paisagem
+                    worksheet.set_landscape()
+                    worksheet.set_paper(9) # 9 = A4
+                    worksheet.set_margins(0.5, 0.5, 0.5, 0.5)
+                    worksheet.fit_to_pages(1, 0) # Ajusta para 1 página de largura
+
+                    # Formatos
+                    wrap_format = workbook.add_format({'text_wrap': True, 'vertical': 'top'})
+                    header_format = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1})
+
+                    # Ajuste de Colunas
+                    worksheet.set_column('A:A', 8)  # Turma
+                    worksheet.set_column('B:B', 25) # Aluno
+                    worksheet.set_column('C:C', 10) # Periodo
+                    worksheet.set_column('D:D', 25) # Disciplina / Prof.
+                    worksheet.set_column('E:E', 20) # Tipo_Registro
+                    worksheet.set_column('F:F', 50, wrap_format) # Descrição_Detalhada com Wrap
+
+                    # Aplicar formato de quebra de linha em toda a coluna de Descrição_Detalhada
+                    for row_num in range(1, len(df_exibicao_viz) + 1):
+                        worksheet.write(row_num, 5, df_exibicao_viz.iloc[row_num-1]['Descrição_Detalhada'], wrap_format)
+
                 processed_data = output.getvalue()
 
                 st.download_button(
