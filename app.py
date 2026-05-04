@@ -284,7 +284,7 @@ else:
                 mapeamento_colunas = {
                     colunas_df[2]: "Turma",
                     colunas_df[3]: "Aluno",
-                    colunas_df[5]: "Período",
+                    colunas_df[5]: "Periodo",
                     colunas_df[4]: "Disciplina",
                     colunas_df[1]: "Professor",
                     colunas_df[6]: "Tipo_Registro",
@@ -292,16 +292,16 @@ else:
                 }
                 
                 df_exibicao = df_filtrado.rename(columns=mapeamento_colunas)
-                df_exibicao["Disciplina / Prof"] = df_exibicao["Disciplina"].astype(str) + " (" + df_exibicao["Professor"].astype(str) + ")"
-                df_exibicao = df_exibicao.sort_values(by=["Período", "Turma", "Aluno"])
+                df_exibicao["Disciplina / Prof."] = df_exibicao["Disciplina"].astype(str) + " (" + df_exibicao["Professor"].astype(str) + ")"
+                df_exibicao = df_exibicao.sort_values(by=["Periodo", "Turma", "Aluno"])
                 
-                ordem_colunas = ["Turma", "Aluno", "Período", "Disciplina / Prof", "Tipo_Registro", "Descrição_Detalhada"]
+                ordem_colunas = ["Turma", "Aluno", "Periodo", "Disciplina / Prof.", "Tipo_Registro", "Descrição_Detalhada"]
                 df_exibicao_viz = df_exibicao[ordem_colunas]
                 
                 column_config = {
                     "Turma": st.column_config.TextColumn("Turma", width=50),
-                    "Período": st.column_config.TextColumn("Período", width=65),
-                    "Disciplina / Prof": st.column_config.TextColumn("Disciplina / Prof", width=None)
+                    "Periodo": st.column_config.TextColumn("Periodo", width=65),
+                    "Disciplina / Prof.": st.column_config.TextColumn("Disciplina / Prof.", width=None)
                 }
                 
                 st.dataframe(df_exibicao_viz, use_container_width=True, hide_index=True, column_config=column_config)
