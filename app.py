@@ -307,32 +307,44 @@ else:
                     workbook = writer.book
                     worksheet = writer.sheets['Relatorio']
                     
-                    # --- CONFIGURAÇÃO DE PAISAGEM E IMPRESSÃO ---
-                    worksheet.set_landscape()  # Define orientação Paisagem
-                    worksheet.set_paper(9)      # Define papel A4 (código 9 no xlsxwriter)
-                    worksheet.set_margins(0.5, 0.5, 0.5, 0.5) # Margens estreitas
-                    worksheet.fit_to_pages(1, 0) # Ajusta largura para caber em 1 página
-                    
-                    # Formatos
-                    wrap_format = workbook.add_format({'text_wrap': True, 'vertical': 'top', 'border': 1})
-                    header_format = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1, 'align': 'center'})
+                    # --- CONFIGURAÇÃO DE IMPRESSÃO ---
+                    worksheet.set_landscape() 
+                    worksheet.set_paper(9) # A4
+                    worksheet.set_margins(0.5, 0.5, 0.5, 0.5)
+                    worksheet.fit_to_pages(1, 0)
 
-                    # Ajuste de Colunas para Paisagem
+                    # --- CORREÇÃO DO ERRO 'set_vertical' ---
+                    # O alinhamento vertical é definido via 'valign'
+                    header_format = workbook.add_format({
+                        'bold': True, 
+                        'bg_color': '#D7E4BC', 
+                        'border': 1,
+                        'align': 'center',
+                        'valign': 'vcenter' # Correção aqui
+                    })
+                    
+                    wrap_format = workbook.add_format({
+                        'text_wrap': True, 
+                        'valign': 'top',    # Correção aqui
+                        'border': 1
+                    })
+
+                    # Ajuste de Colunas
                     worksheet.set_column('A:A', 8)  # Turma
                     worksheet.set_column('B:B', 25) # Aluno
-                    worksheet.set_column('C:C', 12) # Periodo
-                    worksheet.set_column('D:D', 30) # Disciplina / Prof.
-                    worksheet.set_column('E:E', 25) # Tipo_Registro
-                    worksheet.set_column('F:F', 60, wrap_format) # Descrição_Detalhada
+                    worksheet.set_column('C:C', 10) # Periodo
+                    worksheet.set_column('D:D', 25) # Disciplina / Prof.
+                    worksheet.set_column('E:E', 20) # Tipo_Registro
+                    worksheet.set_column('F:F', 50, wrap_format) # Descrição_Detalhada
 
-                    # Reaplica o cabeçalho com formato
+                    # Reescrever cabeçalho com formato
                     for col_num, value in enumerate(df_exibicao_viz.columns.values):
                         worksheet.write(0, col_num, value, header_format)
 
                 processed_data = output.getvalue()
 
                 st.download_button(
-                    label="📥 Baixar Relatório em Excel (Orientação Paisagem)",
+                    label="📥 Baixar Relatório em Excel (A4 Paisagem)",
                     data=processed_data,
                     file_name=f'Relatorio_Escola_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx',
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
