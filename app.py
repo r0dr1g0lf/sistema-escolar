@@ -307,37 +307,34 @@ else:
                     workbook = writer.book
                     worksheet = writer.sheets['Relatorio']
                     
-                    # --- CONFIGURAÇÃO DE IMPRESSÃO ---
                     worksheet.set_landscape() 
-                    worksheet.set_paper(9) # A4
+                    worksheet.set_paper(9)
                     worksheet.set_margins(0.5, 0.5, 0.5, 0.5)
                     worksheet.fit_to_pages(1, 0)
 
-                    # --- CORREÇÃO DO ERRO 'set_vertical' ---
-                    # O alinhamento vertical é definido via 'valign'
                     header_format = workbook.add_format({
                         'bold': True, 
                         'bg_color': '#D7E4BC', 
                         'border': 1,
                         'align': 'center',
-                        'valign': 'vcenter' # Correção aqui
+                        'valign': 'vcenter'
                     })
                     
+                    # Formato para quebra automática de texto e alinhamento no topo
                     wrap_format = workbook.add_format({
                         'text_wrap': True, 
-                        'valign': 'top',    # Correção aqui
+                        'valign': 'top',
                         'border': 1
                     })
 
-                    # Ajuste de Colunas
-                    worksheet.set_column('A:A', 8)  # Turma
-                    worksheet.set_column('B:B', 25) # Aluno
-                    worksheet.set_column('C:C', 10) # Periodo
-                    worksheet.set_column('D:D', 25) # Disciplina / Prof.
-                    worksheet.set_column('E:E', 20) # Tipo_Registro
-                    worksheet.set_column('F:F', 50, wrap_format) # Descrição_Detalhada
+                    # AJUSTE DE COLUNAS PARA EVITAR CORTES[cite: 4]
+                    worksheet.set_column('A:A', 8, wrap_format)   # Turma
+                    worksheet.set_column('B:B', 28, wrap_format)  # Aluno (mais largo)
+                    worksheet.set_column('C:C', 12, wrap_format)  # Periodo
+                    worksheet.set_column('D:D', 30, wrap_format)  # Disciplina / Prof.
+                    worksheet.set_column('E:E', 25, wrap_format)  # Tipo_Registro
+                    worksheet.set_column('F:F', 60, wrap_format)  # Descrição_Detalhada (bastante espaço)
 
-                    # Reescrever cabeçalho com formato
                     for col_num, value in enumerate(df_exibicao_viz.columns.values):
                         worksheet.write(0, col_num, value, header_format)
 
