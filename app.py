@@ -299,13 +299,7 @@ else:
                 ordem_colunas = ["Turma", "Aluno", "Periodo", "Disciplina / Prof.", "Tipo_Registro", "Descrição_Detalhada"]
                 df_exibicao_viz = df_exibicao[ordem_colunas]
                 
-                column_config = {
-                    "Turma": st.column_config.TextColumn("Turma", width=50),
-                    "Periodo": st.column_config.TextColumn("Periodo", width=65),
-                    "Disciplina / Prof.": st.column_config.TextColumn("Disciplina / Prof.", width=None)
-                }
-                
-                st.dataframe(df_exibicao_viz, use_container_width=True, hide_index=True, column_config=column_config)
+                st.dataframe(df_exibicao_viz, use_container_width=True, hide_index=True)
 
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -313,32 +307,32 @@ else:
                     workbook = writer.book
                     worksheet = writer.sheets['Relatorio']
                     
-                    # Configurações de Impressão para A4 Paisagem
-                    worksheet.set_landscape()
-                    worksheet.set_paper(9) # 9 = A4
-                    worksheet.set_margins(0.5, 0.5, 0.5, 0.5)
-                    worksheet.fit_to_pages(1, 0) # Ajusta para 1 página de largura
-
+                    # --- CONFIGURAÇÃO DE PAISAGEM E IMPRESSÃO ---
+                    worksheet.set_landscape()  # Define orientação Paisagem
+                    worksheet.set_paper(9)      # Define papel A4 (código 9 no xlsxwriter)
+                    worksheet.set_margins(0.5, 0.5, 0.5, 0.5) # Margens estreitas
+                    worksheet.fit_to_pages(1, 0) # Ajusta largura para caber em 1 página
+                    
                     # Formatos
-                    wrap_format = workbook.add_format({'text_wrap': True, 'vertical': 'top'})
-                    header_format = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1})
+                    wrap_format = workbook.add_format({'text_wrap': True, 'vertical': 'top', 'border': 1})
+                    header_format = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1, 'align': 'center'})
 
-                    # Ajuste de Colunas
+                    # Ajuste de Colunas para Paisagem
                     worksheet.set_column('A:A', 8)  # Turma
                     worksheet.set_column('B:B', 25) # Aluno
-                    worksheet.set_column('C:C', 10) # Periodo
-                    worksheet.set_column('D:D', 25) # Disciplina / Prof.
-                    worksheet.set_column('E:E', 20) # Tipo_Registro
-                    worksheet.set_column('F:F', 50, wrap_format) # Descrição_Detalhada com Wrap
+                    worksheet.set_column('C:C', 12) # Periodo
+                    worksheet.set_column('D:D', 30) # Disciplina / Prof.
+                    worksheet.set_column('E:E', 25) # Tipo_Registro
+                    worksheet.set_column('F:F', 60, wrap_format) # Descrição_Detalhada
 
-                    # Aplicar formato de quebra de linha em toda a coluna de Descrição_Detalhada
-                    for row_num in range(1, len(df_exibicao_viz) + 1):
-                        worksheet.write(row_num, 5, df_exibicao_viz.iloc[row_num-1]['Descrição_Detalhada'], wrap_format)
+                    # Reaplica o cabeçalho com formato
+                    for col_num, value in enumerate(df_exibicao_viz.columns.values):
+                        worksheet.write(0, col_num, value, header_format)
 
                 processed_data = output.getvalue()
 
                 st.download_button(
-                    label="📥 Baixar Relatório em Excel",
+                    label="📥 Baixar Relatório em Excel (Orientação Paisagem)",
                     data=processed_data,
                     file_name=f'Relatorio_Escola_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx',
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
