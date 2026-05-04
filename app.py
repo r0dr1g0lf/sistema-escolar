@@ -310,6 +310,11 @@ else:
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                     df_exibicao_viz.to_excel(writer, index=False, sheet_name='Relatorio')
+                    worksheet = writer.sheets['Relatorio']
+                    for idx, col in enumerate(df_exibicao_viz.columns):
+                        series = df_exibicao_viz[col]
+                        max_len = max(series.astype(str).map(len).max(), len(str(col))) + 2
+                        worksheet.set_column(idx, idx, max_len)
                 processed_data = output.getvalue()
 
                 st.download_button(
