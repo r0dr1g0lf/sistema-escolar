@@ -1,0 +1,14 @@
+name: Manter Sistema Escolar Vivo
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  acordar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Realizar requisição ao Streamlit
+        run: |
+          curl -L -f "https://sistema-escolar-txhtn3fafzfxkrk7cx7zjn.streamlit.app/" -A "Mozilla/5.0 GitHubAction"
