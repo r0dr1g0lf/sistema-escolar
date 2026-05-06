@@ -129,8 +129,10 @@ else:
         if users_on:
             st.sidebar.markdown("---")
             st.sidebar.markdown("🟢 **Usuários Online**")
+            hoje_data = datetime.now().strftime("%d/%m/%Y")
             for u in users_on:
-                st.sidebar.caption(f"👤 {u['Usuario']}")
+                if u['Ultimo_Acesso'].startswith(hoje_data):
+                    st.sidebar.caption(f"👤 {u['Usuario']}")
     except:
         pass
 
