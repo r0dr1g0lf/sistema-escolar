@@ -391,7 +391,7 @@ else:
                     if not df_oc.empty:
                         colunas_df = df_oc.columns.tolist()
                         
-                        col_fo1, col_fo2 = st.columns(2)
+                        col_fo1, col_fo2, col_fo3 = st.columns(3)
                         with col_fo1:
                             col_bim_oc = colunas_df[5]
                             lista_bimestres_oc = ["Todos"] + sorted(df_oc[col_bim_oc].unique().astype(str).tolist())
@@ -406,6 +406,11 @@ else:
                                 opcoes_turmas_oc = sorted([t.strip() for t in turmas_vinc if t.strip()])
                             turma_filtro_oc = st.multiselect("Filtrar por Turma (Ocorrências)", opcoes_turmas_oc)
 
+                        with col_fo3:
+                            col_disc_oc = colunas_df[4]
+                            opcoes_disciplinas_oc = sorted(df_oc[col_disc_oc].unique().astype(str).tolist())
+                            disciplina_filtro_oc = st.multiselect("Filtrar por Disciplina (Ocorrências)", opcoes_disciplinas_oc)
+
                         df_oc_filtrado = df_oc.copy()
                         if bim_filtro_oc != "Todos":
                             df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_bim_oc].astype(str) == bim_filtro_oc]
@@ -415,10 +420,13 @@ else:
                             if st.session_state.user_data['Usuario'] not in ["admin", "rodrigo"]:
                                 turmas_vinc = [t.strip() for t in str(st.session_state.user_data.get('Turmas', "")).split(", ") if t.strip()]
                                 df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_turma_oc].astype(str).isin(turmas_vinc)]
+                        
+                        if disciplina_filtro_oc:
+                            df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_disc_oc].astype(str).isin(disciplina_filtro_oc)]
 
                         mapeamento_oc = {
                             colunas_df[2]: "Turma",
-                            colunas_df[3]: "Aluno",
+                            colunas_df[3]: "Alunos",
                             colunas_df[5]: "Periodo",
                             colunas_df[4]: "Disciplina",
                             colunas_df[1]: "Professor",
@@ -427,9 +435,9 @@ else:
                         }
                         
                         df_ex_oc = df_oc_filtrado.rename(columns=mapeamento_oc)
-                        df_ex_oc = df_ex_oc.sort_values(by=["Periodo", "Turma", "Aluno"])
+                        df_ex_oc = df_ex_oc.sort_values(by=["Periodo", "Turma", "Alunos"])
                         
-                        ordem_oc = ["Turma", "Aluno", "Periodo", "Disciplina", "Professor", "Tipo_Ocorrência", "Detalhes"]
+                        ordem_oc = ["Turma", "Alunos", "Periodo", "Disciplina", "Professor", "Tipo_Ocorrência", "Detalhes"]
                         st.dataframe(df_ex_oc[ordem_oc], use_container_width=True, hide_index=True)
 
                         output_oc = io.BytesIO()
