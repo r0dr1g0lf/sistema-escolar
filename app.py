@@ -146,6 +146,10 @@ else:
         st.session_state.pagina = "VisualizarRegistros"
         st.rerun()
 
+    if st.sidebar.button("Ocorrências", key="btn_ocorrencias_nav", use_container_width=True):
+        st.session_state.pagina = "Ocorrencias"
+        st.rerun()
+
     if st.session_state.user_data['Usuario'] not in ["admin", "rodrigo"]:
         if st.sidebar.button("Segurança", key="btn_seguranca", use_container_width=True):
             st.session_state.pagina = "Segurança"
@@ -273,6 +277,91 @@ else:
                         placeholder_sucesso.success(f"✅ Sucesso! Registro salvo.")
                         time.sleep(3)
                         placeholder_sucesso.empty()
+                except Exception as e:
+                    st.error(f"Erro ao salvar: {e}")
+
+    elif st.session_state.pagina == "Ocorrencias":
+        st.title("🚨 Registro de Ocorrências")
+        
+        hoje = datetime.now().date()
+        bimestres_disponiveis = []
+        if not df_periodos.empty:
+            for _, row in df_periodos.iterrows():
+                try:
+                    inicio = datetime.strptime(str(row['Inicio']), "%d/%m/%Y").date()
+                    fim = datetime.strptime(str(row['Fim']), "%d/%m/%Y").date()
+                    if inicio <= hoje <= fim:
+                        bimestres_disponiveis.append(row['Bimestre'])
+                except:
+                    continue
+
+        if not bimestres_disponiveis:
+            st.warning("🏮 O período de lançamentos está fechado ou não configurado.")
+            bimestre_ativo = "Bloqueado"
+        else:
+            bimestre_ativo = bimestres_disponiveis[0] if len(bimestres_disponiveis) == 1 else st.selectbox("Selecione o Bimestre:", bimestres_disponiveis)
+
+        if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
+            todas_turmas = sorted(df_alunos['Turma'].unique().astype(str))
+        else:
+            turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
+            todas_turmas = sorted([t.strip() for t in turmas_vinc if t.strip()])
+            
+        col_o1, col_o2 = st.columns([1, 4])
+        with col_o1:
+            turma_sel = st.selectbox("1. Turma", todas_turmas, key="turma_oc")
+        with col_o2:
+            alunos_da_turma = df_alunos[df_alunos['Turma'].astype(str) == turma_sel]['Nome_Aluno'].tolist()
+            aluno_sel = st.selectbox("2. Aluno", sorted(alunos_da_turma), key="aluno_oc")
+
+        with st.form("form_ocorrencia", clear_on_submit=True):
+            if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
+                if not df_discs.empty:
+                    disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
+                else:
+                    disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
+            else:
+                discs_vinc = str(st.session_state.user_data.get('Disciplinas', "")).split(", ")
+                disciplina_opcoes = sorted([d.strip() for d in discs_vinc if d.strip()])
+                
+            disciplina = st.selectbox("Disciplina", disciplina_opcoes, key="disc_oc")
+            periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True, key="bim_oc")
+            
+            opcoes_ocorrencias = [
+                "Agrediu o colega verbalmente", 
+                "Agrediu o colega fisicamente", 
+                "Agrediu o professor verbalmente", 
+                "Agrediu o professor fisicamente", 
+                "Não trouxe o livro"
+            ]
+            
+            selecao_oc = st.multiselect("Selecione as ocorrências", opcoes_ocorrencias)
+            obs_oc = st.text_area("Observações detalhadas")
+            
+            btn_salvar_oc = st.form_submit_button("GRAVAR OCORRÊNCIA", disabled=(bimestre_ativo == "Bloqueado"))
+
+        if btn_salvar_oc:
+            if not selecao_oc:
+                st.error("Selecione pelo menos uma ocorrência.")
+            else:
+                try:
+                    sh = conectar_google_sheets()
+                    wks = sh.worksheet("Registros_Ocorrencias")
+                    tipo_formatado = ", ".join(selecao_oc)
+                    nova_linha = [
+                        datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                        prof_nome,
+                        turma_sel,
+                        aluno_sel,
+                        disciplina,
+                        periodo,
+                        f"OCORRÊNCIA: {tipo_formatado}",
+                        obs_oc
+                    ]
+                    wks.append_row(nova_linha)
+                    st.success("✅ Ocorrência gravada com sucesso!")
+                    time.sleep(2)
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
 
