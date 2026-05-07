@@ -414,12 +414,13 @@ else:
                         df_oc_filtrado = df_oc.copy()
                         if bim_filtro_oc != "Todos":
                             df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_bim_oc].astype(str) == bim_filtro_oc]
+                        
+                        if st.session_state.user_data['Usuario'] not in ["admin", "rodrigo"]:
+                            turmas_usuario = [t.strip() for t in str(st.session_state.user_data.get('Turmas', "")).split(", ") if t.strip()]
+                            df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_turma_oc].astype(str).isin(turmas_usuario)]
+                            
                         if turma_filtro_oc:
                             df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_turma_oc].astype(str).isin(turma_filtro_oc)]
-                        else:
-                            if st.session_state.user_data['Usuario'] not in ["admin", "rodrigo"]:
-                                turmas_vinc = [t.strip() for t in str(st.session_state.user_data.get('Turmas', "")).split(", ") if t.strip()]
-                                df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_turma_oc].astype(str).isin(turmas_vinc)]
                         
                         if disciplina_filtro_oc:
                             df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_disc_oc].astype(str).isin(disciplina_filtro_oc)]
@@ -463,12 +464,17 @@ else:
 
                         st.divider()
                         st.subheader("📝 Editar ou 🗑️ Excluir Ocorrências")
-                        df_edit_oc_propria = df_oc_filtrado[df_oc_filtrado['Professor'] == prof_nome] if st.session_state.user_data['Usuario'] not in ["admin", "rodrigo"] else df_oc_filtrado
+                        
+                        if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
+                            df_edit_oc_propria = df_oc_filtrado
+                        else:
+                            discs_usuario = [d.strip().lower() for d in str(st.session_state.user_data.get('Disciplinas', "")).split(", ") if d.strip()]
+                            df_edit_oc_propria = df_oc_filtrado[df_oc_filtrado[colunas_df[4]].astype(str).str.lower().isin(discs_usuario)]
                         
                         if not df_edit_oc_propria.empty:
                             col_data_oc = colunas_df[0]
-                            opcoes_edit_oc = {f"{row[col_data_oc]} - {row[colunas_df[3]]}": row['ID_Original'] for _, row in df_edit_oc_propria.iterrows()}
-                            selecionado_oc_edit = st.selectbox("Selecione a ocorrência para gerenciar", [""] + list(opcoes_edit_oc.keys()))
+                            opcoes_edit_oc = {f"{row[col_data_oc]} - {row[colunas_df[3]]} ({row[colunas_df[4]]})": row['ID_Original'] for _, row in df_edit_oc_propria.iterrows()}
+                            selecionado_oc_edit = st.selectbox("Selecione a ocorrência para gerenciar (Apenas suas disciplinas)", [""] + list(opcoes_edit_oc.keys()))
                             
                             if selecionado_oc_edit != "":
                                 linha_idx_oc = opcoes_edit_oc[selecionado_oc_edit]
@@ -517,7 +523,7 @@ else:
                                         except Exception as e:
                                             st.error(f"Erro ao excluir: {e}")
                         else:
-                            st.info("Nenhuma ocorrência disponível para gerenciar.")
+                            st.info("Nenhuma ocorrência de suas disciplinas disponível para editar ou excluir.")
 
                     else:
                         st.info("Nenhuma ocorrência encontrada.")
@@ -648,11 +654,15 @@ else:
                 
                 with col_exc1:
                     st.markdown("**Gerenciar registro individual**")
-                    df_edit_proprio = df_filtrado[df_filtrado['Professor'] == prof_nome] if st.session_state.user_data['Usuario'] not in ["admin", "rodrigo"] else df_filtrado
+                    if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
+                        df_edit_proprio = df_filtrado
+                    else:
+                        discs_usuario_reg = [d.strip().lower() for d in str(st.session_state.user_data.get('Disciplinas', "")).split(", ") if d.strip()]
+                        df_edit_proprio = df_filtrado[df_filtrado[colunas_df[4]].astype(str).str.lower().isin(discs_usuario_reg)]
                     
                     if not df_edit_proprio.empty:
-                        opcoes_edit = {f"{row[col_data]} - {row[colunas_df[3]]}": row['ID_Original'] for _, row in df_edit_proprio.iterrows()}
-                        selecionado_para_edit = st.selectbox("Selecione o registro para modificar", [""] + list(opcoes_edit.keys()))
+                        opcoes_edit = {f"{row[col_data]} - {row[colunas_df[3]]} ({row[colunas_df[4]]})": row['ID_Original'] for _, row in df_edit_proprio.iterrows()}
+                        selecionado_para_edit = st.selectbox("Selecione o registro para modificar (Apenas suas disciplinas)", [""] + list(opcoes_edit.keys()))
                         
                         if selecionado_para_edit != "":
                             linha_idx = opcoes_edit[selecionado_para_edit]
@@ -709,7 +719,7 @@ else:
                                     except Exception as e:
                                         st.error(f"Erro ao excluir: {e}")
                     else:
-                        st.info("Nenhum registro disponível para gerenciar no filtro atual.")
+                        st.info("Nenhum registro de suas disciplinas disponível para gerenciar no filtro atual.")
 
                 with col_exc2:
                     if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
