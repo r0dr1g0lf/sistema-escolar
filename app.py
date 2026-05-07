@@ -327,6 +327,9 @@ else:
             disciplina = st.selectbox("Disciplina", disciplina_opcoes, key="disc_oc")
             periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True, key="bim_oc")
             
+            data_ocorrido = st.date_input("Data do ocorrido", value=datetime.now().date())
+            tempo_aula = st.selectbox("Tempo de aula", ["1º tempo", "2º tempo", "3º tempo", "4º tempo"])
+            
             opcoes_ocorrencias = [
                 "Agrediu o colega verbalmente", 
                 "Agrediu o colega fisicamente", 
@@ -348,6 +351,7 @@ else:
                     sh = conectar_google_sheets()
                     wks = sh.worksheet("Registros_Ocorrencias")
                     tipo_formatado = ", ".join(selecao_oc)
+                    detalhes_extras = f"DATA: {data_ocorrido.strftime('%d/%m/%Y')} | TEMPO: {tempo_aula} | {obs_oc}"
                     nova_linha = [
                         datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
                         prof_nome,
@@ -356,7 +360,7 @@ else:
                         disciplina,
                         periodo,
                         f"OCORRÊNCIA: {tipo_formatado}",
-                        obs_oc
+                        detalhes_extras
                     ]
                     wks.append_row(nova_linha)
                     st.success("✅ Ocorrência gravada com sucesso!")
@@ -1062,7 +1066,7 @@ else:
                         celula = wks_p.find(str(user_alvo))
                         wks_p.update_cell(celula.row, 3, str(nova_senha_input))
                         with col_senha2:
-                            st.success(f"✅ Senha de {user_alvo} atualizada!")
+                            st.success(f"✅ Senha de {user_alvo} updated!")
                         st.cache_data.clear()
                     except Exception as e:
                         st.error(f"Erro ao atualizar: {e}")
