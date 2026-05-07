@@ -281,11 +281,10 @@ else:
                     st.error(f"Erro ao salvar: {e}")
 
     elif st.session_state.pagina == "Ocorrencias":
+        st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
         with tab_oc1:
-            st.title("🚨 Registro de Ocorrências")
-            
             hoje = datetime.now().date()
             bimestres_disponiveis = []
             if not df_periodos.empty:
@@ -379,7 +378,6 @@ else:
                         st.error(f"Erro ao salvar: {e}")
 
         with tab_oc2:
-            st.title("📋 Ocorrências Registradas")
             try:
                 sh = conectar_google_sheets()
                 wks_reg = sh.worksheet("Registros_Ocorrencias")
