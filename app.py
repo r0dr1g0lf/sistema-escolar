@@ -341,7 +341,13 @@ else:
             selecao_oc = st.multiselect("Selecione as ocorrências", opcoes_ocorrencias)
             obs_oc = st.text_area("Observações detalhadas")
             
-            btn_salvar_oc = st.form_submit_button("GRAVAR OCORRÊNCIA", disabled=(bimestre_ativo == "Bloqueado"))
+            col_b_oc1, col_b_oc2, col_b_oc3 = st.columns([1, 1, 1])
+            with col_b_oc1:
+                btn_salvar_oc = st.form_submit_button("GRAVAR OCORRÊNCIA", disabled=(bimestre_ativo == "Bloqueado"))
+            with col_b_oc2:
+                btn_editar_oc = st.form_submit_button("EDITAR SELECIONADA", disabled=(bimestre_ativo == "Bloqueado"))
+            with col_b_oc3:
+                btn_excluir_oc = st.form_submit_button("EXCLUIR SELECIONADA", disabled=(bimestre_ativo == "Bloqueado"))
 
         if btn_salvar_oc:
             if not selecao_oc:
@@ -368,6 +374,9 @@ else:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
+
+        if btn_editar_oc or btn_excluir_oc:
+            st.info("Para editar ou excluir, utilize a aba 'Registros' no menu lateral, onde é possível filtrar por aluno e gerenciar cada lançamento individualmente.")
 
     elif st.session_state.pagina == "VisualizarRegistros":
         st.title("📋 Registros Realizados")
@@ -1066,7 +1075,7 @@ else:
                         celula = wks_p.find(str(user_alvo))
                         wks_p.update_cell(celula.row, 3, str(nova_senha_input))
                         with col_senha2:
-                            st.success(f"✅ Senha de {user_alvo} updated!")
+                            st.success(f"✅ Senha de {user_alvo} atualizada!")
                         st.cache_data.clear()
                     except Exception as e:
                         st.error(f"Erro ao atualizar: {e}")
@@ -1089,7 +1098,7 @@ else:
                         try:
                             wks_per = sh.worksheet("Config_Periodos")
                         except:
-                            wks_per = st.add_worksheet(title="Config_Periodos", rows="10", cols="3")
+                            wks_per = sh.add_worksheet(title="Config_Periodos", rows="10", cols="3")
                             wks_per.append_row(["Bimestre", "Inicio", "Fim"])
                         
                         data_per = wks_per.get_all_values()
