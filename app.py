@@ -338,7 +338,13 @@ else:
                     "Agrediu o colega fisicamente", 
                     "Agrediu o professor verbalmente", 
                     "Agrediu o professor fisicamente", 
-                    "Não trouxe o livro"
+                    "Não trouxe o livro",
+                    "Dormiu em sala", 
+                    "Usou o celular em sala", 
+                    "Não fez a tarefa em sala", 
+                    "Não fez a tarefa em casa", 
+                    "Não trouxe o material", 
+                    "Excesso de faltas"
                 ]
                 
                 selecao_oc = st.multiselect("Selecione as ocorrências", opcoes_ocorrencias)
