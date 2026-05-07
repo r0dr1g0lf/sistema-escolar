@@ -228,13 +228,13 @@ else:
             else:
                 opcoes_desempenho = ["Reprovado", "Aprovado após recuperação", "Ponto de atenção"]
             
-            desempenho_escolha = st.radio("Desempenho do aluno", opcoes_desempenho, horizontal=True)
+            desempenho_escolha = st.radio("Desempenho do aluno", options=opcoes_desempenho, horizontal=True)
             
             opcoes_valores_atitudes = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho"]
             if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
                 opcoes_valores_atitudes.append("Não fez o questionário participativo")
                 
-            tipo_selecao = st.multiselect("Valores e atitudes", opcoes_valores_atitudes)
+            tipo_selecao = st.multiselect("Valores e atitudes", options=opcoes_valores_atitudes)
             obs = st.text_area("Observações")
             
             col_salvar, col_mensagem = st.columns([1, 2])
@@ -329,7 +329,7 @@ else:
                 disciplina = st.selectbox("Disciplina", disciplina_opcoes, key="disc_oc")
                 periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True, key="bim_oc")
                 
-                data_ocorrido = st.date_input("Data do ocorrido", value=datetime.now().date())
+                data_ocorrido = st.date_input("Data do ocorrido", value=datetime.now().date(), format="DD/MM/YYYY")
                 tempo_aula = st.selectbox("Tempo de aula", ["1º tempo", "2º tempo", "3º tempo", "4º tempo"])
                 
                 opcoes_ocorrencias = [
@@ -346,7 +346,7 @@ else:
                     "Excesso de faltas"
                 ]
                 
-                selecao_oc = st.multiselect("Selecione as ocorrências", opcoes_ocorrencias)
+                selecao_oc = st.multiselect("Selecione as ocorrências", options=opcoes_ocorrencias)
                 obs_oc = st.text_area("Observações detalhadas")
                 
                 btn_salvar_oc = st.form_submit_button("GRAVAR OCORRÊNCIA", disabled=(bimestre_ativo == "Bloqueado"))
@@ -404,12 +404,12 @@ else:
                             else:
                                 turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
                                 opcoes_turmas_oc = sorted([t.strip() for t in turmas_vinc if t.strip()])
-                            turma_filtro_oc = st.multiselect("Filtrar por Turma (Ocorrências)", opcoes_turmas_oc)
+                            turma_filtro_oc = st.multiselect("Filtrar por Turma (Ocorrências)", options=opcoes_turmas_oc)
 
                         with col_fo3:
                             col_disc_oc = colunas_df[4]
                             opcoes_disciplinas_oc = sorted(df_oc[col_disc_oc].unique().astype(str).tolist())
-                            disciplina_filtro_oc = st.multiselect("Filtrar por Disciplina (Ocorrências)", opcoes_disciplinas_oc)
+                            disciplina_filtro_oc = st.multiselect("Filtrar por Disciplina (Ocorrências)", options=opcoes_disciplinas_oc)
 
                         df_oc_filtrado = df_oc.copy()
                         if bim_filtro_oc != "Todos":
@@ -512,7 +512,7 @@ else:
                                         "Não trouxe o material", "Excesso de faltas"
                                     ]
                                     
-                                    edit_selecao_oc = st.multiselect("Selecione as ocorrências", opcoes_oc_edit, default=[i for i in lista_oc_atual if i in opcoes_oc_edit])
+                                    edit_selecao_oc = st.multiselect("Selecione as ocorrências", options=opcoes_oc_edit, default=[i for i in lista_oc_atual if i in opcoes_oc_edit])
                                     edit_detalhes_oc = st.text_area("Detalhes (Data/Tempo/Obs)", value=dados_oc_edit[colunas_df[7]])
                                     
                                     col_at_oc1, col_at_oc2 = st.columns(2)
@@ -576,12 +576,12 @@ else:
                     else:
                         turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
                         opcoes_turmas_reg = sorted([t.strip() for t in turmas_vinc if t.strip()])
-                    turma_filtro = st.multiselect("Filtrar por Turma", opcoes_turmas_reg, default=[])
+                    turma_filtro = st.multiselect("Filtrar por Turma", options=opcoes_turmas_reg, default=[])
 
                 with col_f3:
                     col_disc_data = colunas_df[4]
                     opcoes_disciplinas_reg = sorted(df_reg[col_disc_data].unique().astype(str).tolist())
-                    disciplina_filtro = st.multiselect("Filtrar por Disciplina", opcoes_disciplinas_reg, default=[])
+                    disciplina_filtro = st.multiselect("Filtrar por Disciplina", options=opcoes_disciplinas_reg, default=[])
                 
                 df_reg['ID_Original'] = range(2, len(df_reg) + 2)
                 df_filtrado = df_reg.copy()
@@ -697,14 +697,14 @@ else:
                                     opcoes_radio = ["Reprovado", "Aprovado após recuperação", "Ponto de atenção"]
                                 
                                 desemp_atual = next((i for i in itens_atuais if i in opcoes_radio), None)
-                                edit_desempenho = st.radio("Desempenho", opcoes_radio, index=opcoes_radio.index(desemp_atual) if desemp_atual else 0, horizontal=True)
+                                edit_desempenho = st.radio("Desempenho", options=opcoes_radio, index=opcoes_radio.index(desemp_atual) if desemp_atual else 0, horizontal=True)
                                 
                                 opcoes_multi = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho"]
                                 if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
                                     opcoes_multi.append("Não fez o questionário participativo")
                                     
                                 itens_multi_atuais = [i for i in itens_atuais if i in opcoes_multi]
-                                edit_tipo_selecao = st.multiselect("Valores e atitudes", opcoes_multi, default=itens_multi_atuais)
+                                edit_tipo_selecao = st.multiselect("Valores e atitudes", options=opcoes_multi, default=itens_multi_atuais)
                                 edit_obs = st.text_area("Observações", value=dados_reg_edit[colunas_df[7]])
                                 
                                 col_at1, col_at2 = st.columns(2)
@@ -1067,12 +1067,12 @@ else:
                 novo_usuario = st.text_input("Nome de Usuário (Login)")
                 nova_senha = st.text_input("Senha", type="password", help="Opcional")
                 todas_turmas_disp = sorted(df_alunos['Turma'].unique().astype(str))
-                turmas_vinculo = st.multiselect("Vincular Turmas", todas_turmas_disp)
+                turmas_vinculo = st.multiselect("Vincular Turmas", options=todas_turmas_disp)
                 if not df_discs.empty:
                     disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
                 else:
                     disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
-                disciplinas_vinculo = st.multiselect("Vincular Disciplinas", disciplina_opcoes)
+                disciplinas_vinculo = st.multiselect("Vincular Disciplinas", options=disciplina_opcoes)
                 col_btn_salvar, col_msg_salvar = st.columns([1, 2])
                 with col_btn_salvar:
                     btn_salvar_prof = st.form_submit_button("Salvar Professor")
@@ -1116,13 +1116,13 @@ else:
                     edit_login = st.text_input("Alterar Login (Usuário)", value=dados_atuais['Usuario'])
                     todas_turmas_disp = sorted(df_alunos['Turma'].unique().astype(str))
                     turmas_atuais = str(dados_atuais.get('Turmas', "")).split(", ") if dados_atuais.get('Turmas') else []
-                    edit_turmas = st.multiselect("Alterar Turmas", todas_turmas_disp, default=[t for t in turmas_atuais if t in todas_turmas_disp])
+                    edit_turmas = st.multiselect("Alterar Turmas", options=todas_turmas_disp, default=[t for t in turmas_atuais if t in todas_turmas_disp])
                     if not df_discs.empty:
                         disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
                     else:
                         disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
                     disciplinas_atuais = str(dados_atuais.get('Disciplinas', "")).split(", ") if dados_atuais.get('Disciplinas') else []
-                    edit_disciplinas = st.multiselect("Alterar Disciplinas", disciplina_opcoes, default=[d for d in disciplinas_atuais if d in disciplina_opcoes])
+                    edit_disciplinas = st.multiselect("Alterar Disciplinas", options=disciplina_opcoes, default=[d for d in disciplinas_atuais if d in disciplina_opcoes])
                     col_btn1, col_btn_msg, col_btn2 = st.columns([1, 2, 1])
                     with col_btn1:
                         btn_update = st.form_submit_button("SALVAR ALTERAÇÕES")
