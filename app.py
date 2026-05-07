@@ -147,7 +147,7 @@ else:
         st.rerun()
 
     if st.sidebar.button("Ocorrências", key="btn_ocorrencias_nav", use_container_width=True):
-        st.session_state.pagina = "Ocorrencias"
+        st.session_state.pagina = "Ocorrencias_Menu"
         st.rerun()
 
     if st.session_state.user_data['Usuario'] not in ["admin", "rodrigo"]:
@@ -279,6 +279,18 @@ else:
                         placeholder_sucesso.empty()
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
+
+    elif st.session_state.pagina == "Ocorrencias_Menu":
+        st.title("🚨 Ocorrências")
+        col_oc1, col_oc2 = st.columns(2)
+        with col_oc1:
+            if st.button("➕ Novo registro", use_container_width=True):
+                st.session_state.pagina = "Ocorrencias"
+                st.rerun()
+        with col_oc2:
+            if st.button("👁️ Visualizar registro", use_container_width=True):
+                st.session_state.pagina = "VisualizarRegistros"
+                st.rerun()
 
     elif st.session_state.pagina == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
