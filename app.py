@@ -425,20 +425,38 @@ else:
                         if disciplina_filtro_oc:
                             df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_disc_oc].astype(str).isin(disciplina_filtro_oc)]
 
+                        def extrair_data_tempo(detalhes):
+                            try:
+                                data_parte = detalhes.split("DATA: ")[1].split(" | ")[0]
+                                tempo_parte = detalhes.split("TEMPO: ")[1].split(" | ")[0]
+                                return f"{data_parte} - {tempo_parte}"
+                            except:
+                                return ""
+
+                        def extrair_obs_limpa(detalhes):
+                            try:
+                                return detalhes.split(" | ")[2] if len(detalhes.split(" | ")) > 2 else detalhes
+                            except:
+                                return detalhes
+
+                        df_oc_filtrado['Data/Tempo'] = df_oc_filtrado[colunas_df[7]].apply(extrair_data_tempo)
+                        df_oc_filtrado['Detalhes_Limpo'] = df_oc_filtrado[colunas_df[7]].apply(extrair_obs_limpa)
+
                         mapeamento_oc = {
+                            'Data/Tempo': 'Data/Tempo',
                             colunas_df[2]: "Turma",
                             colunas_df[3]: "Alunos",
                             colunas_df[5]: "Periodo",
                             colunas_df[4]: "Disciplina",
                             colunas_df[1]: "Professor",
                             colunas_df[6]: "Tipo_Ocorrência",
-                            colunas_df[7]: "Detalhes"
+                            'Detalhes_Limpo': "Observações"
                         }
                         
                         df_ex_oc = df_oc_filtrado.rename(columns=mapeamento_oc)
                         df_ex_oc = df_ex_oc.sort_values(by=["Periodo", "Turma", "Alunos"])
                         
-                        ordem_oc = ["Turma", "Alunos", "Periodo", "Disciplina", "Professor", "Tipo_Ocorrência", "Detalhes"]
+                        ordem_oc = ["Data/Tempo", "Turma", "Alunos", "Periodo", "Disciplina", "Professor", "Tipo_Ocorrência", "Observações"]
                         st.dataframe(df_ex_oc[ordem_oc], use_container_width=True, hide_index=True)
 
                         output_oc = io.BytesIO()
@@ -451,8 +469,8 @@ else:
                             wrap_format = workbook.add_format({'text_wrap': True, 'border': 1})
                             for col_num, value in enumerate(df_ex_oc[ordem_oc].columns.values):
                                 worksheet.write(0, col_num, value, header_format)
-                            worksheet.set_column('A:E', 15, wrap_format)
-                            worksheet.set_column('F:G', 40, wrap_format)
+                            worksheet.set_column('A:F', 15, wrap_format)
+                            worksheet.set_column('G:H', 40, wrap_format)
 
                         st.download_button(
                             label="📥 Baixar Relatório de Ocorrências",
