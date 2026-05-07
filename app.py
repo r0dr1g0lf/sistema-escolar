@@ -147,7 +147,11 @@ else:
         st.rerun()
 
     if st.sidebar.button("Ocorrências", key="btn_ocorrencias_nav", use_container_width=True):
-        st.session_state.pagina = "Ocorrencias_Menu"
+        st.session_state.pagina = "Ocorrencias"
+        st.rerun()
+        
+    if st.sidebar.button("Visualizar Ocorrências", key="btn_ver_ocorrencias", use_container_width=True):
+        st.session_state.pagina = "VisualizarOcorrencias"
         st.rerun()
 
     if st.session_state.user_data['Usuario'] not in ["admin", "rodrigo"]:
@@ -280,18 +284,6 @@ else:
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
 
-    elif st.session_state.pagina == "Ocorrencias_Menu":
-        st.title("🚨 Ocorrências")
-        col_oc1, col_oc2 = st.columns(2)
-        with col_oc1:
-            if st.button("➕ Novo registro", use_container_width=True):
-                st.session_state.pagina = "Ocorrencias"
-                st.rerun()
-        with col_oc2:
-            if st.button("👁️ Visualizar registro", use_container_width=True):
-                st.session_state.pagina = "VisualizarRegistros"
-                st.rerun()
-
     elif st.session_state.pagina == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
         
@@ -382,7 +374,7 @@ else:
                     st.error(f"Erro ao salvar: {e}")
 
     elif st.session_state.pagina == "VisualizarRegistros":
-        st.title("📋 Registros Realizados")
+        st.title("📋 Registros de Desempenho Realizados")
         try:
             sh = conectar_google_sheets()
             wks_reg = sh.worksheet("Registros_Ocorrencias")
@@ -390,6 +382,9 @@ else:
             
             if len(dados_brutos) > 1:
                 df_reg = pd.DataFrame(dados_brutos[1:], columns=dados_brutos[0])
+                # Filtrar para exibir apenas os que NÃO são ocorrências
+                df_reg = df_reg[~df_reg[df_reg.columns[6]].astype(str).str.contains("OCORRÊNCIA:", na=False)]
+                
                 colunas_df = df_reg.columns.tolist()
                 
                 col_f1, col_f2, col_f3 = st.columns(3)
@@ -488,15 +483,15 @@ else:
                 processed_data = output.getvalue()
 
                 st.download_button(
-                    label="📥 Baixar Relatório em Excel (A4 Paisagem)",
+                    label="📥 Baixar Relatório de Desempenho (A4 Paisagem)",
                     data=processed_data,
-                    file_name=f'Relatorio_Escola_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx',
+                    file_name=f'Relatorio_Desempenho_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx',
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     use_container_width=True
                 )
 
                 st.divider()
-                st.subheader("📝 Editar ou 🗑️ Excluir Registros")
+                st.subheader("📝 Editar ou 🗑️ Excluir Registros de Desempenho")
                 
                 col_exc1, col_exc2 = st.columns(2)
                 
@@ -550,6 +545,7 @@ else:
                                         itens_finais_edit.extend(edit_tipo_selecao)
                                         tipo_formatado_edit = ", ".join(itens_finais_edit)
                                         
+                                        # Recalcular índice exato na planilha original baseada no ID_Original
                                         wks_reg.update_cell(linha_idx, 7, tipo_formatado_edit)
                                         wks_reg.update_cell(linha_idx, 8, edit_obs)
                                         st.success("Registro atualizado!")
@@ -604,6 +600,89 @@ else:
                 st.info("Nenhum registro encontrado na planilha.")
         except Exception as e:
             st.error(f"Erro ao carregar registros: {e}")
+
+    elif st.session_state.pagina == "VisualizarOcorrencias":
+        st.title("📋 Ocorrências Registradas")
+        try:
+            sh = conectar_google_sheets()
+            wks_reg = sh.worksheet("Registros_Ocorrencias")
+            dados_brutos = wks_reg.get_all_values()
+            
+            if len(dados_brutos) > 1:
+                df_full = pd.DataFrame(dados_brutos[1:], columns=dados_brutos[0])
+                # Filtrar para exibir apenas os que SÃO ocorrências
+                df_oc = df_full[df_full[df_full.columns[6]].astype(str).str.contains("OCORRÊNCIA:", na=False)]
+                
+                if not df_oc.empty:
+                    colunas_df = df_oc.columns.tolist()
+                    
+                    col_fo1, col_fo2 = st.columns(2)
+                    with col_fo1:
+                        col_bim_oc = colunas_df[5]
+                        lista_bimestres_oc = ["Todos"] + sorted(df_oc[col_bim_oc].unique().astype(str).tolist())
+                        bim_filtro_oc = st.selectbox("Filtrar por Bimestre (Ocorrências)", lista_bimestres_oc)
+                    
+                    with col_fo2:
+                        col_turma_oc = colunas_df[2]
+                        if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
+                            opcoes_turmas_oc = sorted(df_oc[col_turma_oc].unique().astype(str).tolist())
+                        else:
+                            turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
+                            opcoes_turmas_oc = sorted([t.strip() for t in turmas_vinc if t.strip()])
+                        turma_filtro_oc = st.multiselect("Filtrar por Turma (Ocorrências)", opcoes_turmas_oc)
+
+                    df_oc_filtrado = df_oc.copy()
+                    if bim_filtro_oc != "Todos":
+                        df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_bim_oc].astype(str) == bim_filtro_oc]
+                    if turma_filtro_oc:
+                        df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_turma_oc].astype(str).isin(turma_filtro_oc)]
+                    else:
+                        if st.session_state.user_data['Usuario'] not in ["admin", "rodrigo"]:
+                            turmas_vinc = [t.strip() for t in str(st.session_state.user_data.get('Turmas', "")).split(", ") if t.strip()]
+                            df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_turma_oc].astype(str).isin(turmas_vinc)]
+
+                    mapeamento_oc = {
+                        colunas_df[2]: "Turma",
+                        colunas_df[3]: "Aluno",
+                        colunas_df[5]: "Periodo",
+                        colunas_df[4]: "Disciplina",
+                        colunas_df[1]: "Professor",
+                        colunas_df[6]: "Tipo_Ocorrência",
+                        colunas_df[7]: "Detalhes"
+                    }
+                    
+                    df_ex_oc = df_oc_filtrado.rename(columns=mapeamento_oc)
+                    df_ex_oc = df_ex_oc.sort_values(by=["Periodo", "Turma", "Aluno"])
+                    
+                    ordem_oc = ["Turma", "Aluno", "Periodo", "Disciplina", "Professor", "Tipo_Ocorrência", "Detalhes"]
+                    st.dataframe(df_ex_oc[ordem_oc], use_container_width=True, hide_index=True)
+
+                    output_oc = io.BytesIO()
+                    with pd.ExcelWriter(output_oc, engine='xlsxwriter') as writer:
+                        df_ex_oc[ordem_oc].to_excel(writer, index=False, sheet_name='Ocorrencias')
+                        workbook = writer.book
+                        worksheet = writer.sheets['Ocorrencias']
+                        worksheet.set_landscape()
+                        header_format = workbook.add_format({'bold': True, 'bg_color': '#F2DCDB', 'border': 1})
+                        wrap_format = workbook.add_format({'text_wrap': True, 'border': 1})
+                        for col_num, value in enumerate(df_ex_oc[ordem_oc].columns.values):
+                            worksheet.write(0, col_num, value, header_format)
+                        worksheet.set_column('A:E', 15, wrap_format)
+                        worksheet.set_column('F:G', 40, wrap_format)
+
+                    st.download_button(
+                        label="📥 Baixar Relatório de Ocorrências",
+                        data=output_oc.getvalue(),
+                        file_name=f'Ocorrencias_{datetime.now().strftime("%Y%m%d")}.xlsx',
+                        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        use_container_width=True
+                    )
+                else:
+                    st.info("Nenhuma ocorrência encontrada.")
+            else:
+                st.info("A planilha de registros está vazia.")
+        except Exception as e:
+            st.error(f"Erro ao carregar ocorrências: {e}")
 
     elif st.session_state.pagina == "Segurança":
         st.title("🔒 Segurança")
