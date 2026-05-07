@@ -149,10 +149,6 @@ else:
     if st.sidebar.button("Ocorrências", key="btn_ocorrencias_nav", use_container_width=True):
         st.session_state.pagina = "Ocorrencias"
         st.rerun()
-        
-    if st.sidebar.button("Visualizar Ocorrências", key="btn_ver_ocorrencias", use_container_width=True):
-        st.session_state.pagina = "VisualizarOcorrencias"
-        st.rerun()
 
     if st.session_state.user_data['Usuario'] not in ["admin", "rodrigo"]:
         if st.sidebar.button("Segurança", key="btn_seguranca", use_container_width=True):
@@ -285,93 +281,178 @@ else:
                     st.error(f"Erro ao salvar: {e}")
 
     elif st.session_state.pagina == "Ocorrencias":
-        st.title("🚨 Registro de Ocorrências")
+        tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
-        hoje = datetime.now().date()
-        bimestres_disponiveis = []
-        if not df_periodos.empty:
-            for _, row in df_periodos.iterrows():
-                try:
-                    inicio = datetime.strptime(str(row['Inicio']), "%d/%m/%Y").date()
-                    fim = datetime.strptime(str(row['Fim']), "%d/%m/%Y").date()
-                    if inicio <= hoje <= fim:
-                        bimestres_disponiveis.append(row['Bimestre'])
-                except:
-                    continue
-
-        if not bimestres_disponiveis:
-            st.warning("🏮 O período de lançamentos está fechado ou não configurado.")
-            bimestre_ativo = "Bloqueado"
-        else:
-            bimestre_ativo = bimestres_disponiveis[0] if len(bimestres_disponiveis) == 1 else st.selectbox("Selecione o Bimestre:", bimestres_disponiveis)
-
-        if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
-            todas_turmas = sorted(df_alunos['Turma'].unique().astype(str))
-        else:
-            turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
-            todas_turmas = sorted([t.strip() for t in turmas_vinc if t.strip()])
+        with tab_oc1:
+            st.title("🚨 Registro de Ocorrências")
             
-        col_o1, col_o2 = st.columns([1, 4])
-        with col_o1:
-            turma_sel = st.selectbox("1. Turma", todas_turmas, key="turma_oc")
-        with col_o2:
-            alunos_da_turma = df_alunos[df_alunos['Turma'].astype(str) == turma_sel]['Nome_Aluno'].tolist()
-            aluno_sel = st.selectbox("2. Aluno", sorted(alunos_da_turma), key="aluno_oc")
+            hoje = datetime.now().date()
+            bimestres_disponiveis = []
+            if not df_periodos.empty:
+                for _, row in df_periodos.iterrows():
+                    try:
+                        inicio = datetime.strptime(str(row['Inicio']), "%d/%m/%Y").date()
+                        fim = datetime.strptime(str(row['Fim']), "%d/%m/%Y").date()
+                        if inicio <= hoje <= fim:
+                            bimestres_disponiveis.append(row['Bimestre'])
+                    except:
+                        continue
 
-        with st.form("form_ocorrencia", clear_on_submit=True):
+            if not bimestres_disponiveis:
+                st.warning("🏮 O período de lançamentos está fechado ou não configurado.")
+                bimestre_ativo = "Bloqueado"
+            else:
+                bimestre_ativo = bimestres_disponiveis[0] if len(bimestres_disponiveis) == 1 else st.selectbox("Selecione o Bimestre:", bimestres_disponiveis)
+
             if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
-                if not df_discs.empty:
-                    disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
-                else:
-                    disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
+                todas_turmas = sorted(df_alunos['Turma'].unique().astype(str))
             else:
-                discs_vinc = str(st.session_state.user_data.get('Disciplinas', "")).split(", ")
-                disciplina_opcoes = sorted([d.strip() for d in discs_vinc if d.strip()])
+                turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
+                todas_turmas = sorted([t.strip() for t in turmas_vinc if t.strip()])
                 
-            disciplina = st.selectbox("Disciplina", disciplina_opcoes, key="disc_oc")
-            periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True, key="bim_oc")
-            
-            data_ocorrido = st.date_input("Data do ocorrido", value=datetime.now().date())
-            tempo_aula = st.selectbox("Tempo de aula", ["1º tempo", "2º tempo", "3º tempo", "4º tempo"])
-            
-            opcoes_ocorrencias = [
-                "Agrediu o colega verbalmente", 
-                "Agrediu o colega fisicamente", 
-                "Agrediu o professor verbalmente", 
-                "Agrediu o professor fisicamente", 
-                "Não trouxe o livro"
-            ]
-            
-            selecao_oc = st.multiselect("Selecione as ocorrências", opcoes_ocorrencias)
-            obs_oc = st.text_area("Observações detalhadas")
-            
-            btn_salvar_oc = st.form_submit_button("GRAVAR OCORRÊNCIA", disabled=(bimestre_ativo == "Bloqueado"))
+            col_o1, col_o2 = st.columns([1, 4])
+            with col_o1:
+                turma_sel = st.selectbox("1. Turma", todas_turmas, key="turma_oc")
+            with col_o2:
+                alunos_da_turma = df_alunos[df_alunos['Turma'].astype(str) == turma_sel]['Nome_Aluno'].tolist()
+                aluno_sel = st.selectbox("2. Aluno", sorted(alunos_da_turma), key="aluno_oc")
 
-        if btn_salvar_oc:
-            if not selecao_oc:
-                st.error("Selecione pelo menos uma ocorrência.")
-            else:
-                try:
-                    sh = conectar_google_sheets()
-                    wks = sh.worksheet("Registros_Ocorrencias")
-                    tipo_formatado = ", ".join(selecao_oc)
-                    detalhes_extras = f"DATA: {data_ocorrido.strftime('%d/%m/%Y')} | TEMPO: {tempo_aula} | {obs_oc}"
-                    nova_linha = [
-                        datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-                        prof_nome,
-                        turma_sel,
-                        aluno_sel,
-                        disciplina,
-                        periodo,
-                        f"OCORRÊNCIA: {tipo_formatado}",
-                        detalhes_extras
-                    ]
-                    wks.append_row(nova_linha)
-                    st.success("✅ Ocorrência gravada com sucesso!")
-                    time.sleep(2)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao salvar: {e}")
+            with st.form("form_ocorrencia", clear_on_submit=True):
+                if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
+                    if not df_discs.empty:
+                        disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
+                    else:
+                        disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
+                else:
+                    discs_vinc = str(st.session_state.user_data.get('Disciplinas', "")).split(", ")
+                    disciplina_opcoes = sorted([d.strip() for d in discs_vinc if d.strip()])
+                    
+                disciplina = st.selectbox("Disciplina", disciplina_opcoes, key="disc_oc")
+                periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True, key="bim_oc")
+                
+                data_ocorrido = st.date_input("Data do ocorrido", value=datetime.now().date())
+                tempo_aula = st.selectbox("Tempo de aula", ["1º tempo", "2º tempo", "3º tempo", "4º tempo"])
+                
+                opcoes_ocorrencias = [
+                    "Agrediu o colega verbalmente", 
+                    "Agrediu o colega fisicamente", 
+                    "Agrediu o professor verbalmente", 
+                    "Agrediu o professor fisicamente", 
+                    "Não trouxe o livro"
+                ]
+                
+                selecao_oc = st.multiselect("Selecione as ocorrências", opcoes_ocorrencias)
+                obs_oc = st.text_area("Observações detalhadas")
+                
+                btn_salvar_oc = st.form_submit_button("GRAVAR OCORRÊNCIA", disabled=(bimestre_ativo == "Bloqueado"))
+
+            if btn_salvar_oc:
+                if not selecao_oc:
+                    st.error("Selecione pelo menos uma ocorrência.")
+                else:
+                    try:
+                        sh = conectar_google_sheets()
+                        wks = sh.worksheet("Registros_Ocorrencias")
+                        tipo_formatado = ", ".join(selecao_oc)
+                        detalhes_extras = f"DATA: {data_ocorrido.strftime('%d/%m/%Y')} | TEMPO: {tempo_aula} | {obs_oc}"
+                        nova_linha = [
+                            datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                            prof_nome,
+                            turma_sel,
+                            aluno_sel,
+                            disciplina,
+                            periodo,
+                            f"OCORRÊNCIA: {tipo_formatado}",
+                            detalhes_extras
+                        ]
+                        wks.append_row(nova_linha)
+                        st.success("✅ Ocorrência gravada com sucesso!")
+                        time.sleep(2)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao salvar: {e}")
+
+        with tab_oc2:
+            st.title("📋 Ocorrências Registradas")
+            try:
+                sh = conectar_google_sheets()
+                wks_reg = sh.worksheet("Registros_Ocorrencias")
+                dados_brutos = wks_reg.get_all_values()
+                
+                if len(dados_brutos) > 1:
+                    df_full = pd.DataFrame(dados_brutos[1:], columns=dados_brutos[0])
+                    df_oc = df_full[df_full[df_full.columns[6]].astype(str).str.contains("OCORRÊNCIA:", na=False)]
+                    
+                    if not df_oc.empty:
+                        colunas_df = df_oc.columns.tolist()
+                        
+                        col_fo1, col_fo2 = st.columns(2)
+                        with col_fo1:
+                            col_bim_oc = colunas_df[5]
+                            lista_bimestres_oc = ["Todos"] + sorted(df_oc[col_bim_oc].unique().astype(str).tolist())
+                            bim_filtro_oc = st.selectbox("Filtrar por Bimestre (Ocorrências)", lista_bimestres_oc)
+                        
+                        with col_fo2:
+                            col_turma_oc = colunas_df[2]
+                            if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
+                                opcoes_turmas_oc = sorted(df_oc[col_turma_oc].unique().astype(str).tolist())
+                            else:
+                                turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
+                                opcoes_turmas_oc = sorted([t.strip() for t in turmas_vinc if t.strip()])
+                            turma_filtro_oc = st.multiselect("Filtrar por Turma (Ocorrências)", opcoes_turmas_oc)
+
+                        df_oc_filtrado = df_oc.copy()
+                        if bim_filtro_oc != "Todos":
+                            df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_bim_oc].astype(str) == bim_filtro_oc]
+                        if turma_filtro_oc:
+                            df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_turma_oc].astype(str).isin(turma_filtro_oc)]
+                        else:
+                            if st.session_state.user_data['Usuario'] not in ["admin", "rodrigo"]:
+                                turmas_vinc = [t.strip() for t in str(st.session_state.user_data.get('Turmas', "")).split(", ") if t.strip()]
+                                df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_turma_oc].astype(str).isin(turmas_vinc)]
+
+                        mapeamento_oc = {
+                            colunas_df[2]: "Turma",
+                            colunas_df[3]: "Aluno",
+                            colunas_df[5]: "Periodo",
+                            colunas_df[4]: "Disciplina",
+                            colunas_df[1]: "Professor",
+                            colunas_df[6]: "Tipo_Ocorrência",
+                            colunas_df[7]: "Detalhes"
+                        }
+                        
+                        df_ex_oc = df_oc_filtrado.rename(columns=mapeamento_oc)
+                        df_ex_oc = df_ex_oc.sort_values(by=["Periodo", "Turma", "Aluno"])
+                        
+                        ordem_oc = ["Turma", "Aluno", "Periodo", "Disciplina", "Professor", "Tipo_Ocorrência", "Detalhes"]
+                        st.dataframe(df_ex_oc[ordem_oc], use_container_width=True, hide_index=True)
+
+                        output_oc = io.BytesIO()
+                        with pd.ExcelWriter(output_oc, engine='xlsxwriter') as writer:
+                            df_ex_oc[ordem_oc].to_excel(writer, index=False, sheet_name='Ocorrencias')
+                            workbook = writer.book
+                            worksheet = writer.sheets['Ocorrencias']
+                            worksheet.set_landscape()
+                            header_format = workbook.add_format({'bold': True, 'bg_color': '#F2DCDB', 'border': 1})
+                            wrap_format = workbook.add_format({'text_wrap': True, 'border': 1})
+                            for col_num, value in enumerate(df_ex_oc[ordem_oc].columns.values):
+                                worksheet.write(0, col_num, value, header_format)
+                            worksheet.set_column('A:E', 15, wrap_format)
+                            worksheet.set_column('F:G', 40, wrap_format)
+
+                        st.download_button(
+                            label="📥 Baixar Relatório de Ocorrências",
+                            data=output_oc.getvalue(),
+                            file_name=f'Ocorrencias_{datetime.now().strftime("%Y%m%d")}.xlsx',
+                            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            use_container_width=True
+                        )
+                    else:
+                        st.info("Nenhuma ocorrência encontrada.")
+                else:
+                    st.info("A planilha de registros está vazia.")
+            except Exception as e:
+                st.error(f"Erro ao carregar ocorrências: {e}")
 
     elif st.session_state.pagina == "VisualizarRegistros":
         st.title("📋 Registros de Desempenho Realizados")
@@ -382,7 +463,6 @@ else:
             
             if len(dados_brutos) > 1:
                 df_reg = pd.DataFrame(dados_brutos[1:], columns=dados_brutos[0])
-                # Filtrar para exibir apenas os que NÃO são ocorrências
                 df_reg = df_reg[~df_reg[df_reg.columns[6]].astype(str).str.contains("OCORRÊNCIA:", na=False)]
                 
                 colunas_df = df_reg.columns.tolist()
@@ -450,7 +530,6 @@ else:
                     df_exibicao_viz.to_excel(writer, index=False, sheet_name='Relatorio')
                     workbook = writer.book
                     worksheet = writer.sheets['Relatorio']
-                    
                     worksheet.set_landscape() 
                     worksheet.set_paper(9)
                     worksheet.set_margins(0.5, 0.5, 0.5, 0.5)
@@ -509,17 +588,15 @@ else:
                             
                             with st.form("form_editar_registro"):
                                 st.markdown(f"Editando registro de: **{dados_reg_edit[colunas_df[3]]}**")
-                                
                                 itens_atuais = str(dados_reg_edit[colunas_df[6]]).split(", ")
-                                
                                 usuario_disciplinas = str(st.session_state.user_data.get('Disciplinas', "")).lower()
+                                
                                 if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
                                     opcoes_radio = ["Ponto de atenção"]
                                 else:
                                     opcoes_radio = ["Reprovado", "Aprovado após recuperação", "Ponto de atenção"]
                                 
                                 desemp_atual = next((i for i in itens_atuais if i in opcoes_radio), None)
-                                
                                 edit_desempenho = st.radio("Desempenho", opcoes_radio, index=opcoes_radio.index(desemp_atual) if desemp_atual else 0, horizontal=True)
                                 
                                 opcoes_multi = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho"]
@@ -528,7 +605,6 @@ else:
                                     
                                 itens_multi_atuais = [i for i in itens_atuais if i in opcoes_multi]
                                 edit_tipo_selecao = st.multiselect("Valores e atitudes", opcoes_multi, default=itens_multi_atuais)
-                                
                                 edit_obs = st.text_area("Observações", value=dados_reg_edit[colunas_df[7]])
                                 
                                 col_at1, col_at2 = st.columns(2)
@@ -544,8 +620,6 @@ else:
                                             itens_finais_edit.append(edit_desempenho)
                                         itens_finais_edit.extend(edit_tipo_selecao)
                                         tipo_formatado_edit = ", ".join(itens_finais_edit)
-                                        
-                                        # Recalcular índice exato na planilha original baseada no ID_Original
                                         wks_reg.update_cell(linha_idx, 7, tipo_formatado_edit)
                                         wks_reg.update_cell(linha_idx, 8, edit_obs)
                                         st.success("Registro atualizado!")
@@ -601,99 +675,14 @@ else:
         except Exception as e:
             st.error(f"Erro ao carregar registros: {e}")
 
-    elif st.session_state.pagina == "VisualizarOcorrencias":
-        st.title("📋 Ocorrências Registradas")
-        try:
-            sh = conectar_google_sheets()
-            wks_reg = sh.worksheet("Registros_Ocorrencias")
-            dados_brutos = wks_reg.get_all_values()
-            
-            if len(dados_brutos) > 1:
-                df_full = pd.DataFrame(dados_brutos[1:], columns=dados_brutos[0])
-                # Filtrar para exibir apenas os que SÃO ocorrências
-                df_oc = df_full[df_full[df_full.columns[6]].astype(str).str.contains("OCORRÊNCIA:", na=False)]
-                
-                if not df_oc.empty:
-                    colunas_df = df_oc.columns.tolist()
-                    
-                    col_fo1, col_fo2 = st.columns(2)
-                    with col_fo1:
-                        col_bim_oc = colunas_df[5]
-                        lista_bimestres_oc = ["Todos"] + sorted(df_oc[col_bim_oc].unique().astype(str).tolist())
-                        bim_filtro_oc = st.selectbox("Filtrar por Bimestre (Ocorrências)", lista_bimestres_oc)
-                    
-                    with col_fo2:
-                        col_turma_oc = colunas_df[2]
-                        if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
-                            opcoes_turmas_oc = sorted(df_oc[col_turma_oc].unique().astype(str).tolist())
-                        else:
-                            turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
-                            opcoes_turmas_oc = sorted([t.strip() for t in turmas_vinc if t.strip()])
-                        turma_filtro_oc = st.multiselect("Filtrar por Turma (Ocorrências)", opcoes_turmas_oc)
-
-                    df_oc_filtrado = df_oc.copy()
-                    if bim_filtro_oc != "Todos":
-                        df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_bim_oc].astype(str) == bim_filtro_oc]
-                    if turma_filtro_oc:
-                        df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_turma_oc].astype(str).isin(turma_filtro_oc)]
-                    else:
-                        if st.session_state.user_data['Usuario'] not in ["admin", "rodrigo"]:
-                            turmas_vinc = [t.strip() for t in str(st.session_state.user_data.get('Turmas', "")).split(", ") if t.strip()]
-                            df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_turma_oc].astype(str).isin(turmas_vinc)]
-
-                    mapeamento_oc = {
-                        colunas_df[2]: "Turma",
-                        colunas_df[3]: "Aluno",
-                        colunas_df[5]: "Periodo",
-                        colunas_df[4]: "Disciplina",
-                        colunas_df[1]: "Professor",
-                        colunas_df[6]: "Tipo_Ocorrência",
-                        colunas_df[7]: "Detalhes"
-                    }
-                    
-                    df_ex_oc = df_oc_filtrado.rename(columns=mapeamento_oc)
-                    df_ex_oc = df_ex_oc.sort_values(by=["Periodo", "Turma", "Aluno"])
-                    
-                    ordem_oc = ["Turma", "Aluno", "Periodo", "Disciplina", "Professor", "Tipo_Ocorrência", "Detalhes"]
-                    st.dataframe(df_ex_oc[ordem_oc], use_container_width=True, hide_index=True)
-
-                    output_oc = io.BytesIO()
-                    with pd.ExcelWriter(output_oc, engine='xlsxwriter') as writer:
-                        df_ex_oc[ordem_oc].to_excel(writer, index=False, sheet_name='Ocorrencias')
-                        workbook = writer.book
-                        worksheet = writer.sheets['Ocorrencias']
-                        worksheet.set_landscape()
-                        header_format = workbook.add_format({'bold': True, 'bg_color': '#F2DCDB', 'border': 1})
-                        wrap_format = workbook.add_format({'text_wrap': True, 'border': 1})
-                        for col_num, value in enumerate(df_ex_oc[ordem_oc].columns.values):
-                            worksheet.write(0, col_num, value, header_format)
-                        worksheet.set_column('A:E', 15, wrap_format)
-                        worksheet.set_column('F:G', 40, wrap_format)
-
-                    st.download_button(
-                        label="📥 Baixar Relatório de Ocorrências",
-                        data=output_oc.getvalue(),
-                        file_name=f'Ocorrencias_{datetime.now().strftime("%Y%m%d")}.xlsx',
-                        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                        use_container_width=True
-                    )
-                else:
-                    st.info("Nenhuma ocorrência encontrada.")
-            else:
-                st.info("A planilha de registros está vazia.")
-        except Exception as e:
-            st.error(f"Erro ao carregar ocorrências: {e}")
-
     elif st.session_state.pagina == "Segurança":
         st.title("🔒 Segurança")
         st.subheader("Alterar Minha Senha")
-        
         user_atual = st.session_state.user_data['Usuario']
         
         with st.form("form_alterar_senha_prof"):
             nova_senha_prof = st.text_input("Nova Senha", type="password")
             confirmar_senha_prof = st.text_input("Confirmar Nova Senha", type="password")
-            
             col_senha_p1, col_senha_p2 = st.columns([1, 2])
             with col_senha_p1:
                 btn_p = st.form_submit_button("Atualizar Minha Senha")
@@ -722,23 +711,19 @@ else:
 
     elif st.session_state.pagina == "Cadastro" and st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
         st.title("⚙️ Painel de Cadastro")
-        
         abas = ["Turmas/Alunos", "Disciplinas", "Gerenciar Usuários", "Alterar Senha", "Período de Lançamento"]
         if st.session_state.user_data['Usuario'] == "rodrigo":
             abas.append("Bloqueio Master")
-            
         tabs = st.tabs(abas)
         
         with tabs[0]:
             st.subheader("Gerenciar Alunos e Turmas")
-            
             opcao_cadastro = st.radio("Selecione uma Ação", ["Individual", "Em Massa (Excel/Word)", "Transferir Aluno", "Excluir Aluno", "Limpar turma"])
             
             if opcao_cadastro == "Individual":
                 with st.form("form_aluno", clear_on_submit=True):
                     nova_turma = st.text_input("Turma (Ex: 101, 202)")
                     novo_aluno = st.text_input("Nome Completo do Aluno")
-                    
                     col_btn_ind, col_msg_ind = st.columns([1, 2])
                     with col_btn_ind:
                         btn_salvar_ind = st.form_submit_button("Salvar Aluno")
@@ -770,7 +755,6 @@ else:
                 with st.form("form_aluno_massa", clear_on_submit=True):
                     turma_massa = st.text_input("Turma para todos os alunos (Ex: 101)")
                     lista_nomes = st.text_area("Cole aqui a lista de nomes (um por linha)")
-                    
                     col_btn_massa, col_msg_massa = st.columns([1, 2])
                     with col_btn_massa:
                         btn_salvar_massa = st.form_submit_button("Salvar Todos os Alunos")
@@ -783,14 +767,12 @@ else:
                                 nomes = [n.strip() for n in lista_nomes.split('\n') if n.strip()]
                                 novas_linhas = []
                                 ja_existentes = []
-
                                 for nome in nomes:
                                     existe = df_alunos[(df_alunos['Turma'].astype(str) == turma_massa) & (df_alunos['Nome_Aluno'].astype(str).str.upper() == nome.upper())]
                                     if existe.empty:
                                         novas_linhas.append([turma_massa, nome])
                                     else:
                                         ja_existentes.append(nome)
-                                
                                 if ja_existentes:
                                     with col_msg_massa:
                                         msg_placeholder_massa_err = st.empty()
@@ -801,7 +783,6 @@ else:
                                     sh = conectar_google_sheets()
                                     wks_a = sh.worksheet("Config_Alunos")
                                     wks_a.append_rows(novas_linhas)
-                                    
                                     with col_msg_massa:
                                         msg_placeholder_massa = st.empty()
                                         msg_placeholder_massa.success(f"{len(nomes)} alunos cadastrados com sucesso!")
@@ -814,20 +795,15 @@ else:
 
             elif opcao_cadastro == "Transferir Aluno":
                 st.subheader("Transferir Aluno de Turma")
-                
                 todas_turmas_cadastradas = sorted(df_alunos['Turma'].unique().astype(str))
                 turma_orig = st.selectbox("Turma de Origem", [""] + todas_turmas_cadastradas)
-                
                 if turma_orig != "":
                     alunos_orig = df_alunos[df_alunos['Turma'].astype(str) == turma_orig]['Nome_Aluno'].tolist()
                     aluno_a_transf = st.selectbox("Selecione o Aluno para Transferir", [""] + sorted(alunos_orig))
                     turma_dest = st.selectbox("Turma de Destino", [""] + todas_turmas_cadastradas)
-                    
                     col_transf_btn, col_transf_msg = st.columns([1, 2])
-                    
                     with col_transf_btn:
                         executar = st.button("Executar Transferência")
-                        
                     if aluno_a_transf != "" and turma_dest != "" and executar:
                         try:
                             sh = conectar_google_sheets()
@@ -838,7 +814,6 @@ else:
                                 if row[0] == turma_orig and row[1] == aluno_a_transf:
                                     row_index = i + 1
                                     break
-                            
                             if row_index != -1:
                                 wks_a.update_cell(row_index, 1, str(turma_dest))
                                 with col_transf_msg:
@@ -855,19 +830,14 @@ else:
 
             elif opcao_cadastro == "Excluir Aluno":
                 st.subheader("Excluir Aluno Específico")
-                
                 todas_turmas_exc = sorted(df_alunos['Turma'].unique().astype(str))
                 turma_exc = st.selectbox("Selecione a Turma", [""] + todas_turmas_exc)
-                
                 if turma_exc != "":
                     alunos_exc = df_alunos[df_alunos['Turma'].astype(str) == turma_exc]['Nome_Aluno'].tolist()
                     aluno_a_excluir = st.selectbox("Selecione o Aluno para Excluir", [""] + sorted(alunos_exc))
-                    
                     col_exc_btn, col_exc_msg = st.columns([1, 2])
-                    
                     with col_exc_btn:
                         btn_excluir_def = st.button("❌ EXCLUIR ALUNO DEFINITIVAMENTE")
-                    
                     if aluno_a_excluir != "" and btn_excluir_def:
                         try:
                             sh = conectar_google_sheets()
@@ -878,7 +848,6 @@ else:
                                 if row[0] == turma_exc and row[1] == aluno_a_excluir:
                                     row_index = i + 1
                                 break
-                            
                             if row_index != -1:
                                 wks_a.delete_rows(row_index)
                                 with col_exc_msg:
@@ -893,32 +862,24 @@ else:
 
             elif opcao_cadastro == "Limpar turma":
                 st.subheader("Limpar Todos os Alunos de uma Turma")
-                
                 todas_turmas_limpar = sorted(df_alunos['Turma'].unique().astype(str))
                 turma_alvo_limpar = st.selectbox("Selecione a Turma para APAGAR TODOS os alunos", [""] + todas_turmas_limpar)
-                
                 if turma_alvo_limpar != "":
                     st.warning(f"⚠️ ATENÇÃO: Esta ação apagará TODOS os alunos da turma {turma_alvo_limpar}.")
                     confirmacao_turma = st.checkbox(f"Confirmo que desejo apagar todos os alunos da {turma_alvo_limpar}")
-                    
                     col_limpar_btn, col_limpar_msg = st.columns([1, 2])
-                    
                     with col_limpar_btn:
                         btn_limpar_exec = st.button(f"🚨 APAGAR ALUNOS DA TURMA {turma_alvo_limpar}")
-                    
                     if btn_limpar_exec:
                         if confirmacao_turma:
                             try:
                                 sh = conectar_google_sheets()
                                 wks_a = sh.worksheet("Config_Alunos")
                                 data = wks_a.get_all_values()
-                                
                                 indices_para_deletar = [i + 1 for i, row in enumerate(data) if row[0] == turma_alvo_limpar]
-                                
                                 if indices_para_deletar:
                                     for idx in reversed(indices_para_deletar):
                                         wks_a.delete_rows(idx)
-                                    
                                     with col_limpar_msg:
                                         msg_limp_temp = st.empty()
                                         msg_limp_temp.success(f"Todos os alunos da turma {turma_alvo_limpar} foram removidos com sucesso")
@@ -935,13 +896,11 @@ else:
 
         with tabs[1]:
             st.subheader("Gerenciar Disciplinas")
-            
             with st.form("form_disciplina", clear_on_submit=True):
                 nova_disc = st.text_input("Nome da Disciplina")
                 col_btn_d, col_msg_d = st.columns([1, 2])
                 with col_btn_d:
                     btn_cadastrar_disc = st.form_submit_button("Cadastrar Disciplina")
-                
                 if btn_cadastrar_disc:
                     if nova_disc:
                         duplicada_disc = df_discs[df_discs['Disciplina'].astype(str).str.upper() == nova_disc.strip().upper()]
@@ -959,7 +918,6 @@ else:
                                 except:
                                     wks_d = sh.add_worksheet(title="Config_Disciplinas", rows="100", cols="2")
                                     wks_d.append_row(["Disciplina"])
-                                    
                                 wks_d.append_row([nova_disc])
                                 with col_msg_d:
                                     msg_placeholder = st.empty()
@@ -975,16 +933,12 @@ else:
 
             st.divider()
             st.subheader("Excluir Disciplina")
-            
             if not df_discs.empty:
                 disc_lista = sorted(df_discs['Disciplina'].unique().astype(str))
                 disc_excluir = st.selectbox("Selecione a disciplina para remover", [""] + disc_lista)
-                
                 col_exc_d1, col_exc_d2 = st.columns([1, 2])
-                
                 with col_exc_d1:
                     btn_remover_disc = st.button("❌ REMOVER DISCIPLINA")
-                
                 if btn_remover_disc:
                     if disc_excluir != "":
                         try:
@@ -992,7 +946,6 @@ else:
                             wks_d = sh.worksheet("Config_Disciplinas")
                             celula = wks_d.find(str(disc_excluir))
                             wks_d.delete_rows(celula.row)
-                            
                             with col_exc_d2:
                                 placeholder_disc_exc = st.empty()
                                 placeholder_disc_exc.success(f"Disciplina '{disc_excluir}' removida com sucesso")
@@ -1009,26 +962,20 @@ else:
 
         with tabs[2]:
             st.subheader("Cadastrar Novo Professor")
-            
             with st.form("form_prof", clear_on_submit=True):
                 novo_prof = st.text_input("Nome do Professor")
                 novo_usuario = st.text_input("Nome de Usuário (Login)")
                 nova_senha = st.text_input("Senha", type="password", help="Opcional")
-                
                 todas_turmas_disp = sorted(df_alunos['Turma'].unique().astype(str))
                 turmas_vinculo = st.multiselect("Vincular Turmas", todas_turmas_disp)
-                
                 if not df_discs.empty:
                     disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
                 else:
                     disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
-                
                 disciplinas_vinculo = st.multiselect("Vincular Disciplinas", disciplina_opcoes)
-                
                 col_btn_salvar, col_msg_salvar = st.columns([1, 2])
                 with col_btn_salvar:
                     btn_salvar_prof = st.form_submit_button("Salvar Professor")
-                
                 if btn_salvar_prof:
                     if not novo_prof or not novo_usuario:
                         st.error("Por favor, preencha o nome do professor e o nome de usuário.")
@@ -1044,12 +991,9 @@ else:
                             try:
                                 sh = conectar_google_sheets()
                                 wks_p = sh.worksheet("Config_Professores")
-                                
                                 turmas_str = ", ".join(turmas_vinculo)
                                 disciplinas_str = ", ".join(disciplinas_vinculo)
-                                
                                 senha_final = str(nova_senha) if nova_senha else ""
-                                
                                 wks_p.append_row([novo_prof, novo_usuario, senha_final, turmas_str, disciplinas_str, "Ativo"])
                                 with col_msg_salvar:
                                     msg_placeholder_prof = st.empty()
@@ -1063,49 +1007,38 @@ else:
             
             st.divider()
             st.subheader("Editar ou Excluir Usuário Existente")
-            
             lista_usuarios_edit = df_profs['Usuario'].tolist()
             user_selecionado = st.selectbox("Selecione o Usuário para Modificar", [""] + lista_usuarios_edit)
-            
             if user_selecionado != "":
                 dados_atuais = df_profs[df_profs['Usuario'] == user_selecionado].iloc[0]
-                
                 with st.form("form_editar_usuario"):
                     edit_nome = st.text_input("Alterar Nome do Professor", value=dados_atuais['Professor'])
                     edit_login = st.text_input("Alterar Login (Usuário)", value=dados_atuais['Usuario'])
-                    
                     todas_turmas_disp = sorted(df_alunos['Turma'].unique().astype(str))
                     turmas_atuais = str(dados_atuais.get('Turmas', "")).split(", ") if dados_atuais.get('Turmas') else []
                     edit_turmas = st.multiselect("Alterar Turmas", todas_turmas_disp, default=[t for t in turmas_atuais if t in todas_turmas_disp])
-                    
                     if not df_discs.empty:
                         disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
                     else:
                         disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida"]
-                        
                     disciplinas_atuais = str(dados_atuais.get('Disciplinas', "")).split(", ") if dados_atuais.get('Disciplinas') else []
                     edit_disciplinas = st.multiselect("Alterar Disciplinas", disciplina_opcoes, default=[d for d in disciplinas_atuais if d in disciplina_opcoes])
-                    
                     col_btn1, col_btn_msg, col_btn2 = st.columns([1, 2, 1])
                     with col_btn1:
                         btn_update = st.form_submit_button("SALVAR ALTERAÇÕES")
                     with col_btn2:
                         btn_delete = st.form_submit_button("❌ EXCLUIR USUÁRIO")
-
                 if btn_update:
                     try:
                         sh = conectar_google_sheets()
                         wks_p = sh.worksheet("Config_Professores")
                         celula = wks_p.find(str(user_selecionado))
-                        
                         turmas_edit_str = ", ".join(edit_turmas)
                         disciplinas_edit_str = ", ".join(edit_disciplinas)
-                        
                         wks_p.update_cell(celula.row, 1, edit_nome)
                         wks_p.update_cell(celula.row, 2, edit_login)
                         wks_p.update_cell(celula.row, 4, turmas_edit_str)
                         wks_p.update_cell(celula.row, 5, disciplinas_edit_str)
-                        
                         with col_btn_msg:
                             msg_placeholder_edit = st.empty()
                             msg_placeholder_edit.success(f"Dados de {user_selecionado} atualizados com sucesso!")
@@ -1115,14 +1048,12 @@ else:
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao atualizar: {e}")
-
                 if btn_delete:
                     try:
                         sh = conectar_google_sheets()
                         wks_p = sh.worksheet("Config_Professores")
                         celula = wks_p.find(str(user_selecionado))
                         wks_p.delete_rows(celula.row)
-                        
                         with col_btn_msg:
                             msg_placeholder_del = st.empty()
                             msg_placeholder_del.success(f"Usuário {user_selecionado} excluído com sucesso!")
@@ -1135,16 +1066,13 @@ else:
 
         with tabs[3]:
             st.subheader("Alterar Senha de Usuário")
-            
             lista_usuarios = df_profs['Usuario'].tolist()
             user_alvo = st.selectbox("Selecione o Usuário", [""] + lista_usuarios)
             nova_senha_input = st.text_input("Nova Senha", type="password")
             confirmar_senha = st.text_input("Confirmar Nova Senha", type="password")
-            
             col_senha1, col_senha2 = st.columns([1, 2])
             with col_senha1:
                 btn_senha = st.button("Atualizar Senha")
-            
             if btn_senha:
                 if not user_alvo:
                     st.error("Selecione um usuário.")
@@ -1164,16 +1092,13 @@ else:
 
         with tabs[4]:
             st.subheader("Configurar Período de Lançamento")
-            
             with st.form("form_periodo"):
                 bim_sel = st.selectbox("Bimestre", ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
                 data_inicio = st.date_input("Início do Lançamento", format="DD/MM/YYYY")
                 data_fim = st.date_input("Fim do Lançamento", format="DD/MM/YYYY")
-                
                 col_btn_per, col_msg_per = st.columns([1, 2])
                 with col_btn_per:
                     btn_salvar_per = st.form_submit_button("Salvar Período")
-                
                 if btn_salvar_per:
                     try:
                         sh = conectar_google_sheets()
@@ -1182,23 +1107,18 @@ else:
                         except:
                             wks_per = sh.add_worksheet(title="Config_Periodos", rows="10", cols="3")
                             wks_per.append_row(["Bimestre", "Inicio", "Fim"])
-                        
                         data_per = wks_per.get_all_values()
                         found = False
-                        
                         inicio_str = data_inicio.strftime("%d/%m/%Y")
                         fim_str = data_fim.strftime("%d/%m/%Y")
-                        
                         for i, row in enumerate(data_per):
                             if row[0] == bim_sel:
                                 wks_per.update_cell(i + 1, 2, inicio_str)
                                 wks_per.update_cell(i + 1, 3, fim_str)
                                 found = True
                                 break
-                        
                         if not found:
                             wks_per.append_row([bim_sel, inicio_str, fim_str])
-                            
                         with col_msg_per:
                             msg_placeholder_per = st.empty()
                             msg_placeholder_per.success(f"Período do {bim_sel} configurado com sucesso!")
@@ -1208,16 +1128,13 @@ else:
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao salvar período: {e}")
-            
             st.divider()
             st.subheader("Períodos Configurados")
             if not df_periodos.empty:
                 st.dataframe(df_periodos, use_container_width=True)
-                
                 col_btn_limp, col_msg_limp = st.columns([1, 2])
                 with col_btn_limp:
                     btn_limpar_per = st.button("Limpar Todos os Períodos")
-                
                 if btn_limpar_per:
                     try:
                         sh = conectar_google_sheets()
@@ -1240,12 +1157,10 @@ else:
         if st.session_state.user_data['Usuario'] == "rodrigo":
             with tabs[5]:
                 st.subheader("🛡️ Controle de Bloqueio Master")
-                
                 st.markdown("### 📊 Status Atual de Usuários")
                 df_status = df_profs[['Professor', 'Usuario', 'Status']].copy()
                 df_status['Status'] = df_status['Status'].apply(lambda x: "🔴 BLOQUEADO" if str(x).upper() == "BLOQUEADO" else "🟢 ATIVO")
                 st.table(df_status)
-                
                 st.divider()
                 user_bloqueio = st.selectbox("Selecione o Usuário para Bloquear/Desbloquear", [""] + ["Todos"] + df_profs['Usuario'].tolist())
                 if user_bloqueio != "":
@@ -1284,7 +1199,6 @@ else:
                         dados_bloqueio = df_profs[df_profs['Usuario'] == user_bloqueio].iloc[0]
                         status_atual = str(dados_bloqueio.get("Status", "Ativo"))
                         st.write(f"Status atual de **{user_bloqueio}**: {status_atual}")
-                        
                         col_b1, col_b2 = st.columns(2)
                         with col_b1:
                             if st.button(f"🔴 BLOQUEAR {user_bloqueio}"):
