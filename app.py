@@ -465,16 +465,42 @@ else:
                             df_ex_oc[ordem_oc].to_excel(writer, index=False, sheet_name='Ocorrencias')
                             workbook = writer.book
                             worksheet = writer.sheets['Ocorrencias']
+                            
+                            # Configurações de impressão: Paisagem, A4, Ajustar em 1 página
                             worksheet.set_landscape()
-                            header_format = workbook.add_format({'bold': True, 'bg_color': '#F2DCDB', 'border': 1})
-                            wrap_format = workbook.add_format({'text_wrap': True, 'border': 1})
+                            worksheet.set_paper(9) # 9 = A4
+                            worksheet.set_margins(0.5, 0.5, 0.5, 0.5)
+                            worksheet.fit_to_pages(1, 0) # Forçar largura em 1 página
+                            
+                            header_format = workbook.add_format({
+                                'bold': True, 
+                                'bg_color': '#F2DCDB', 
+                                'border': 1,
+                                'align': 'center',
+                                'valign': 'vcenter'
+                            })
+                            
+                            wrap_format = workbook.add_format({
+                                'text_wrap': True, 
+                                'valign': 'top',
+                                'border': 1
+                            })
+                            
+                            # Ajuste de larguras para que caibam em uma folha A4 paisagem
+                            worksheet.set_column('A:A', 15, wrap_format) # Data/Tempo
+                            worksheet.set_column('B:B', 6, wrap_format)  # Turma
+                            worksheet.set_column('C:C', 25, wrap_format) # Alunos
+                            worksheet.set_column('D:D', 10, wrap_format) # Periodo
+                            worksheet.set_column('E:E', 15, wrap_format) # Disciplina
+                            worksheet.set_column('F:F', 15, wrap_format) # Professor
+                            worksheet.set_column('G:G', 25, wrap_format) # Tipo_Ocorrência
+                            worksheet.set_column('H:H', 35, wrap_format) # Observações
+
                             for col_num, value in enumerate(df_ex_oc[ordem_oc].columns.values):
                                 worksheet.write(0, col_num, value, header_format)
-                            worksheet.set_column('A:F', 15, wrap_format)
-                            worksheet.set_column('G:H', 40, wrap_format)
 
                         st.download_button(
-                            label="📥 Baixar Relatório de Ocorrências",
+                            label="📥 Baixar Relatório de Ocorrências (A4 Paisagem)",
                             data=output_oc.getvalue(),
                             file_name=f'Ocorrencias_{datetime.now().strftime("%Y%m%d")}.xlsx',
                             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -627,10 +653,12 @@ else:
                     df_exibicao_viz.to_excel(writer, index=False, sheet_name='Relatorio')
                     workbook = writer.book
                     worksheet = writer.sheets['Relatorio']
+                    
+                    # Configurações de impressão: Paisagem, A4, Ajustar em 1 página
                     worksheet.set_landscape() 
-                    worksheet.set_paper(9)
+                    worksheet.set_paper(9) # A4
                     worksheet.set_margins(0.5, 0.5, 0.5, 0.5)
-                    worksheet.fit_to_pages(1, 0)
+                    worksheet.fit_to_pages(1, 0) # Forçar largura em 1 página
 
                     header_format = workbook.add_format({
                         'bold': True, 
@@ -646,12 +674,13 @@ else:
                         'border': 1
                     })
 
-                    worksheet.set_column('A:A', 8, wrap_format)   
-                    worksheet.set_column('B:B', 28, wrap_format)  
-                    worksheet.set_column('C:C', 12, wrap_format)  
-                    worksheet.set_column('D:D', 30, wrap_format)  
-                    worksheet.set_column('E:E', 25, wrap_format)  
-                    worksheet.set_column('F:F', 60, wrap_format)  
+                    # Ajuste de larguras para que caibam em uma folha A4 paisagem
+                    worksheet.set_column('A:A', 6, wrap_format)   # Turma
+                    worksheet.set_column('B:B', 25, wrap_format)  # Aluno (nome completo)
+                    worksheet.set_column('C:C', 10, wrap_format)  # Periodo
+                    worksheet.set_column('D:D', 28, wrap_format)  # Disciplina / Prof.
+                    worksheet.set_column('E:E', 25, wrap_format)  # Tipo_Registro
+                    worksheet.set_column('F:F', 40, wrap_format)  # Descrição_Detalhada
 
                     for col_num, value in enumerate(df_exibicao_viz.columns.values):
                         worksheet.write(0, col_num, value, header_format)
@@ -1206,7 +1235,7 @@ else:
                         try:
                             wks_per = sh.worksheet("Config_Periodos")
                         except:
-                            wks_per = sh.add_worksheet(title="Config_Periodos", rows="10", cols="3")
+                            wks_per = st.add_worksheet(title="Config_Periodos", rows="10", cols="3")
                             wks_per.append_row(["Bimestre", "Inicio", "Fim"])
                         data_per = wks_per.get_all_values()
                         found = False
@@ -1319,7 +1348,7 @@ else:
                                 try:
                                     sh = conectar_google_sheets()
                                     wks_p = sh.worksheet("Config_Professores")
-                                    celula = wks_p.find(str(user_bloqueio))
+                                    celula = wks_p.find(str(user_alvo))
                                     wks_p.update_cell(celula.row, 6, "Ativo")
                                     st.success(f"Usuário {user_bloqueio} desbloqueado.")
                                     st.cache_data.clear()
