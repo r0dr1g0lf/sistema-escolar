@@ -36,49 +36,42 @@ def carregar_dados():
 
 
 # --- NOVAS FUNÇÕES INJETADAS ---
-# --- 1. FUNÇÕES DE APOIO (Inserir após carregar_dados) ---
-
 def carregar_agendamentos():
     try:
         sh = conectar_google_sheets()
         try:
-            wks = sh.worksheet("Agendamentos_Equipamentos")
+            wks = sh.worksheet("Agendamentos_Recursos")
         except:
-            # Cria a aba caso ela não exista na planilha com a nova estrutura
-            wks = sh.add_worksheet(title="Agendamentos_Equipamentos", rows="1000", cols="9")
-            wks.append_row(["Data_Registro", "Equipamento", "Professor", "Data_Uso", "Turno", "Horarios", "Turma", "Disciplina", "Observacao"])
+            # Cria a aba caso não exista
+            wks = sh.add_worksheet(title="Agendamentos_Recursos", rows="1000", cols="10")
+            wks.append_row(["Data_Registro", "Recurso", "Professor", "Data_Uso", "Bimestre", "Turno", "Tempos", "Turma", "Disciplina", "Obs"])
         
         dados = wks.get_all_records()
         return pd.DataFrame(dados), wks
     except Exception as e:
         return pd.DataFrame(), None
 
-def verificar_conflito_recurso(equipamento, data_uso, turno, horarios_selecionados):
+def checar_conflito(recurso, data_sel, turno, tempos_selecionados):
     df_ag, _ = carregar_agendamentos()
     if df_ag.empty:
-        return False, []
-    
-    # Converte data para string para comparação
-    data_str = data_uso.strftime("%d/%m/%Y")
-    
-    # Filtra agendamentos para o mesmo recurso, dia e turno
+        return []
+
+    # Filtra por mesmo recurso, data e turno
     conflitos = df_ag[
-        (df_ag['Equipamento'] == equipamento) & 
-        (df_ag['Data_Uso'] == data_str) & 
+        (df_ag['Recurso'] == recurso) & 
+        (df_ag['Data_Uso'] == data_sel.strftime("%d/%m/%Y")) & 
         (df_ag['Turno'] == turno)
     ]
     
-    ocupados = []
+    ja_ocupados = []
     for _, row in conflitos.iterrows():
-        # Verifica se algum dos horários selecionados já está na lista salva (string separada por vírgula)
-        horarios_salvos = [h.strip() for h in str(row['Horarios']).split(",")]
-        for h_sel in horarios_selecionados:
-            if h_sel in horarios_salvos:
-                ocupados.append(h_sel)
+        # Transforma a string "1º tempo, 2º tempo" em lista
+        tempos_salvos = [t.strip() for t in str(row['Tempos']).split(",")]
+        for t in tempos_selecionados:
+            if t in tempos_salvos:
+                ja_ocupados.append(t)
                 
-    return len(ocupados) > 0, list(set(ocupados))
-
-# --- 2. INTERFACE DA PÁGINA (Inserir na estrutura 
+    return list(set(ja_ocupados))
 # --- NOVAS FUNÇÕES INJETADAS ---
 # --- BLOCO DE FUNÇÕES (SERÁ INSERIDO APÓS CARREGAR_DADOS) ---
 
