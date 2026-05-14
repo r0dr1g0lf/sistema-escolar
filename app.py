@@ -33,6 +33,43 @@ def carregar_dados():
         
     return df_p, df_a, df_d, df_per
 
+
+# --- NOVAS FUNÇÕES INJETADAS ---
+# --- BLOCO DE FUNÇÕES (SERÁ INSERIDO APÓS CARREGAR_DADOS) ---
+
+def carregar_agendamentos():
+    try:
+        sh = conectar_google_sheets()
+        try:
+            wks = sh.worksheet("Agendamentos_Equipamentos")
+        except:
+            # Cria a aba caso ela não exista na planilha
+            wks = sh.add_worksheet(title="Agendamentos_Equipamentos", rows="1000", cols="7")
+            wks.append_row(["Data_Registro", "Equipamento", "Professor", "Data_Uso", "Turno", "Horario", "Observacao"])
+        
+        dados = wks.get_all_records()
+        return pd.DataFrame(dados), wks
+    except Exception as e:
+        return pd.DataFrame(), None
+
+def verificar_conflito(equipamento, data_uso, turno, horario):
+    df_ag, _ = carregar_agendamentos()
+    if df_ag.empty:
+        return False
+    
+    # Verifica se já existe agendamento para o mesmo item, dia, turno e aula
+    conflito = df_ag[
+        (df_ag['Equipamento'] == equipamento) & 
+        (df_ag['Data_Uso'] == data_uso) & 
+        (df_ag['Turno'] == turno) & 
+        (df_ag['Horario'] == horario)
+    ]
+    return not conflito.empty
+
+
+# --- BLOCO DA PÁGINA (SERÁ INSERIDO NO FINAL DO SISTEMA) ---
+
+
 def atualizar_presenca(usuario, acao):
     try:
         sh = conectar_google_sheets()
@@ -163,6 +200,10 @@ else:
         if st.sidebar.button("Atualizar Dados", key="btn_atualizar", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
+
+    if st.sidebar.button('📅 Agendar Equipamentos', use_container_width=True):
+        st.session_state.pagina = 'Agendamento'
+        st.rerun()
 
     if st.sidebar.button("Sair", key="btn_sair", use_container_width=True):
         atualizar_presenca(st.session_state.user_data['Usuario'], "logout")
