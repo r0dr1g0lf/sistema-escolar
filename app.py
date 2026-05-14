@@ -33,6 +33,43 @@ def carregar_dados():
         
     return df_p, df_a, df_d, df_per
 
+
+# --- NOVAS FUNÇÕES INJETADAS ---
+# --- BLOCO DE FUNÇÕES (SERÁ INSERIDO APÓS CARREGAR_DADOS) ---
+
+def carregar_agendamentos():
+    try:
+        sh = conectar_google_sheets()
+        try:
+            wks = sh.worksheet("Agendamentos_Equipamentos")
+        except:
+            # Cria a aba caso ela não exista na planilha
+            wks = sh.add_worksheet(title="Agendamentos_Equipamentos", rows="1000", cols="7")
+            wks.append_row(["Data_Registro", "Equipamento", "Professor", "Data_Uso", "Turno", "Horario", "Observacao"])
+        
+        dados = wks.get_all_records()
+        return pd.DataFrame(dados), wks
+    except Exception as e:
+        return pd.DataFrame(), None
+
+def verificar_conflito(equipamento, data_uso, turno, horario):
+    df_ag, _ = carregar_agendamentos()
+    if df_ag.empty:
+        return False
+    
+    # Verifica se já existe agendamento para o mesmo item, dia, turno e aula
+    conflito = df_ag[
+        (df_ag['Equipamento'] == equipamento) & 
+        (df_ag['Data_Uso'] == data_uso) & 
+        (df_ag['Turno'] == turno) & 
+        (df_ag['Horario'] == horario)
+    ]
+    return not conflito.empty
+
+
+# --- BLOCO DA PÁGINA (SERÁ INSERIDO NO FINAL DO SISTEMA) ---
+
+
 def atualizar_presenca(usuario, acao):
     try:
         sh = conectar_google_sheets()
@@ -163,6 +200,14 @@ else:
         if st.sidebar.button("Atualizar Dados", key="btn_atualizar", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
+
+    if st.sidebar.button('📅 Agendar Equipamentos', use_container_width=True):
+        st.session_state.pagina = 'Agendamento'
+        st.rerun()
+
+    if st.sidebar.button('📅 Agendar Equipamentos', use_container_width=True):
+        st.session_state.pagina = 'Agendamento'
+        st.rerun()
 
     if st.sidebar.button("Sair", key="btn_sair", use_container_width=True):
         atualizar_presenca(st.session_state.user_data['Usuario'], "logout")
@@ -1374,3 +1419,47 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+    elif st.session_state.pagina == 'Agendamento':
+    st.title("📅 Agendamento de Equipamentos")
+    
+    # Lista de equipamentos solicitada
+    lista_equipamentos = ["Datashow", "Tablets", "Caixa de som", "Notebook"]
+    
+    with st.form("form_agendamento", clear_on_submit=True):
+        col_ag1, col_ag2 = st.columns(2)
+        
+        with col_ag1:
+            equipamento = st.selectbox("Selecione o Equipamento", lista_equipamentos)
+            data_uso = st.date_input("Data do Uso", value=datetime.now().date(), format="DD/MM/YYYY")
+            turno = st.selectbox("Turno", ["Matutino", "Vespertino", "Noturno"])
+            
+        with col_ag2:
+            # Opções de horários/aulas
+            horario = st.selectbox("Horário/Aula", ["1ª Aula", "2ª Aula", "3ª Aula", "4ª Aula", "5ª Aula"])
+            obs_ag = st.text_area("Observações (Ex: Turma ou Local)")
+            
+        btn_agendar = st.form_submit_button("CONFIRMAR AGENDAMENTO")
+
+    if btn_agendar:
+        # Verifica se o equipamento já está ocupado no mesmo horário
+        if verificar_conflito(equipamento, data_uso.strftime("%d/%m/%Y"), turno, horario):
+            st.error(f"❌ O item {equipamento} já está agendado para este horário!")
+        else:
+            try:
+                _, wks_ag = carregar_agendamentos()
+                nova_linha_ag = [
+                    datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                    equipamento,
+                    st.session_state.user_data['Professor'],
+                    data_uso.strftime("%d/%m/%Y"),
+                    turno,
+                    horario,
+                    obs_ag
+                ]
+                wks_ag.append_row(nova_linha_ag)
+                st.success(f"✅ {equipamento} agendado com sucesso!")
+                time.sleep(2)
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao salvar agendamento: {e}")
