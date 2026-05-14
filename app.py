@@ -33,24 +33,6 @@ def carregar_dados():
         
     return df_p, df_a, df_d, df_per
 
-
-# --- NOVAS FUNÇÕES PARA AGENDAMENTO ---
-def carregar_agendamentos():
-    try:
-        sh = conectar_google_sheets()
-        try:
-            wks = sh.worksheet('Agendamentos_Equipamentos')
-        except:
-            wks = sh.add_worksheet(title='Agendamentos_Equipamentos', rows='1000', cols='7')
-            wks.append_row(['Data_Registro', 'Equipamento', 'Professor', 'Data_Uso', 'Turno', 'Horario', 'Observacao'])
-        return pd.DataFrame(wks.get_all_records()), wks
-    except: return pd.DataFrame(), None
-
-def verificar_conflito(eq, dt, trn, hr):
-    df, _ = carregar_agendamentos()
-    if df.empty: return False
-    conf = df[(df['Equipamento'] == eq) & (df['Data_Uso'] == dt) & (df['Turno'] == trn) & (df['Horario'] == hr)]
-    return not conf.empty
 def atualizar_presenca(usuario, acao):
     try:
         sh = conectar_google_sheets()
@@ -183,9 +165,6 @@ else:
             st.rerun()
 
     if st.sidebar.button("Sair", key="btn_sair", use_container_width=True):
-    if st.sidebar.button('📅 Agendar Equipamentos', use_container_width=True):
-        st.session_state.pagina = 'Agendamento'
-        st.rerun()
         atualizar_presenca(st.session_state.user_data['Usuario'], "logout")
         st.session_state.logado = False
         st.session_state.pagina = "Registro"
@@ -256,9 +235,9 @@ else:
             
             desempenho_escolha = st.radio("Desempenho do aluno", options=opcoes_desempenho, horizontal=True)
             
-            opcoes_valores_atitudes = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho", "Brincadeiras inadequadas"]
+            opcoes_valores_atitudes = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho"]
             if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
-                opcoes_valores_atitudes.append("Não fez o questionário participativo", "Brincadeiras inadequadas")
+                opcoes_valores_atitudes.append("Não fez o questionário participativo")
                 
             tipo_selecao = st.multiselect("Valores e atitudes", options=opcoes_valores_atitudes)
             obs = st.text_area("Observações")
@@ -763,9 +742,9 @@ else:
                                     desemp_atual = next((i for i in itens_atuais if i in opcoes_radio), None)
                                     edit_desempenho = st.radio("Desempenho", options=opcoes_radio, index=opcoes_radio.index(desemp_atual) if desemp_atual else 0, horizontal=True)
                                     
-                                    opcoes_multi = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho", "Brincadeiras inadequadas"]
+                                    opcoes_multi = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho"]
                                     if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
-                                        opcoes_multi.append("Não fez o questionário participativo", "Brincadeiras inadequadas")
+                                        opcoes_multi.append("Não fez o questionário participativo")
                                         
                                     itens_multi_atuais = [i for i in itens_atuais if i in opcoes_multi]
                                     edit_tipo_selecao = st.multiselect("Valores e atitudes", options=opcoes_multi, default=itens_multi_atuais)
@@ -1395,25 +1374,3 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-    elif st.session_state.pagina == 'Agendamento':
-        st.title('📅 Agendamento de Equipamentos')
-        t1, t2 = st.tabs(['Novo Agendamento', 'Ver Agenda'])
-        with t1:
-            with st.form('f_ag'):
-                eq = st.selectbox('Equipamento', ['Tablet', 'TV', 'Datashow', 'Notebook'])
-                dt = st.date_input('Data', min_value=datetime.now().date())
-                trn = st.selectbox('Turno', ['Matutino', 'Vespertino', 'Noturno'])
-                hr = st.selectbox('Horário', ['1º Horário', '2º Horário', '3º Horário', '4º Horário'])
-                obs = st.text_area('Obs')
-                if st.form_submit_button('GRAVAR'):
-                    dt_s = dt.strftime('%d/%m/%Y')
-                    if verificar_conflito(eq, dt_s, trn, hr):
-                        st.error('Equipamento já reservado!')
-                    else:
-                        _, wks = carregar_agendamentos()
-                        wks.append_row([datetime.now().strftime('%d/%m/%Y %H:%M'), eq, prof_nome, dt_s, trn, hr, obs])
-                        st.success('Reservado!'); time.sleep(2); st.rerun()
-        with t2:
-            df_a, _ = carregar_agendamentos()
-            st.dataframe(df_a, use_container_width=True, hide_index=True)
