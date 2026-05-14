@@ -34,6 +34,51 @@ def carregar_dados():
     return df_p, df_a, df_d, df_per
 
 
+
+# --- NOVAS FUNÇÕES INJETADAS ---
+# --- 1. FUNÇÕES DE APOIO (Inserir após carregar_dados) ---
+
+def carregar_agendamentos():
+    try:
+        sh = conectar_google_sheets()
+        try:
+            wks = sh.worksheet("Agendamentos_Equipamentos")
+        except:
+            # Cria a aba caso ela não exista na planilha com a nova estrutura
+            wks = sh.add_worksheet(title="Agendamentos_Equipamentos", rows="1000", cols="9")
+            wks.append_row(["Data_Registro", "Equipamento", "Professor", "Data_Uso", "Turno", "Horarios", "Turma", "Disciplina", "Observacao"])
+        
+        dados = wks.get_all_records()
+        return pd.DataFrame(dados), wks
+    except Exception as e:
+        return pd.DataFrame(), None
+
+def verificar_conflito_recurso(equipamento, data_uso, turno, horarios_selecionados):
+    df_ag, _ = carregar_agendamentos()
+    if df_ag.empty:
+        return False, []
+    
+    # Converte data para string para comparação
+    data_str = data_uso.strftime("%d/%m/%Y")
+    
+    # Filtra agendamentos para o mesmo recurso, dia e turno
+    conflitos = df_ag[
+        (df_ag['Equipamento'] == equipamento) & 
+        (df_ag['Data_Uso'] == data_str) & 
+        (df_ag['Turno'] == turno)
+    ]
+    
+    ocupados = []
+    for _, row in conflitos.iterrows():
+        # Verifica se algum dos horários selecionados já está na lista salva (string separada por vírgula)
+        horarios_salvos = [h.strip() for h in str(row['Horarios']).split(",")]
+        for h_sel in horarios_selecionados:
+            if h_sel in horarios_salvos:
+                ocupados.append(h_sel)
+                
+    return len(ocupados) > 0, list(set(ocupados))
+
+# --- 2. INTERFACE DA PÁGINA (Inserir na estrutura 
 # --- NOVAS FUNÇÕES INJETADAS ---
 # --- BLOCO DE FUNÇÕES (SERÁ INSERIDO APÓS CARREGAR_DADOS) ---
 
@@ -200,6 +245,10 @@ else:
         if st.sidebar.button("Atualizar Dados", key="btn_atualizar", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
+
+    if st.sidebar.button('📅 Agendar Equipamentos', use_container_width=True):
+        st.session_state.pagina = 'Agendamento'
+        st.rerun()
 
     if st.sidebar.button('📅 Agendar Equipamentos', use_container_width=True):
         st.session_state.pagina = 'Agendamento'
