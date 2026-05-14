@@ -235,9 +235,9 @@ else:
             
             desempenho_escolha = st.radio("Desempenho do aluno", options=opcoes_desempenho, horizontal=True)
             
-            opcoes_valores_atitudes = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho"]
+            opcoes_valores_atitudes = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho", "Brincadeiras inadequadas"]
             if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
-                opcoes_valores_atitudes.append("Não fez o questionário participativo")
+                opcoes_valores_atitudes.append("Não fez o questionário participativo", "Brincadeiras inadequadas")
                 
             tipo_selecao = st.multiselect("Valores e atitudes", options=opcoes_valores_atitudes)
             obs = st.text_area("Observações")
@@ -742,9 +742,9 @@ else:
                                     desemp_atual = next((i for i in itens_atuais if i in opcoes_radio), None)
                                     edit_desempenho = st.radio("Desempenho", options=opcoes_radio, index=opcoes_radio.index(desemp_atual) if desemp_atual else 0, horizontal=True)
                                     
-                                    opcoes_multi = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho"]
+                                    opcoes_multi = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho", "Brincadeiras inadequadas"]
                                     if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
-                                        opcoes_multi.append("Não fez o questionário participativo")
+                                        opcoes_multi.append("Não fez o questionário participativo", "Brincadeiras inadequadas")
                                         
                                     itens_multi_atuais = [i for i in itens_atuais if i in opcoes_multi]
                                     edit_tipo_selecao = st.multiselect("Valores e atitudes", options=opcoes_multi, default=itens_multi_atuais)
