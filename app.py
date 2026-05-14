@@ -205,10 +205,6 @@ else:
         st.session_state.pagina = 'Agendamento'
         st.rerun()
 
-    if st.sidebar.button('📅 Agendar Equipamentos', use_container_width=True):
-        st.session_state.pagina = 'Agendamento'
-        st.rerun()
-
     if st.sidebar.button("Sair", key="btn_sair", use_container_width=True):
         atualizar_presenca(st.session_state.user_data['Usuario'], "logout")
         st.session_state.logado = False
@@ -1419,47 +1415,3 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-    elif st.session_state.pagina == 'Agendamento':
-    st.title("📅 Agendamento de Equipamentos")
-    
-    # Lista de equipamentos solicitada
-    lista_equipamentos = ["Datashow", "Tablets", "Caixa de som", "Notebook"]
-    
-    with st.form("form_agendamento", clear_on_submit=True):
-        col_ag1, col_ag2 = st.columns(2)
-        
-        with col_ag1:
-            equipamento = st.selectbox("Selecione o Equipamento", lista_equipamentos)
-            data_uso = st.date_input("Data do Uso", value=datetime.now().date(), format="DD/MM/YYYY")
-            turno = st.selectbox("Turno", ["Matutino", "Vespertino", "Noturno"])
-            
-        with col_ag2:
-            # Opções de horários/aulas
-            horario = st.selectbox("Horário/Aula", ["1ª Aula", "2ª Aula", "3ª Aula", "4ª Aula", "5ª Aula"])
-            obs_ag = st.text_area("Observações (Ex: Turma ou Local)")
-            
-        btn_agendar = st.form_submit_button("CONFIRMAR AGENDAMENTO")
-
-    if btn_agendar:
-        # Verifica se o equipamento já está ocupado no mesmo horário
-        if verificar_conflito(equipamento, data_uso.strftime("%d/%m/%Y"), turno, horario):
-            st.error(f"❌ O item {equipamento} já está agendado para este horário!")
-        else:
-            try:
-                _, wks_ag = carregar_agendamentos()
-                nova_linha_ag = [
-                    datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-                    equipamento,
-                    st.session_state.user_data['Professor'],
-                    data_uso.strftime("%d/%m/%Y"),
-                    turno,
-                    horario,
-                    obs_ag
-                ]
-                wks_ag.append_row(nova_linha_ag)
-                st.success(f"✅ {equipamento} agendado com sucesso!")
-                time.sleep(2)
-                st.rerun()
-            except Exception as e:
-                st.error(f"Erro ao salvar agendamento: {e}")
