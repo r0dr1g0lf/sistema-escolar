@@ -33,81 +33,6 @@ def carregar_dados():
         
     return df_p, df_a, df_d, df_per
 
-
-
-# --- NOVAS FUNÇÕES INJETADAS ---
-def carregar_agendamentos():
-    try:
-        sh = conectar_google_sheets()
-        try:
-            wks = sh.worksheet("Agendamentos_Recursos")
-        except:
-            # Cria a aba caso não exista
-            wks = sh.add_worksheet(title="Agendamentos_Recursos", rows="1000", cols="10")
-            wks.append_row(["Data_Registro", "Recurso", "Professor", "Data_Uso", "Bimestre", "Turno", "Tempos", "Turma", "Disciplina", "Obs"])
-        
-        dados = wks.get_all_records()
-        return pd.DataFrame(dados), wks
-    except Exception as e:
-        return pd.DataFrame(), None
-
-def checar_conflito(recurso, data_sel, turno, tempos_selecionados):
-    df_ag, _ = carregar_agendamentos()
-    if df_ag.empty:
-        return []
-
-    # Filtra por mesmo recurso, data e turno
-    conflitos = df_ag[
-        (df_ag['Recurso'] == recurso) & 
-        (df_ag['Data_Uso'] == data_sel.strftime("%d/%m/%Y")) & 
-        (df_ag['Turno'] == turno)
-    ]
-    
-    ja_ocupados = []
-    for _, row in conflitos.iterrows():
-        # Transforma a string "1º tempo, 2º tempo" em lista
-        tempos_salvos = [t.strip() for t in str(row['Tempos']).split(",")]
-        for t in tempos_selecionados:
-            if t in tempos_salvos:
-                ja_ocupados.append(t)
-                
-    return list(set(ja_ocupados))
-# --- NOVAS FUNÇÕES INJETADAS ---
-# --- BLOCO DE FUNÇÕES (SERÁ INSERIDO APÓS CARREGAR_DADOS) ---
-
-def carregar_agendamentos():
-    try:
-        sh = conectar_google_sheets()
-        try:
-            wks = sh.worksheet("Agendamentos_Equipamentos")
-        except:
-            # Cria a aba caso ela não exista na planilha
-            wks = sh.add_worksheet(title="Agendamentos_Equipamentos", rows="1000", cols="7")
-            wks.append_row(["Data_Registro", "Equipamento", "Professor", "Data_Uso", "Turno", "Horario", "Observacao"])
-        
-        dados = wks.get_all_records()
-        return pd.DataFrame(dados), wks
-    except Exception as e:
-        return pd.DataFrame(), None
-
-def verificar_conflito(equipamento, data_uso, turno, horario):
-    df_ag, _ = carregar_agendamentos()
-    if df_ag.empty:
-        return False
-    
-    # Verifica se já existe agendamento para o mesmo item, dia, turno e aula
-    conflito = df_ag[
-        (df_ag['Equipamento'] == equipamento) & 
-        (df_ag['Data_Uso'] == data_uso) & 
-        (df_ag['Turno'] == turno) & 
-        (df_ag['Horario'] == horario)
-    ]
-    return not conflito.empty
-
-
-# --- BLOCO DA PÁGINA (SERÁ INSERIDO NO FINAL DO SISTEMA) ---
-
-
 def atualizar_presenca(usuario, acao):
     try:
         sh = conectar_google_sheets()
@@ -238,14 +163,6 @@ else:
         if st.sidebar.button("Atualizar Dados", key="btn_atualizar", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
-
-    if st.sidebar.button('📅 Agendar Equipamentos', use_container_width=True):
-        st.session_state.pagina = 'Agendamento'
-        st.rerun()
-
-    if st.sidebar.button('📅 Agendar Equipamentos', use_container_width=True):
-        st.session_state.pagina = 'Agendamento'
-        st.rerun()
 
     if st.sidebar.button("Sair", key="btn_sair", use_container_width=True):
         atualizar_presenca(st.session_state.user_data['Usuario'], "logout")
