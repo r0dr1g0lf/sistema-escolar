@@ -34,38 +34,6 @@ def carregar_dados():
     return df_p, df_a, df_d, df_per
 
 
-
-def carregar_agendamentos():
-    try:
-        sh = conectar_google_sheets()
-        try:
-            wks = sh.worksheet("Agendamentos_Equipamentos")
-        except:
-            # Cria a aba caso ela não exista na planilha com o cabeçalho correto
-            wks = sh.add_worksheet(title="Agendamentos_Equipamentos", rows="1000", cols="8")
-            wks.append_row(["Data_Registro", "Equipamento", "Professor", "Turma", "Data_Uso", "Turno", "Horario", "Observacao"])
-        
-        dados = wks.get_all_records()
-        return pd.DataFrame(dados), wks
-    except Exception as e:
-        return pd.DataFrame(), None
-def verificar_conflito(equipamento, data_uso, turno, horario):
-    df_ag, _ = carregar_agendamentos()
-    if df_ag.empty:
-        return False
-    
-    # Converte data_uso para string no formato da planilha para comparar
-    data_uso_str = data_uso.strftime("%d/%m/%Y")
-    
-    # Verifica se já existe agendamento para o mesmo item, dia, turno e aula
-    conflito = df_ag[
-        (df_ag['Equipamento'] == equipamento) & 
-        (df_ag['Data_Uso'].astype(str) == data_uso_str) & 
-        (df_ag['Turno'] == turno) & 
-        (df_ag['Horario'] == horario)
-    ]
-    return not conflito.empty
-
 # --- NOVAS FUNÇÕES INJETADAS ---
 # --- BLOCO DE FUNÇÕES (SERÁ INSERIDO APÓS CARREGAR_DADOS) ---
 
@@ -1447,6 +1415,3 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-# --- BLOCO ADICIONAL ---
-# --- FUNÇÕES DE APOIO PARA AGENDAMENTO ---
