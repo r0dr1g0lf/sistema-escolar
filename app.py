@@ -1415,3 +1415,59 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+# --- BLOCO ADICIONAL (ÂNCORAS NÃO LOCALIZADAS) ---
+elif st.session_state.pagina == 'Agendamento':
+        st.title("📅 Agendamento de Equipamentos")
+        
+        tab1, tab2 = st.tabs(["Novo Agendamento", "Ver Agendamentos"])
+        
+        with tab1:
+            # Lógica de Turmas baseada no Professor Logado
+            if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
+                todas_turmas_ag = sorted(df_alunos['Turma'].unique().astype(str))
+            else:
+                turmas_vinc_ag = str(st.session_state.user_data.get('Turmas', "")).split(", ")
+                todas_turmas_ag = sorted([t.strip() for t in turmas_vinc_ag if t.strip()])
+
+            with st.form("form_agendamento", clear_on_submit=True):
+                equipamento = st.selectbox("Selecione o Equipamento", ["Data Show", "Caixa de Som", "Notebook", "Laboratório de Informática", "Auditório"])
+                turma_agendada = st.selectbox("Selecione a Turma", todas_turmas_ag)
+                data_uso = st.date_input("Data de Uso", value=datetime.now().date(), format="DD/MM/YYYY")
+                turno = st.selectbox("Turno", ["Matutino", "Vespertino"])
+                horario = st.selectbox("Horário/Aula", ["1ª aula", "2ª aula", "3ª aula", "4ª aula", "5ª aula"])
+                obs_ag = st.text_area("Observação (Opcional)")
+                
+                btn_agendar = st.form_submit_button("CONFIRMAR AGENDAMENTO")
+                
+                if btn_agendar:
+                    data_str = data_uso.strftime("%d/%m/%Y")
+                    if verificar_conflito(equipamento, data_str, turno, horario):
+                        st.error(f"❌ Conflito: O item '{equipamento}' já está agendado para {data_str} no {turno} ({horario}).")
+                    else:
+                        try:
+                            df_ag, wks_ag = carregar_agendamentos()
+                            nova_linha_ag = [
+                                datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                                equipamento,
+                                prof_nome,
+                                data_str,
+                                turno,
+                                f"{horario} - Turma: {turma_agendada}",
+                                obs_ag
+                            ]
+                            wks_ag.append_row(nova_linha_ag)
+                            st.success(f"✅ {equipamento} agendado para a turma {turma_agendada} com sucesso!")
+                            time.sleep(2)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao salvar agendamento: {e}")
+                            
+        with tab2:
+            df_lista, _ = carregar_agendamentos()
+            if not df_lista.empty:
+                # Filtro simples para visualização
+                st.subheader("Cronograma de Uso")
+                st.dataframe(df_lista.sort_values(by="Data_Uso", ascending=False), use_container_width=True, hide_index=True)
+            else:
+                st.info("Nenhum agendamento encontrado.")
