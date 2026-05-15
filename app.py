@@ -34,6 +34,38 @@ def carregar_dados():
     return df_p, df_a, df_d, df_per
 
 
+
+def carregar_agendamentos():
+    try:
+        sh = conectar_google_sheets()
+        try:
+            wks = sh.worksheet("Agendamentos_Recursos")
+        except:
+            # Se a aba não existir, cria com os cabeçalhos
+            wks = sh.add_worksheet(title="Agendamentos_Recursos", rows="1000", cols="8")
+            wks.append_row(["Data_Registro", "Recurso", "Professor", "Turma", "Data_Uso", "Turno", "Tempo", "Observacao"])
+        
+        dados = wks.get_all_records()
+        return pd.DataFrame(dados), wks
+    except Exception as e:
+        return pd.DataFrame(), None
+def verificar_conflito_recurso(recurso, data_uso, turno, tempo):
+    df_ag, _ = carregar_agendamentos()
+    if df_ag.empty:
+        return False
+    
+    # Formata a data para string para comparar com a planilha
+    data_str = data_uso.strftime("%d/%m/%Y")
+    
+    # Busca por conflitos (mesmo recurso, mesma data, mesmo turno e mesmo tempo)
+    conflito = df_ag[
+        (df_ag['Recurso'] == recurso) & 
+        (df_ag['Data_Uso'].astype(str) == data_str) & 
+        (df_ag['Turno'] == turno) & 
+        (df_ag['Tempo'] == tempo)
+    ]
+    return not conflito.empty
+
 # --- NOVAS FUNÇÕES INJETADAS ---
 # --- BLOCO DE FUNÇÕES (SERÁ INSERIDO APÓS CARREGAR_DADOS) ---
 
@@ -1415,3 +1447,62 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+# --- BLOCO ADICIONAL ---
+# --- FUNÇÕES PARA O SISTEMA DE AGENDAMENTO ---
+
+
+# --- BLOCO ADICIONAL ---
+elif st.session_state.pagina == "Agendamento":
+        st.title("📅 Agendamento de Recursos")
+        
+        # Identifica as turmas do professor logado (conforme lógica do seu sistema)
+        if st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
+            turmas_lista = sorted(df_alunos['Turma'].unique().astype(str))
+        else:
+            vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
+            turmas_lista = sorted([t.strip() for t in vinc if t.strip()])
+
+        with st.form("novo_agendamento", clear_on_submit=True):
+            c1, c2 = st.columns(2)
+            with c1:
+                recurso_sel = st.selectbox("Recurso", ["Datashow", "Tablets", "Caixa de som", "Notebook"])
+                data_sel = st.date_input("Data do Uso", value=datetime.now().date(), format="DD/MM/YYYY")
+                turma_sel = st.selectbox("Sua Turma", turmas_lista)
+            with c2:
+                turno_sel = st.selectbox("Turno", ["Matutino", "Vespertino", "Noturno"])
+                tempo_sel = st.selectbox("Tempo de Aula", ["1º tempo", "2º tempo", "3º tempo", "4º tempo"])
+                obs_sel = st.text_input("Observações (opcional)")
+
+            btn_agendar = st.form_submit_button("CONFIRMAR AGENDAMENTO", use_container_width=True)
+
+            if btn_agendar:
+                if verificar_conflito_recurso(recurso_sel, data_sel, turno_sel, tempo_sel):
+                    st.error(f"❌ Conflito: O recurso {recurso_sel} já está reservado para o {tempo_sel} nesta data.")
+                else:
+                    try:
+                        _, wks_reserva = carregar_agendamentos()
+                        wks_reserva.append_row([
+                            datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                            recurso_sel,
+                            st.session_state.user_data['Professor'],
+                            turma_sel,
+                            data_sel.strftime("%d/%m/%Y"),
+                            turno_sel,
+                            tempo_sel,
+                            obs_sel
+                        ])
+                        st.success(f"✅ Sucesso! {recurso_sel} agendado.")
+                        time.sleep(2)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao salvar: {e}")
+
+        st.divider()
+        st.subheader("📋 Agendamentos Realizados")
+        df_viz, _ = carregar_agendamentos()
+        if not df_viz.empty:
+            # Exibe a tabela formatada
+            st.dataframe(df_viz.sort_values(by="Data_Uso", ascending=False), use_container_width=True, hide_index=True)
+        else:
+            st.info("Nenhum agendamento encontrado.")
