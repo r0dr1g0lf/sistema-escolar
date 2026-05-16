@@ -1217,17 +1217,25 @@ else:
                     if not novo_prof or not novo_usuario:
                         st.error("Por favor, preencha o nome do professor e o nome de usuário.")
                     else:
-                        duplicado_user = df_profs[df_profs['Usuario'].astype(str).str.upper() == novo_usuario.strip().upper()]
-                        if not duplicado_user.empty:
-                            with col_msg_salvar:
-                                msg_placeholder_prof_err = st.empty()
-                                msg_placeholder_prof_err.error(f"Erro: O nome de usuário '{novo_usuario}' já está cadastrado.")
-                                time.sleep(3)
-                                msg_placeholder_prof_err.empty()
-                        else:
-                            try:
-                                sh = conectar_google_sheets()
-                                wks_p = sh.worksheet("Config_Professores")
+                        try:
+                            sh = conectar_google_sheets()
+                            wks_p = sh.worksheet("Config_Professores")
+                            
+                            # Carrega os usuários que já existem para fazer a checagem (live from sheet)
+                            dados_existentes = wks_p.get_all_records()
+                            usuarios_cadastrados = [str(linha.get("Usuario", "")).strip().lower() for linha in dados_existentes]
+                            
+                            usuario_verificar = str(novo_usuario).strip().lower()
+                            
+                            # VALIDAÇÃO CRÍTICA: Impede se o nome de usuário (login) já existir
+                            if usuario_verificar in usuarios_cadastrados:
+                                with col_msg_salvar:
+                                    msg_placeholder_prof_err = st.empty()
+                                    msg_placeholder_prof_err.error(f"❌ Não é possível cadastrar! O usuário '{novo_usuario}' já existe no sistema. Escolha outro nome de usuário para login.")
+                                    time.sleep(3)
+                                    msg_placeholder_prof_err.empty()
+                            else:
+                                # Se não existir, faz o cadastro normalmente
                                 turmas_str = ", ".join(turmas_vinculo)
                                 disciplinas_str = ", ".join(disciplinas_vinculo)
                                 senha_final = str(nova_senha) if nova_senha else ""
@@ -1239,8 +1247,9 @@ else:
                                     time.sleep(3)
                                     msg_placeholder_prof.empty()
                                 st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro: {e}")
+                                
+                        except Exception as e:
+                            st.error(f"Erro ao acessar o banco de dados: {e}")
             
             st.divider()
             st.subheader("Editar ou Excluir Usuário Existente")
