@@ -888,15 +888,18 @@ else:
     elif pagina_atual == "Segurança":
         st.title("🔒 Segurança")
         st.subheader("Alterar Minha Senha")
+        
+        # Identifica dinamicamente o usuário logado (seja Professor, admin ou rodrigo)
         user_atual = st.session_state.user_data['Usuario']
         
         with st.form("form_alterar_senha_prof"):
             nova_senha_prof = st.text_input("Nova Senha", type="password")
             confirmar_senha_prof = st.text_input("Confirmar Nova Senha", type="password")
+            
             col_senha_p1, col_senha_p2 = st.columns([1, 2])
             with col_senha_p1:
                 btn_p = st.form_submit_button("Atualizar Minha Senha")
-            
+                
             if btn_p:
                 if nova_senha_prof != confirmar_senha_prof:
                     with col_senha_p2:
@@ -904,20 +907,32 @@ else:
                         msg_placeholder_err_p.error("As senhas não coincidem.")
                         time.sleep(3)
                         msg_placeholder_err_p.empty()
+                elif len(nova_senha_prof.strip()) == 0:
+                    with col_senha_p2:
+                        st.error("A senha não pode ficar em branco.")
                 else:
                     try:
                         sh = conectar_google_sheets()
                         wks_p = sh.worksheet("Config_Professores")
+                        
+                        # Localiza a linha exata do usuário logado na planilha (funciona perfeitamente para 'rodrigo')
                         celula = wks_p.find(str(user_atual))
-                        wks_p.update_cell(celula.row, 3, str(nova_senha_prof))
+                        
+                        # Atualiza a senha na coluna 3 (coluna da Senha) da linha correspondente
+                        wks_p.update_cell(celula.row, 3, str(nova_senha_prof).strip())
+                        
+                        # Atualiza a senha na memória da sessão para manter a validação ativa
+                        st.session_state.user_data['Senha'] = str(nova_senha_prof).strip()
+                        
                         with col_senha_p2:
                             msg_placeholder_ok_p = st.empty()
-                            msg_placeholder_ok_p.success("✅ Senha atualizada!")
+                            msg_placeholder_ok_p.success("✅ Sua senha foi alterada com sucesso!")
                             st.cache_data.clear()
-                            time.sleep(3)
+                            time.sleep(2)
                             msg_placeholder_ok_p.empty()
+                            st.rerun()
                     except Exception as e:
-                        st.error(f"Erro ao atualizar: {e}")
+                        st.error(f"Erro ao atualizar a senha na planilha: {e}")
 
     # Changed: Use is_master_admin for Cadastro page access
     elif pagina_atual == "Cadastro" and st.session_state.get('is_master_admin', False):
@@ -1601,7 +1616,7 @@ else:
                             opcoes_selecao.append(f"{row['linha_sheets']} - {row['Equipamento']} - {row['Turma']} ({row['Data Uso']} no {row['Tempo']})")
                         
                         if opcoes_selecao: # Only show selectbox if there are options
-                            agend_selecionado_texto = st.selectbox("Selecione um agendamento para Modificar ou Excluir:", opciones_selecao)
+                            agend_selecionado_texto = st.selectbox("Selecione um agendamento para Modificar ou Excluir:", opcoes_selecao)
                             
                             # Extract linha_sheets_alvo directly from the selected string
                             linha_sheets_alvo = int(agend_selecionado_texto.split(' - ')[0])
