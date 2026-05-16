@@ -33,10 +33,6 @@ def carregar_dados():
         
     return df_p, df_a, df_d, df_per
 
-
-# --- NOVAS FUNÇÕES INJETADAS ---
-# --- BLOCO DE FUNÇÕES (SERÁ INSERIDO APÓS CARREGAR_DADOS) ---
-
 def carregar_agendamentos():
     try:
         sh = conectar_google_sheets()
@@ -65,10 +61,6 @@ def verificar_conflito(equipamento, data_uso, turno, horario):
         (df_ag['Horario'] == horario)
     ]
     return not conflito.empty
-
-
-# --- BLOCO DA PÁGINA (SERÁ INSERIDO NO FINAL DO SISTEMA) ---
-
 
 def atualizar_presenca(usuario, acao):
     try:
@@ -202,7 +194,7 @@ else:
             st.rerun()
 
     if st.sidebar.button('📅 Agendar Equipamentos', use_container_width=True):
-        st.session_state.pagina = 'Agendamento'
+        st.session_state.pagina = 'Agendamento de Equipamentos'
         st.rerun()
 
     if st.sidebar.button("Sair", key="btn_sair", use_container_width=True):
@@ -213,7 +205,9 @@ else:
 
     is_soe = "SOE" in str(st.session_state.user_data.get('Disciplinas', ""))
 
-    if st.session_state.pagina == "Registro":
+    pagina_atual = st.session_state.get("pagina", "Registro")
+
+    if pagina_atual == "Registro":
         st.title("📝 Novo Registro")
         
         if is_soe:
@@ -328,7 +322,7 @@ else:
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
 
-    elif st.session_state.pagina == "Ocorrencias":
+    elif pagina_atual == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -630,7 +624,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar ocorrências: {e}")
 
-    elif st.session_state.pagina == "VisualizarRegistros":
+    elif pagina_atual == "VisualizarRegistros":
         st.title("📋 Registros de Desempenho Realizados")
         try:
             sh = conectar_google_sheets()
@@ -859,7 +853,7 @@ else:
         except Exception as e:
             st.error(f"Erro ao carregar registros: {e}")
 
-    elif st.session_state.pagina == "Segurança":
+    elif pagina_atual == "Segurança":
         st.title("🔒 Segurança")
         st.subheader("Alterar Minha Senha")
         user_atual = st.session_state.user_data['Usuario']
@@ -887,13 +881,13 @@ else:
                         with col_senha_p2:
                             msg_placeholder_ok_p = st.empty()
                             msg_placeholder_ok_p.success("✅ Senha atualizada!")
+                            st.cache_data.clear()
                             time.sleep(3)
                             msg_placeholder_ok_p.empty()
-                        st.cache_data.clear()
                     except Exception as e:
                         st.error(f"Erro ao atualizar: {e}")
 
-    elif st.session_state.pagina == "Cadastro" and st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
+    elif pagina_atual == "Cadastro" and st.session_state.user_data['Usuario'] in ["admin", "rodrigo"]:
         st.title("⚙️ Painel de Cadastro")
         abas = ["Turmas/Alunos", "Disciplinas", "Gerenciar Usuários", "Alterar Senha", "Período de Lançamento"]
         if st.session_state.user_data['Usuario'] == "rodrigo":
@@ -1289,7 +1283,7 @@ else:
                         try:
                             wks_per = sh.worksheet("Config_Periodos")
                         except:
-                            wks_per = st.add_worksheet(title="Config_Periodos", rows="10", cols="3")
+                            wks_per = sh.add_worksheet(title="Config_Periodos", rows="10", cols="3")
                             wks_per.append_row(["Bimestre", "Inicio", "Fim"])
                         data_per = wks_per.get_all_values()
                         found = False
@@ -1411,7 +1405,107 @@ else:
                                 except Exception as e:
                                     st.error(f"Erro: {e}")
 
-    elif st.session_state.pagina == "Cadastro":
+    elif pagina_atual == "Agendamento de Equipamentos":
+        st.title("📅 Agendamento de Equipamentos")
+        st.subheader("Escola Diva Lima")
+        
+        # 1. Identifica o professor logado com segurança
+        usuario_logado = st.session_state.user_data['Usuario']
+        nome_professor_logado = st.session_state.user_data['Professor']
+        st.info(f"👤 **Usuário Conectado:** {nome_professor_logado}")
+        
+        # 2. Carrega as turmas vinculadas ao professor logado para evitar componentes vazios
+        try:
+            sh = conectar_google_sheets()
+            df_p = pd.DataFrame(sh.worksheet("Config_Professores").get_all_records())
+            
+            # Filtra na tabela onde a coluna Usuario bate com o professor logado
+            dados_prof = df_p[df_p["Usuario"] == usuario_logado]
+            if not dados_prof.empty and "Turmas" in dados_prof.columns:
+                turmas_str = dados_prof["Turmas"].iloc[0]
+                if turmas_str == "Todas": # Handle "Todas" turmas for admin/rodrigo
+                    df_a = pd.DataFrame(sh.worksheet("Config_Alunos").get_all_records())
+                    turmas_disponiveis = sorted(df_a["Turma"].dropna().unique().tolist())
+                else:
+                    turmas_disponiveis = sorted([t.strip() for t in turmas_str.split(", ") if t.strip()])
+            else:
+                # Fallback if no specific turmas found or column missing
+                df_a = pd.DataFrame(sh.worksheet("Config_Alunos").get_all_records())
+                if "Turma" in df_a.columns:
+                    turmas_disponiveis = sorted(df_a["Turma"].dropna().unique().tolist())
+                else:
+                    turmas_disponiveis = ["Regular A", "Regular B"]
+        except Exception as e:
+            st.error(f"Erro ao carregar turmas: {e}")
+            turmas_disponiveis = ["Erro ao carregar turmas"]
+
+        # Componentes visuais organizados
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            turma_selecionada = st.selectbox("Selecione a Turma:", turmas_disponiveis)
+            equipamento = st.selectbox("Selecione o Equipamento:", ["Tablets", "TV", "Datashow", "Notebook"])
+            tempo_aula = st.selectbox("Tempo de Aula:", ["1º tempo", "2º tempo", "3º tempo", "4º tempo"])
+            
+        with col2:
+            # Data de Registro automática capturada do Relógio do Sistema Operacional
+            data_registro = datetime.now().strftime("%d/%m/%Y")
+            st.text_input("Data de Registro (Hoje):", value=data_registro, disabled=True)
+            
+            # Data de Uso usando o seletor de calendário nativo do Streamlit
+            data_uso = st.date_input("Data de Uso do Equipamento:", value=datetime.now())
+            data_uso_formatada = data_uso.strftime("%d/%m/%Y")
+
+        st.markdown("---")
+        
+        # Botão para processar e salvar no banco de dados do Sheets
+        if st.button("💾 Confirmar Agendamento do Equipamento", use_container_width=True):
+            try:
+                sh = conectar_google_sheets()
+                
+                # Tenta acessar ou cria a aba de agendamentos caso ela não exista na planilha
+                try:
+                    wks_a = sh.worksheet("Config_Agendamentos")
+                except:
+                    wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="6")
+                    wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo"])
+                
+                # Verifica duplicidade (Evita conflito de agendamento do mesmo equipamento no mesmo dia/tempo)
+                dados_agendados = wks_a.get_all_records()
+                conflito = False
+                
+                if dados_agendados:
+                    df_agendados = pd.DataFrame(dados_agendados)
+                    # Verifica se o mesmo equipamento já está reservado no mesmo dia e tempo
+                    filtro_conflito = df_agendados[
+                        (df_agendados["Equipamento"] == equipamento) & 
+                        (df_agendados["Data Uso"] == data_uso_formatada) & 
+                        (df_agendados["Tempo"] == tempo_aula)
+                    ]
+                    if not filtro_conflito.empty:
+                        conflito = True
+                
+                if conflito:
+                    st.error(f"❌ Não é possível agendar! O equipamento '{equipamento}' já está reservado para o dia {data_uso_formatada} no {tempo_aula}.")
+                else:
+                    # Registra a nova linha se estiver livre
+                    wks_a.append_row([
+                        str(nome_professor_logado),
+                        str(turma_selecionada),
+                        str(equipamento),
+                        str(data_registro),
+                        str(data_uso_formatada),
+                        str(tempo_aula)
+                    ])
+                    st.success(f"✅ Agendamento de {equipamento} realizado com sucesso!")
+                    st.cache_data.clear()
+                    time.sleep(2)
+                    st.rerun()
+                    
+            except Exception as e:
+                st.error(f"Erro ao salvar os dados na planilha: {e}")
+
+    elif pagina_atual == "Cadastro":
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
