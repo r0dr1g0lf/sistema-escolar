@@ -207,12 +207,17 @@ else:
         st.session_state.pagina = "Ocorrencias"
         st.rerun()
 
+    # NOVO LOCAL: Botão posicionado logo abaixo de Ocorrências
+    if st.sidebar.button('📅 Agendar Equipamentos', key="btn_agendar_equipamentos_nav", use_container_width=True):
+        st.session_state.pagina = 'Agendamento de Equipamentos'
+        st.rerun()
+
     # All logged-in users can see "Segurança" to change their own password
     if st.sidebar.button("Segurança", key="btn_seguranca", use_container_width=True):
         st.session_state.pagina = "Segurança"
         st.rerun()
 
-    # Changed: Only master-admins see "Cadastro" and "Atualizar Dados"
+    # Apenas master-admins veem "Cadastro" e "Atualizar Dados"
     if st.session_state.get('is_master_admin', False):
         if st.sidebar.button("Cadastro", key="btn_cadastro", use_container_width=True):
             st.session_state.pagina = "Cadastro"
@@ -221,10 +226,6 @@ else:
         if st.sidebar.button("Atualizar Dados", key="btn_atualizar", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
-
-    if st.sidebar.button('📅 Agendar Equipamentos', use_container_width=True):
-        st.session_state.pagina = 'Agendamento de Equipamentos'
-        st.rerun()
 
     if st.sidebar.button("Sair", key="btn_sair", use_container_width=True):
         atualizar_presenca(st.session_state.user_data['Usuario'], "logout")
