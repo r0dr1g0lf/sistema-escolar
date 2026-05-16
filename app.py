@@ -120,33 +120,43 @@ if not st.session_state.logado:
         entrar = st.form_submit_button("Entrar")
         
         if entrar:
-            # Fetch admin's password for 'rodrigo' validation
-            admin_password = None
-            admin_match = df_profs[df_profs['Usuario'].astype(str).str.lower() == "admin"]
-            if not admin_match.empty:
-                admin_password = str(admin_match.iloc[0]['Senha'])
-
-            if user_input.lower() == "rodrigo":
-                if admin_password and pass_input == admin_password:
+            # Validação especial para Administradores e Rodrigo (Master Admin)
+            if user_input.lower() == 'admin':
+                admin_match = df_profs[df_profs['Usuario'].astype(str).str.lower() == 'admin']
+                senha_admin_planilha = str(admin_match.iloc[0]['Senha']).strip() if not admin_match.empty else "admin" # Fallback if 'admin' not in df_profs
+                if str(pass_input).strip() == senha_admin_planilha:
                     st.session_state.logado = True
-                    # Fetch rodrigo's actual data from df_profs
-                    rodrigo_match = df_profs[df_profs['Usuario'].astype(str).str.lower() == "rodrigo"]
-                    if not rodrigo_match.empty:
-                        st.session_state.user_data = rodrigo_match.iloc[0].to_dict()
-                    else: # Fallback if 'rodrigo' isn't explicitly in Config_Professores
-                        st.session_state.user_data = {
-                            'Professor': 'Master Rodrigo',
-                            'Usuario': 'rodrigo',
-                            'Senha': admin_password, # Store admin's password for consistency
-                            'Turmas': 'Todas',
-                            'Disciplinas': 'Todas'
-                        }
-                    st.session_state.is_master_admin = True # Rodrigo logged in as master admin
-                    atualizar_presenca("rodrigo", "login")
+                    if not admin_match.empty:
+                        st.session_state.user_data = admin_match.iloc[0].to_dict()
+                    else:
+                        st.session_state.user_data = {'Professor': 'Administrador', 'Usuario': 'admin', 'Senha': senha_admin_planilha, 'Turmas': 'Todas', 'Disciplinas': 'Todas'}
+                    st.session_state.is_master_admin = True # Admin is a master admin
+                    atualizar_presenca("admin", "login")
+                    st.session_state.pagina = "Registro"
+                    st.success("Login realizado com sucesso!")
+                    time.sleep(1)
                     st.rerun()
                 else:
-                    st.error("Usuário ou senha incorretos para Rodrigo (requer senha de admin).")
-            else: # Regular user login (including 'admin' itself)
+                    st.error("Senha incorreta para Admin.")
+                    
+            elif user_input.lower() == 'rodrigo':
+                rodrigo_match = df_profs[df_profs['Usuario'].astype(str).str.lower() == 'rodrigo']
+                if not rodrigo_match.empty:
+                    senha_rodrigo_planilha = str(rodrigo_match.iloc[0]['Senha']).strip()
+                    if str(pass_input).strip() == senha_rodrigo_planilha:
+                        st.session_state.logado = True
+                        st.session_state.user_data = rodrigo_match.iloc[0].to_dict() # Use full data from df_profs
+                        st.session_state.is_master_admin = True # Ativa os privilégios totais de Master
+                        atualizar_presenca("rodrigo", "login")
+                        st.session_state.pagina = "Registro"
+                        st.success("Login Master realizado com sucesso!")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error("Senha incorreta para Rodrigo.")
+                else:
+                    st.error("Usuário 'rodrigo' não encontrado na configuração de professores.")
+            else: # Login de usuários regulares
                 match = df_profs[(df_profs['Usuario'].astype(str) == user_input) & (df_profs['Senha'].astype(str) == pass_input)]
                 if not match.empty:
                     user_row = match.iloc[0]
@@ -155,7 +165,7 @@ if not st.session_state.logado:
                     else:
                         st.session_state.logado = True
                         st.session_state.user_data = user_row.to_dict()
-                        st.session_state.is_master_admin = (user_input.lower() == "admin") # Only 'admin' is master admin here
+                        st.session_state.is_master_admin = False # Usuários regulares não são master admin
                         atualizar_presenca(user_input, "login")
                         st.rerun()
                 else:
@@ -197,11 +207,10 @@ else:
         st.session_state.pagina = "Ocorrencias"
         st.rerun()
 
-    # Changed: Only non-master-admins see "Segurança"
-    if not st.session_state.get('is_master_admin', False):
-        if st.sidebar.button("Segurança", key="btn_seguranca", use_container_width=True):
-            st.session_state.pagina = "Segurança"
-            st.rerun()
+    # All logged-in users can see "Segurança" to change their own password
+    if st.sidebar.button("Segurança", key="btn_seguranca", use_container_width=True):
+        st.session_state.pagina = "Segurança"
+        st.rerun()
 
     # Changed: Only master-admins see "Cadastro" and "Atualizar Dados"
     if st.session_state.get('is_master_admin', False):
@@ -885,54 +894,54 @@ else:
         except Exception as e:
             st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Segurança":
+    elif st.session_state.pagina == "Segurança":
         st.title("🔒 Segurança")
         st.subheader("Alterar Minha Senha")
         
-        # Identifica dinamicamente o usuário logado (seja Professor, admin ou rodrigo)
         user_atual = st.session_state.user_data['Usuario']
         
-        with st.form("form_alterar_senha_prof"):
-            nova_senha_prof = st.text_input("Nova Senha", type="password")
-            confirmar_senha_prof = st.text_input("Confirmar Nova Senha", type="password")
-            
-            col_senha_p1, col_senha_p2 = st.columns([1, 2])
-            with col_senha_p1:
-                btn_p = st.form_submit_button("Atualizar Minha Senha")
+        # Bloqueia apenas o 'admin' genérico de mudar a senha por aqui, mas PERMITE o 'rodrigo' e os professores
+        if user_atual == "admin":
+            st.warning("O usuário 'admin' padrão não pode alterar a senha por esta interface.")
+        else:
+            with st.form("form_alterar_senha_prof"):
+                nova_senha_prof = st.text_input("Nova Senha", type="password")
+                confirmar_senha_prof = st.text_input("Confirmar Nova Senha", type="password")
                 
-            if btn_p:
-                if nova_senha_prof != confirmar_senha_prof:
-                    with col_senha_p2:
-                        msg_placeholder_err_p = st.empty()
-                        msg_placeholder_err_p.error("As senhas não coincidem.")
-                        time.sleep(3)
-                        msg_placeholder_err_p.empty()
-                elif len(nova_senha_prof.strip()) == 0:
-                    with col_senha_p2:
-                        st.error("A senha não pode ficar em branco.")
-                else:
-                    try:
-                        sh = conectar_google_sheets()
-                        wks_p = sh.worksheet("Config_Professores")
-                        
-                        # Localiza a linha exata do usuário logado na planilha (funciona perfeitamente para 'rodrigo')
-                        celula = wks_p.find(str(user_atual))
-                        
-                        # Atualiza a senha na coluna 3 (coluna da Senha) da linha correspondente
-                        wks_p.update_cell(celula.row, 3, str(nova_senha_prof).strip())
-                        
-                        # Atualiza a senha na memória da sessão para manter a validação ativa
-                        st.session_state.user_data['Senha'] = str(nova_senha_prof).strip()
-                        
+                col_senha_p1, col_senha_p2 = st.columns([1, 2])
+                with col_senha_p1:
+                    btn_p = st.form_submit_button("Atualizar Minha Senha")
+                    
+                if btn_p:
+                    if nova_senha_prof != confirmar_senha_prof:
                         with col_senha_p2:
-                            msg_placeholder_ok_p = st.empty()
-                            msg_placeholder_ok_p.success("✅ Sua senha foi alterada com sucesso!")
-                            st.cache_data.clear()
-                            time.sleep(2)
-                            msg_placeholder_ok_p.empty()
-                            st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao atualizar a senha na planilha: {e}")
+                            msg_placeholder_err_p = st.empty()
+                            msg_placeholder_err_p.error("As senhas não coincidem.")
+                            time.sleep(3)
+                            msg_placeholder_err_p.empty()
+                    elif len(nova_senha_prof.strip()) == 0:
+                        with col_senha_p2:
+                            st.error("A senha não pode ficar em branco.")
+                    else:
+                        try:
+                            sh = conectar_google_sheets()
+                            wks_p = sh.worksheet("Config_Professores")
+                            
+                            # Encontra a linha do 'rodrigo' ou do professor logado
+                            celula = wks_p.find(str(user_atual))
+                            
+                            # Atualiza a senha na coluna 3 (Coluna da Senha)
+                            wks_p.update_cell(celula.row, 3, str(nova_senha_prof).strip())
+                            
+                            with col_senha_p2:
+                                msg_placeholder_ok_p = st.empty()
+                                msg_placeholder_ok_p.success("✅ Sua senha foi alterada com sucesso!")
+                                st.cache_data.clear()
+                                time.sleep(2)
+                                msg_placeholder_ok_p.empty()
+                                st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao atualizar a senha na planilha: {e}")
 
     # Changed: Use is_master_admin for Cadastro page access
     elif pagina_atual == "Cadastro" and st.session_state.get('is_master_admin', False):
