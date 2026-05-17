@@ -1540,6 +1540,9 @@ else:
                 data_uso = st.date_input("Data de Uso do Equipamento:", value=data_atual, format="DD/MM/YYYY", key="agend_uso")
                 data_uso_formatada = data_uso.strftime("%d/%m/%Y")
 
+            # Novo campo para o professor digitar o objetivo ou observações
+            observacoes = st.text_area("Objetivo / Observações sobre o agendamento", placeholder="Ex: Aula prática sobre o conteúdo X / Uso dos tablets para pesquisa em grupo...")
+
             st.markdown("---")
             
             # Botão para processar e salvar no banco de dados do Sheets
@@ -1551,8 +1554,8 @@ else:
                     try:
                         wks_a = sh.worksheet("Config_Agendamentos")
                     except:
-                        wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="6")
-                        wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo"])
+                        wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7") # Changed cols to 7
+                        wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo", "Observacoes"]) # Added "Observacoes"
                     
                     # Verifica duplicidade (Evita conflito de agendamento do mesmo equipamento no mesmo dia/tempo)
                     dados_agendados = wks_a.get_all_records()
@@ -1579,7 +1582,8 @@ else:
                             str(equipamento),
                             str(data_registro),
                             str(data_uso_formatada),
-                            str(tempo_aula)
+                            str(tempo_aula),
+                            str(observacoes) # Added observacoes
                         ])
                         st.success(f"✅ Agendamento de {equipamento} realizado com sucesso!")
                         st.cache_data.clear()
@@ -1608,7 +1612,7 @@ else:
                     # No gspread, a primeira linha de dados após o cabeçalho é a linha 2
                     df_tabela["linha_sheets"] = range(2, len(df_tabela) + 2)
                     
-                    colunas_ordenadas = ["Data Uso", "Tempo", "Equipamento", "Turma", "Professor", "Data Registro", "linha_sheets"]
+                    colunas_ordenadas = ["Data Uso", "Tempo", "Equipamento", "Turma", "Professor", "Data Registro", "Observacoes", "linha_sheets"] # Added "Observacoes"
                     if all(col in df_tabela.columns for col in colunas_ordenadas):
                         df_exibicao = df_tabela[colunas_ordenadas]
                     else:
@@ -1673,12 +1677,14 @@ else:
                                     
                                     novo_equip = st.selectbox("Novo Equipamento:", ["Tablets", "TV", "Datashow", "Notebook"], index=["Tablets", "TV", "Datashow", "Notebook"].index(dado_antigo["Equipamento"]), key="ed_eq")
                                     novo_tempo = st.selectbox("Novo Tempo:", ["1º tempo", "2º tempo", "3º tempo", "4º tempo"], index=["1º tempo", "2º tempo", "3º tempo", "4º tempo"].index(dado_antigo["Tempo"]), key="ed_tp")
+                                    nova_observacao = st.text_area("Novas Observações:", value=dado_antigo["Observacoes"], key="ed_obs") # Added new text_area for editing
                                     
                                     if st.button("💾 Salvar Alterações", use_container_width=True):
                                         try:
-                                            # Atualiza as células correspondentes (Colunas: 3=Equipamento, 6=Tempo)
+                                            # Atualiza as células correspondentes (Colunas: 3=Equipamento, 6=Tempo, 7=Observacoes)
                                             wks_a.update_cell(linha_sheets_alvo, 3, str(novo_equip))
                                             wks_a.update_cell(linha_sheets_alvo, 6, str(novo_tempo))
+                                            wks_a.update_cell(linha_sheets_alvo, 7, str(nova_observacao)) # Updated Observacoes
                                             st.success("✅ Agendamento atualizado!")
                                             st.cache_data.clear()
                                             time.sleep(1.5)
