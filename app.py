@@ -22,7 +22,7 @@ def conectar_google_sheets():
     client = gspread.authorize(credentials)
     return client.open_by_key(SHEET_ID)
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=600) # Aumentado para 10 minutos para evitar o erro 429
 def carregar_dados():
     sh = conectar_google_sheets()
     df_p = pd.DataFrame(sh.worksheet("Config_Professores").get_all_records())
@@ -38,7 +38,13 @@ def carregar_dados():
     except:
         df_per = pd.DataFrame(columns=["Bimestre", "Inicio", "Fim"])
         
-    return df_p, df_a, df_d, df_per
+    # Garante que a leitura dos agendamentos de configuração passe por dentro do cache protegido
+    try:
+        df_agendamentos_config = pd.DataFrame(sh.worksheet("Config_Agendamentos").get_all_records())
+    except Exception:
+        df_agendamentos_config = pd.DataFrame()
+        
+    return df_p, df_a, df_d, df_per, df_agendamentos_config
 
 def carregar_agendamentos():
     try:
@@ -106,7 +112,7 @@ else:
     st.set_page_config(page_title="Sistema Escola Diva Lima", layout="wide")
 
 try:
-    df_profs, df_alunos, df_discs, df_periodos = carregar_dados()
+    df_profs, df_alunos, df_discs, df_periodos, df_agendamentos_config_cached = carregar_dados()
 except Exception as e:
     st.error(f"Erro ao carregar dados: {e}")
     st.info("Dica: Verifique se a planilha foi compartilhada como EDITOR com o e-mail da conta de serviço e se as abas têm os nomes corretos.")
@@ -605,7 +611,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrencias":
+    elif pagina_atual == "Ocorrências":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -1517,15 +1523,9 @@ else:
                 
                 # 2. Carrega as turmas vinculadas ao professor logado para evitar componentes vazios
                 try:
-                    sh = conectar_google_sheets()
-                    df_p = pd.DataFrame(sh.worksheet("Config_Professores").get_all_records())
-                    
-                    # Filtra na tabela onde a coluna Usuario bate com o professor logado
-                    dados_prof = df_p[df_p["Usuario"] == usuario_logado]
-                    # Como estamos no bloco de 'is_master_admin', sempre mostra todas as turmas
-                    df_a = pd.DataFrame(sh.worksheet("Config_Alunos").get_all_records())
-                    if "Turma" in df_a.columns:
-                        turmas_disponiveis = sorted(df_a["Turma"].dropna().unique().tolist())
+                    # Usando df_alunos já carregado e cacheado
+                    if "Turma" in df_alunos.columns:
+                        turmas_disponiveis = sorted(df_alunos["Turma"].dropna().unique().tolist())
                     else:
                         turmas_disponiveis = ["Regular A", "Regular B"] # Fallback
                 except Exception as e:
@@ -1595,20 +1595,17 @@ else:
                             try:
                                 wks_a = sh.worksheet("Config_Agendamentos")
                             except:
-                                wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7") # Changed cols to 7
-                                wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo", "Observacoes"]) # Added "Observacoes"
+                                wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7")
+                                wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo", "Observacoes"])
                             
                             # Verifica duplicidade (Evita conflito de agendamento do mesmo equipamento no mesmo dia/tempo)
-                            dados_agendados = wks_a.get_all_records()
+                            # Usa o DataFrame cacheado para a verificação
                             conflito = False
-                            
-                            if dados_agendados:
-                                df_agendados = pd.DataFrame(dados_agendados)
-                                # Verifica se o mesmo equipamento já está reservado no mesmo dia e tempo
-                                filtro_conflito = df_agendados[
-                                    (df_agendados["Equipamento"] == exibicao_equipamento) & 
-                                    (df_agendados["Data Uso"] == data_uso_formatada) & 
-                                    (df_agendados["Tempo"] == tempo_aula)
+                            if not df_agendamentos_config_cached.empty:
+                                filtro_conflito = df_agendamentos_config_cached[
+                                    (df_agendamentos_config_cached["Equipamento"] == exibicao_equipamento) & 
+                                    (df_agendamentos_config_cached["Data Uso"] == data_uso_formatada) & 
+                                    (df_agendamentos_config_cached["Tempo"] == tempo_aula)
                                 ]
                                 if not filtro_conflito.empty:
                                     conflito = True
@@ -1627,7 +1624,7 @@ else:
                                     str(observacoes)
                                 ])
                                 st.success(f"✅ Agendamento de {exibicao_equipamento} realizado com sucesso!")
-                                st.cache_data.clear()
+                                st.cache_data.clear() # Limpa o cache para recarregar os dados atualizados
                                 time.sleep(1.5)
                                 st.rerun()
                                 
@@ -1642,18 +1639,15 @@ else:
             st.write("Consulte e gerencie abaixo a lista completa de agendamentos realizados:")
             
             try:
-                sh = conectar_google_sheets()
-                wks_a = sh.worksheet("Config_Agendamentos")
-                dados_tabela = wks_a.get_all_records()
-
-                if dados_tabela:
-                    df_tabela = pd.DataFrame(dados_tabela)
+                # Usa o DataFrame cacheado para exibir os dados
+                if not df_agendamentos_config_cached.empty:
+                    df_tabela = df_agendamentos_config_cached.copy()
                     
                     # Cria um índice temporário para sabermos exatamente qual linha alterar/deletar no Sheets
                     # No gspread, a primeira linha de dados após o cabeçalho é a linha 2
                     df_tabela["linha_sheets"] = range(2, len(df_tabela) + 2)
                     
-                    colunas_ordenadas = ["Data Uso", "Tempo", "Equipamento", "Turma", "Professor", "Data Registro", "Observacoes", "linha_sheets"] # Added "Observacoes"
+                    colunas_ordenadas = ["Data Uso", "Tempo", "Equipamento", "Turma", "Professor", "Data Registro", "Observacoes", "linha_sheets"]
                     if all(col in df_tabela.columns for col in colunas_ordenadas):
                         df_exibicao = df_tabela[colunas_ordenadas]
                     else:
@@ -1701,10 +1695,12 @@ else:
                             with col_adm1:
                                 if st.button("🗑️ Excluir Selecionado", use_container_width=True, type="secondary"):
                                     try:
+                                        sh = conectar_google_sheets()
+                                        wks_a = sh.worksheet("Config_Agendamentos")
                                         # Exclui a linha específica no Google Sheets
                                         wks_a.delete_rows(linha_sheets_alvo)
                                         st.success("✅ Agendamento excluído com sucesso!")
-                                        st.cache_data.clear()
+                                        st.cache_data.clear() # Limpa o cache para recarregar os dados atualizados
                                         time.sleep(1.5)
                                         st.rerun()
                                     except Exception as e:
@@ -1750,12 +1746,14 @@ else:
                                     
                                     if st.button("💾 Salvar Alterações", use_container_width=True):
                                         try:
+                                            sh = conectar_google_sheets()
+                                            wks_a = sh.worksheet("Config_Agendamentos")
                                             # Atualiza as células correspondentes (Colunas: 3=Equipamento, 6=Tempo, 7=Observacoes)
                                             wks_a.update_cell(linha_sheets_alvo, 3, str(novo_equip_final))
                                             wks_a.update_cell(linha_sheets_alvo, 6, str(novo_tempo))
                                             wks_a.update_cell(linha_sheets_alvo, 7, str(nova_observacao)) # Updated Observacoes
                                             st.success("✅ Agendamento atualizado!")
-                                            st.cache_data.clear()
+                                            st.cache_data.clear() # Limpa o cache para recarregar os dados atualizados
                                             time.sleep(1.5)
                                             st.rerun()
                                         except Exception as e:
@@ -1767,11 +1765,13 @@ else:
                                 if confirmar_deletar_tudo:
                                     if st.button("🚨 EXCLUIR TODOS OS AGENDAMENTOS", use_container_width=True, type="primary"):
                                         try:
+                                            sh = conectar_google_sheets()
+                                            wks_a = sh.worksheet("Config_Agendamentos")
                                             # Limpa todas as linhas mantendo apenas o cabeçalho (linha 1)
                                             wks_a.resize(rows=1)
                                             wks_a.resize(rows=1000)
                                             st.success("💥 Todos os agendamentos foram limpos do banco de dados!")
-                                            st.cache_data.clear()
+                                            st.cache_data.clear() # Limpa o cache para recarregar os dados atualizados
                                             time.sleep(1.5)
                                             st.rerun()
                                         except Exception as e:
