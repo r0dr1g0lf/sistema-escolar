@@ -6,6 +6,7 @@ from google.oauth2.service_account import Credentials
 import time
 import io
 import pytz
+import re # Adicionado para uso em verificar_conflito_agendamento
 
 # Configuração do fuso horário correto de Roraima
 fuso_roraima = pytz.timezone('America/Boa_Vista')
@@ -61,19 +62,51 @@ def carregar_agendamentos():
     except Exception as e:
         return pd.DataFrame(), None
 
-def verificar_conflito(equipamento, data_uso, turno, horario):
-    df_ag, _ = carregar_agendamentos()
-    if df_ag.empty:
-        return False
-    
-    # Verifica se já existe agendamento para o mesmo item, dia, turno e aula
-    conflito = df_ag[
-        (df_ag['Equipamento'] == equipamento) & 
-        (df_ag['Data_Uso'] == data_uso) & 
-        (df_ag['Turno'] == turno) & 
-        (df_ag['Horario'] == horario)
-    ]
-    return not conflito.empty
+def verificar_conflito_agendamento(equipamento, data, tempo, quantidade_solicitada=1):
+    """
+    Verifica se há conflito de agendamento. 
+    Para outros equipamentos: bloqueio total.
+    Para Tablets: permite múltiplos agendamentos se a soma não passar de 30 unidades.
+    """
+    try:
+        # Usa o DataFrame de agendamentos de configuração já carregado e cacheado
+        global df_agendamentos_config_cached 
+
+        if df_agendamentos_config_cached.empty:
+            return False
+            
+        # Filtra os agendamentos para o mesmo dia e tempo/horário
+        df_mesmo_horario = df_agendamentos_config_cached[
+            (df_agendamentos_config_cached['Data Uso'] == data) & 
+            (df_agendamentos_config_cached['Tempo'] == tempo)
+        ]
+        
+        if df_mesmo_horario.empty:
+            return False
+
+        if "Tablets" in equipamento: # Verifica se o equipamento é "Tablets" (pode ser "Tablets (X unidades)")
+            tablets_reservados = 0
+            # Vasculha as linhas para somar as unidades de tablets já ocupadas
+            for item in df_mesmo_horario['Equipamento']:
+                if "Tablets" in str(item):
+                    # Extrai o número de dentro dos parênteses utilizando Regex seguro
+                    numeros = re.findall(r'\d+', str(item))
+                    if numeros:
+                        tablets_reservados += int(numeros[0])
+            
+            # Se o que já foi reservado + o que o professor quer agora passar de 30, gera conflito
+            if (tablets_reservados + quantidade_solicitada) > 30:
+                st.error(f"❌ Limite de Tablets atingido! Já existem {tablets_reservados} tablets reservados para este horário. Restam apenas {30 - tablets_reservados} disponíveis.")
+                return True
+            return False
+        else:
+            # Regra padrão para TV, DataShow, Notebook e Caixa de som (Bloqueio total)
+            df_conflito = df_mesmo_horario[df_mesmo_horario['Equipamento'] == equipamento]
+            return not df_conflito.empty
+            
+    except Exception as e:
+        st.error(f"Erro ao verificar conflito: {e}")
+        return True
 
 def atualizar_presenca(usuario, acao):
     try:
@@ -1588,31 +1621,25 @@ else:
                     
                     # Botão para processar e salvar no banco de dados do Sheets
                     if st.button("💾 Confirmar Agendamento do Equipamento", use_container_width=True, key="btn_confirmar_agendamento"):
-                        try:
-                            sh = conectar_google_sheets()
-                            
-                            # Tenta acessar ou cria a aba de agendamentos caso ela não exista na planilha
+                        data_formatada = data_uso.strftime('%d/%m/%Y')
+                        
+                        # Captura a quantidade real para passar na validação (padrão 1 se não for Tablet)
+                        qtd_validar = quantidade_tablets if equipamento_selecionado == "Tablets" else 1
+                        
+                        # Agora enviamos a quantidade_solicitada para calcular os remanescentes
+                        if verificar_conflito_agendamento(equipamento_selecionado, data_formatada, tempo_aula, quantidade_solicitada=qtd_validar):
+                            st.error("Não foi possível concluir o agendamento devido ao conflito ou falta de unidades disponíveis.")
+                        else:
                             try:
-                                wks_a = sh.worksheet("Config_Agendamentos")
-                            except:
-                                wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7")
-                                wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo", "Observacoes"])
-                            
-                            # Verifica duplicidade (Evita conflito de agendamento do mesmo equipamento no mesmo dia/tempo)
-                            # Usa o DataFrame cacheado para a verificação
-                            conflito = False
-                            if not df_agendamentos_config_cached.empty:
-                                filtro_conflito = df_agendamentos_config_cached[
-                                    (df_agendamentos_config_cached["Equipamento"] == exibicao_equipamento) & 
-                                    (df_agendamentos_config_cached["Data Uso"] == data_uso_formatada) & 
-                                    (df_agendamentos_config_cached["Tempo"] == tempo_aula)
-                                ]
-                                if not filtro_conflito.empty:
-                                    conflito = True
-                            
-                            if conflito:
-                                st.error(f"❌ Não é possível agendar! O equipamento '{exibicao_equipamento}' já está reservado para o dia {data_uso_formatada} no {tempo_aula}.")
-                            else:
+                                sh = conectar_google_sheets()
+                                
+                                # Tenta acessar ou cria a aba de agendamentos caso ela não exista na planilha
+                                try:
+                                    wks_a = sh.worksheet("Config_Agendamentos")
+                                except:
+                                    wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7")
+                                    wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo", "Observacoes"])
+                                
                                 # Registra a nova linha se estiver livre
                                 wks_a.append_row([
                                     str(nome_professor_logado),
@@ -1628,8 +1655,8 @@ else:
                                 time.sleep(1.5)
                                 st.rerun()
                                 
-                        except Exception as e:
-                            st.error(f"Erro ao salvar os dados na planilha: {e}")
+                            except Exception as e:
+                                st.error(f"Erro ao salvar os dados na planilha: {e}")
 
         # ---------------------------------------------------------------------
         # ABA 2: TABELA DE VISUALIZAÇÃO E GERENCIAMENTO (ADM)
