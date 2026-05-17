@@ -99,6 +99,8 @@ if 'logado' not in st.session_state:
     st.session_state.logado = False
 if 'is_master_admin' not in st.session_state: # NEW: Track if user is master admin
     st.session_state.is_master_admin = False
+if 'bloqueio_agendamento' not in st.session_state:
+    st.session_state.bloqueio_agendamento = False
 
 if not st.session_state.logado:
     st.set_page_config(page_title="Sistema Escola Diva Lima", layout="centered")
@@ -202,6 +204,16 @@ else:
 
     st.sidebar.divider()
     
+    # Interruptor exclusivo para o ADM Master na barra lateral
+    if st.session_state.get('is_master_admin', False):
+        st.sidebar.subheader("⚙️ Painel de Controle Master")
+        st.session_state.bloqueio_agendamento = st.sidebar.toggle(
+            "🔒 Bloquear Agendamentos (Professores)", 
+            value=st.session_state.bloqueio_agendamento,
+            help="Ative para bloquear o formulário de agendamentos para usuários comuns."
+        )
+        st.sidebar.divider()
+
     if st.sidebar.button("Registro", key="btn_desempenho", use_container_width=True):
         st.session_state.pagina = "Registro"
         st.rerun()
@@ -605,7 +617,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrencias":
+    elif pagina_atual == "Ocorrências":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -1509,12 +1521,14 @@ else:
         with aba_cadastrar:
             st.subheader("🗓️ Realizar Agendamento de Equipamento")
             
-            # Trava de Segurança: Apenas ADM MASTER acessa durante a manutenção
-            if not st.session_state.get('is_master_admin', False):
-                st.info("🛠️ **Sistema em Manutenção Preventiva**\n\nEstamos atualizando a ferramenta de agendamentos para trazer melhorias! O recurso estará liberado para todos os professores em breve. Agradecemos a compreensão.")
+            # Verifica se o ADM Master acionou o interruptor de bloqueio
+            if st.session_state.bloqueio_agendamento and not st.session_state.get('is_master_admin', False):
+                st.info("🛠️ **Sistema em Manutenção Preventiva**\n\nO recurso de agendamentos está temporariamente pausado para atualizações na ferramenta e será liberado em breve. Agradecemos a compreensão!")
             else:
-                st.warning("⚡ **Acesso Administrativo Ativo:** Você está visualizando esta aba porque está logado como ADM MASTER durante os testes de atualização.")
+                if st.session_state.get('is_master_admin', False) and st.session_state.bloqueio_agendamento:
+                    st.warning("⚡ **Aviso:** O agendamento está bloqueado para os professores, mas liberado para você como ADM MASTER.")
                 
+                # --- Daqui para baixo o formulário roda liberado para todos ---
                 # 2. Carrega as turmas vinculadas ao professor logado para evitar componentes vazios
                 try:
                     sh = conectar_google_sheets()
@@ -1746,7 +1760,7 @@ else:
                                         )
                                         novo_equip_final = f"Tablets (Maleta) ({edit_quantidade_tablets} unidades)"
                                     
-                                    novo_tempo = st.selectbox("Novo Tempo:", ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"].index(dado_antigo["Tempo"]), key="ed_tp")
+                                    novo_tempo = st.selectbox("Novo Tempo:", ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"], index=["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"].index(dado_antigo["Tempo"]), key="ed_tp")
                                     nova_observacao = st.text_area("Novas Observações:", value=dado_antigo["Observacoes"], key="ed_obs") # Added new text_area for editing
                                     
                                     if st.button("💾 Salvar Alterações", use_container_width=True):
