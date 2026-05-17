@@ -273,7 +273,7 @@ else:
                 for _, row in df_periodos.iterrows():
                     try:
                         inicio = datetime.strptime(str(row['Inicio']), "%d/%m/%Y").date()
-                        fim = datetime.strptime(str(row['Fim']), "%d/%m/%m/%Y").date()
+                        fim = datetime.strptime(str(row['Fim']), "%d/%m/%Y").date()
                         if inicio <= hoje <= fim:
                             bimestres_disponiveis.append(row['Bimestre'])
                     except:
@@ -1716,18 +1716,11 @@ else:
                                     equipamentos_edit_opcoes = ["Tablets", "TV", "DataShow", "Notebook", "Caixa de som"]
                                     
                                     # Determine initial index for selectbox
-                                    # Busque a linha que define o índice do equipamento no gerenciador e substitua por este bloco seguro:
-                                    equipamento_gravado = dado_antigo["Equipamento"]
-
                                     try:
-                                        # Tenta buscar o índice direto na nova lista simplificada
-                                        if "Tablets" in equipamento_gravado:
-                                            initial_equip_index = equipamentos_edit_opcoes.index("Tablets")
-                                        else:
-                                            initial_equip_index = equipamentos_edit_opcoes.index(equipamento_gravado)
-                                    except ValueError:
-                                        # Caso encontre algum nome legado ou modificado na planilha, joga para o primeiro item por segurança
-                                        initial_equip_index = 0
+                                        # Adjusting to find "Tablets" or "Tablets (X units)"
+                                        initial_equip_index = next(i for i, opt in enumerate(equipamentos_edit_opcoes) if opt in dado_antigo["Equipamento"])
+                                    except StopIteration:
+                                        initial_equip_index = 0 # Default to first option if not found
                                         
                                     novo_equip_raw = st.selectbox("Novo Equipamento:", equipamentos_edit_opcoes, index=initial_equip_index, key="ed_eq")
                                     
