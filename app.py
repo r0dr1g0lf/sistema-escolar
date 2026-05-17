@@ -5,6 +5,13 @@ import gspread
 from google.oauth2.service_account import Credentials
 import time
 import io
+import pytz
+
+# Configuração do fuso horário correto de Roraima
+fuso_roraima = pytz.timezone('America/Boa_Vista')
+
+# Esta variável garante a data certa em Boa Vista, mesmo rodando no servidor da nuvem
+data_atual = datetime.now(fuso_roraima).date()
 
 SHEET_ID = "153ohv6YsmfOZHjoLpb8He2VM2P-DYTVGh9zDVNRBdS0"
 
@@ -79,9 +86,9 @@ def atualizar_presenca(usuario, acao):
 
         if acao == "login":
             if celula:
-                wks_on.update_cell(celula.row, 2, datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+                wks_on.update_cell(celula.row, 2, datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"))
             else:
-                wks_on.append_row([usuario, datetime.now().strftime("%d/%m/%Y %H:%M:%S")])
+                wks_on.append_row([usuario, datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S")])
         elif acao == "logout":
             if celula:
                 wks_on.delete_rows(celula.row)
@@ -186,7 +193,7 @@ else:
         if users_on:
             st.sidebar.markdown("---")
             st.sidebar.markdown("🟢 **Usuários Online**")
-            hoje_data = datetime.now().strftime("%d/%m/%Y")
+            hoje_data = datetime.now(fuso_roraima).strftime("%d/%m/%Y")
             for u in users_on:
                 if u['Ultimo_Acesso'].startswith(hoje_data):
                     st.sidebar.caption(f"👤 {u['Usuario']}")
@@ -244,7 +251,7 @@ else:
         if is_soe:
             st.info("Você está logado como SOE. Este módulo é apenas para visualização de períodos e turmas.")
         
-        hoje = datetime.now().date()
+        hoje = data_atual
         bimestres_disponiveis = []
         
         if not df_periodos.empty:
@@ -336,7 +343,7 @@ else:
                     tipo_formatado = ", ".join(itens_finais)
                     
                     nova_linha = [
-                        datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                        datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
                         prof_nome,
                         turma_sel,
                         aluno_sel,
@@ -362,7 +369,7 @@ else:
         with tab_oc1:
             if is_soe:
                 st.info("Você está logado como SOE. Este módulo é apenas para visualização.")
-            hoje = datetime.now().date()
+            hoje = data_atual
             bimestres_disponiveis = []
             if not df_periodos.empty:
                 for _, row in df_periodos.iterrows():
@@ -408,7 +415,7 @@ else:
                 disciplina = st.selectbox("Disciplina", disciplina_opcoes, key="disc_oc")
                 periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True, key="bim_oc")
                 
-                data_ocorrido = st.date_input("Data do ocorrido", value=datetime.now().date(), format="DD/MM/YYYY")
+                data_ocorrido = st.date_input("Data do ocorrido", value=data_atual, format="DD/MM/YYYY")
                 tempo_aula = st.selectbox("Tempo de aula", ["1º tempo", "2º tempo", "3º tempo", "4º tempo"])
                 
                 opcoes_ocorrencias = [
@@ -442,7 +449,7 @@ else:
                         tipo_formatado = ", ".join(selecao_oc)
                         detalhes_extras = f"DATA: {data_ocorrido.strftime('%d/%m/%Y')} | TEMPO: {tempo_aula} | {obs_oc}"
                         nova_linha = [
-                            datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                            datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
                             prof_nome,
                             turma_sel,
                             aluno_sel,
@@ -583,7 +590,7 @@ else:
                         st.download_button(
                             label="📥 Baixar Relatório de Ocorrências (A4 Paisagem)",
                             data=output_oc.getvalue(),
-                            file_name=f'Ocorrencias_{datetime.now().strftime("%Y%m%d")}.xlsx',
+                            file_name=f'Ocorrencias_{datetime.now(fuso_roraima).strftime("%Y%m%d")}.xlsx',
                             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                             use_container_width=True
                         )
@@ -775,7 +782,7 @@ else:
                 st.download_button(
                     label="📥 Baixar Relatório de Desempenho (A4 Paisagem)",
                     data=processed_data,
-                    file_name=f'Relatorio_Desempenho_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx',
+                    file_name=f'Relatorio_Desempenho_{datetime.now(fuso_roraima).strftime("%Y%m%d_%H%M")}.xlsx',
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     use_container_width=True
                 )
@@ -1526,11 +1533,11 @@ else:
                 
             with col2:
                 # Data de Registro automática capturada do Relógio do Sistema Operacional
-                data_registro = datetime.now().strftime("%d/%m/%Y")
+                data_registro = datetime.now(fuso_roraima).strftime("%d/%m/%Y")
                 st.text_input("Data de Registro (Hoje):", value=data_registro, disabled=True, key="agend_reg")
                 
                 # Data de Uso usando o seletor de calendário nativo do Streamlit
-                data_uso = st.date_input("Data de Uso do Equipamento:", value=datetime.now(), key="agend_uso")
+                data_uso = st.date_input("Data de Uso do Equipamento:", value=datetime.now(fuso_roraima), key="agend_uso")
                 data_uso_formatada = data_uso.strftime("%d/%m/%Y")
 
             st.markdown("---")
