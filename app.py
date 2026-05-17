@@ -362,7 +362,7 @@ else:
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
 
-    elif pagina_atual == "Ocorrências":
+    elif pagina_atual == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -1504,50 +1504,32 @@ else:
                 
                 # Filtra na tabela onde a coluna Usuario bate com o professor logado
                 dados_prof = df_p[df_p["Usuario"] == usuario_logado]
-                
-                turmas_disponiveis = []
-                disciplinas_disponiveis = []
-
-                if not dados_prof.empty:
-                    # Turmas
-                    if "Turmas" in dados_prof.columns:
-                        turmas_str = dados_prof["Turmas"].iloc[0]
-                        if st.session_state.get('is_master_admin', False):
-                            df_a = pd.DataFrame(sh.worksheet("Config_Alunos").get_all_records())
-                            turmas_disponiveis = sorted(df_a["Turma"].dropna().unique().tolist())
-                        else:
-                            turmas_disponiveis = sorted([t.strip() for t in turmas_str.split(", ") if t.strip()])
-                    
-                    # Disciplinas
-                    if "Disciplinas" in dados_prof.columns:
-                        disciplinas_str = dados_prof["Disciplinas"].iloc[0]
-                        if st.session_state.get('is_master_admin', False):
-                            if not df_discs.empty:
-                                disciplinas_disponiveis = sorted(df_discs['Disciplina'].unique().astype(str).tolist())
-                            else: # Fallback if Config_Disciplinas is empty or missing
-                                disciplinas_disponiveis = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida", "SOE"]
-                        else:
-                            disciplinas_disponiveis = sorted([d.strip() for d in disciplinas_str.split(", ") if d.strip()])
-                
-                if not turmas_disponiveis:
-                    st.warning("Você não está vinculado a nenhuma turma. Procure a direção.")
-                    turmas_disponiveis = ["Nenhuma Turma"] # Placeholder para evitar erro no selectbox
-                if not disciplinas_disponiveis:
-                    st.warning("Você não está vinculado a nenhuma disciplina. Procure a direção.")
-                    disciplinas_disponiveis = ["Nenhuma Disciplina"] # Placeholder para evitar erro no selectbox
-
+                if not dados_prof.empty and "Turmas" in dados_prof.columns:
+                    turmas_str = dados_prof["Turmas"].iloc[0]
+                    # Changed: If master admin, they see all turmas
+                    if st.session_state.get('is_master_admin', False):
+                        df_a = pd.DataFrame(sh.worksheet("Config_Alunos").get_all_records())
+                        turmas_disponiveis = sorted(df_a["Turma"].dropna().unique().tolist())
+                    else:
+                        turmas_disponiveis = sorted([t.strip() for t in turmas_str.split(", ") if t.strip()])
+                else:
+                    # Fallback if no specific turmas found or column missing
+                    df_a = pd.DataFrame(sh.worksheet("Config_Alunos").get_all_records())
+                    if "Turma" in df_a.columns:
+                        turmas_disponiveis = sorted(df_a["Turma"].dropna().unique().tolist())
+                    else:
+                        turmas_disponiveis = ["Regular A", "Regular B"]
             except Exception as e:
-                st.error(f"Erro ao carregar turmas ou disciplinas: {e}")
-                turmas_disponiveis = ["Erro ao carregar"]
-                disciplinas_disponiveis = ["Erro ao carregar"]
+                st.error(f"Erro ao carregar turmas: {e}")
+                turmas_disponiveis = ["Erro ao carregar turmas"]
 
             # Componentes visuais organizados
             col1, col2 = st.columns(2)
             
             with col1:
-                turma_selecionada = st.selectbox("Selecione a Turma:", turmas_disponiveis, key="agend_turma", disabled=(not turmas_disponiveis or turmas_disponiveis == ["Nenhuma Turma"]))
-                disciplina_selecionada = st.selectbox("Selecione a Disciplina:", disciplinas_disponiveis, key="agend_disc", disabled=(not disciplinas_disponiveis or disciplinas_disponiveis == ["Nenhuma Disciplina"]))
+                turma_selecionada = st.selectbox("Selecione a Turma:", turmas_disponiveis, key="agend_turma")
                 equipamento = st.selectbox("Selecione o Equipamento:", ["Tablets", "TV", "Datashow", "Notebook"], key="agend_equip")
+                tempo_aula = st.selectbox("Tempo de Aula:", ["1º tempo", "2º tempo", "3º tempo", "4º tempo"], key="agend_tempo")
                 
             with col2:
                 # Data de Registro automática capturada do Relógio do Sistema Operacional
@@ -1557,14 +1539,11 @@ else:
                 # Data de Uso usando o seletor de calendário nativo do Streamlit
                 data_uso = st.date_input("Data de Uso do Equipamento:", value=data_atual, format="DD/MM/YYYY", key="agend_uso")
                 data_uso_formatada = data_uso.strftime("%d/%m/%Y")
-                
-                tempo_aula = st.selectbox("Tempo de Aula:", ["1º tempo", "2º tempo", "3º tempo", "4º tempo"], key="agend_tempo")
 
             st.markdown("---")
             
             # Botão para processar e salvar no banco de dados do Sheets
-            btn_disabled = (turmas_disponiveis == ["Nenhuma Turma"] or disciplinas_disponiveis == ["Nenhuma Disciplina"])
-            if st.button("💾 Confirmar Agendamento do Equipamento", use_container_width=True, key="btn_confirmar_agendamento", disabled=btn_disabled):
+            if st.button("💾 Confirmar Agendamento do Equipamento", use_container_width=True, key="btn_confirmar_agendamento"):
                 try:
                     sh = conectar_google_sheets()
                     
@@ -1572,8 +1551,8 @@ else:
                     try:
                         wks_a = sh.worksheet("Config_Agendamentos")
                     except:
-                        wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7") # Aumentado para 7 colunas
-                        wks_a.append_row(["Professor", "Turma", "Disciplina", "Equipamento", "Data Registro", "Data Uso", "Tempo"]) # Nova coluna "Disciplina"
+                        wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="6")
+                        wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo"])
                     
                     # Verifica duplicidade (Evita conflito de agendamento do mesmo equipamento no mesmo dia/tempo)
                     dados_agendados = wks_a.get_all_records()
@@ -1597,7 +1576,6 @@ else:
                         wks_a.append_row([
                             str(nome_professor_logado),
                             str(turma_selecionada),
-                            str(disciplina_selecionada), # Adicionado a disciplina
                             str(equipamento),
                             str(data_registro),
                             str(data_uso_formatada),
@@ -1620,13 +1598,7 @@ else:
             
             try:
                 sh = conectar_google_sheets()
-                try:
-                    wks_a = sh.worksheet("Config_Agendamentos")
-                except:
-                    # Cria a aba caso ela não exista na planilha, com as colunas corretas
-                    wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7")
-                    wks_a.append_row(["Professor", "Turma", "Disciplina", "Equipamento", "Data Registro", "Data Uso", "Tempo"])
-                
+                wks_a = sh.worksheet("Config_Agendamentos")
                 dados_tabela = wks_a.get_all_records()
 
                 if dados_tabela:
@@ -1636,7 +1608,7 @@ else:
                     # No gspread, a primeira linha de dados após o cabeçalho é a linha 2
                     df_tabela["linha_sheets"] = range(2, len(df_tabela) + 2)
                     
-                    colunas_ordenadas = ["Data Uso", "Tempo", "Equipamento", "Disciplina", "Turma", "Professor", "Data Registro", "linha_sheets"] # Adicionado "Disciplina"
+                    colunas_ordenadas = ["Data Uso", "Tempo", "Equipamento", "Turma", "Professor", "Data Registro", "linha_sheets"]
                     if all(col in df_tabela.columns for col in colunas_ordenadas):
                         df_exibicao = df_tabela[colunas_ordenadas]
                     else:
@@ -1667,7 +1639,7 @@ else:
                         opcoes_selecao = []
                         for idx, row in df_exibicao.iterrows():
                             # Embed linha_sheets directly into the option string
-                            opcoes_selecao.append(f"{row['linha_sheets']} - {row['Equipamento']} - {row['Disciplina']} - {row['Turma']} ({row['Data Uso']} no {row['Tempo']})") # Adicionado Disciplina
+                            opcoes_selecao.append(f"{row['linha_sheets']} - {row['Equipamento']} - {row['Turma']} ({row['Data Uso']} no {row['Tempo']})")
                         
                         if opcoes_selecao: # Only show selectbox if there are options
                             agend_selecionado_texto = st.selectbox("Selecione um agendamento para Modificar ou Excluir:", opcoes_selecao)
@@ -1699,28 +1671,14 @@ else:
                                 with expander_editar:
                                     dado_antigo = selected_row_data # Use selected_row_data
                                     
-                                    # Opções de disciplina para edição (todas as disciplinas cadastradas)
-                                    if not df_discs.empty:
-                                        todas_disciplinas_cadastradas = sorted(df_discs['Disciplina'].unique().astype(str).tolist())
-                                    else:
-                                        todas_disciplinas_cadastradas = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida", "SOE"]
-                                    
-                                    # Encontra o índice da disciplina atual para definir o valor padrão
-                                    try:
-                                        idx_disc_atual = todas_disciplinas_cadastradas.index(dado_antigo["Disciplina"])
-                                    except ValueError:
-                                        idx_disc_atual = 0 # Fallback se a disciplina não for encontrada
-                                        
-                                    nova_disciplina = st.selectbox("Nova Disciplina:", todas_disciplinas_cadastradas, index=idx_disc_atual, key="ed_disc") # Novo campo de edição
                                     novo_equip = st.selectbox("Novo Equipamento:", ["Tablets", "TV", "Datashow", "Notebook"], index=["Tablets", "TV", "Datashow", "Notebook"].index(dado_antigo["Equipamento"]), key="ed_eq")
                                     novo_tempo = st.selectbox("Novo Tempo:", ["1º tempo", "2º tempo", "3º tempo", "4º tempo"], index=["1º tempo", "2º tempo", "3º tempo", "4º tempo"].index(dado_antigo["Tempo"]), key="ed_tp")
                                     
                                     if st.button("💾 Salvar Alterações", use_container_width=True):
                                         try:
-                                            # Atualiza as células correspondentes (Colunas: 3=Disciplina, 4=Equipamento, 7=Tempo)
-                                            wks_a.update_cell(linha_sheets_alvo, 3, str(nova_disciplina)) # Coluna 3 para Disciplina
-                                            wks_a.update_cell(linha_sheets_alvo, 4, str(novo_equip))    # Coluna 4 para Equipamento
-                                            wks_a.update_cell(linha_sheets_alvo, 7, str(novo_tempo))    # Coluna 7 para Tempo
+                                            # Atualiza as células correspondentes (Colunas: 3=Equipamento, 6=Tempo)
+                                            wks_a.update_cell(linha_sheets_alvo, 3, str(novo_equip))
+                                            wks_a.update_cell(linha_sheets_alvo, 6, str(novo_tempo))
                                             st.success("✅ Agendamento atualizado!")
                                             st.cache_data.clear()
                                             time.sleep(1.5)
