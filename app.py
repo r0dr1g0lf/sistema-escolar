@@ -202,12 +202,8 @@ else:
 
     st.sidebar.divider()
     
-    if st.sidebar.button("Desempenho do aluno", key="btn_desempenho", use_container_width=True):
+    if st.sidebar.button("Registro", key="btn_desempenho", use_container_width=True):
         st.session_state.pagina = "Registro"
-        st.rerun()
-
-    if st.sidebar.button("Registros", key="btn_registros", use_container_width=True):
-        st.session_state.pagina = "VisualizarRegistros"
         st.rerun()
 
     if st.sidebar.button("Ocorrências", key="btn_ocorrencias_nav", use_container_width=True):
@@ -246,121 +242,368 @@ else:
     pagina_atual = st.session_state.get("pagina", "Registro")
 
     if pagina_atual == "Registro":
-        st.title("📝 Novo Registro")
+        st.title("📊 Desempenho do Aluno")
         
-        if is_soe:
-            st.info("Você está logado como SOE. Este módulo é apenas para visualização de períodos e turmas.")
+        # Cria a navegação interna por abas na parte superior da tela
+        aba_selecionada = st.radio(
+            "Selecione a ação desejada:",
+            ["Novo registro", "Visualizar registros"],
+            horizontal=True
+        )
         
-        hoje = data_atual
-        bimestres_disponiveis = []
+        st.markdown("---")
         
-        if not df_periodos.empty:
-            for _, row in df_periodos.iterrows():
-                try:
-                    inicio = datetime.strptime(str(row['Inicio']), "%d/%m/%Y").date()
-                    fim = datetime.strptime(str(row['Fim']), "%d/%m/%Y").date()
-                    if inicio <= hoje <= fim:
-                        bimestres_disponiveis.append(row['Bimestre'])
-                except:
-                    continue
-
-        if not bimestres_disponiveis:
-            st.warning("🏮 O período de lançamentos está fechado ou não configurado.")
-            bimestre_ativo = "Bloqueado"
-        else:
-            if len(bimestres_disponiveis) > 1:
-                bimestre_ativo = st.selectbox("📅 Mais de um período aberto. Selecione o Bimestre:", bimestres_disponiveis)
-            else:
-                bimestre_ativo = bimestres_disponiveis[0]
-                st.info(f"📅 Período de lançamento aberto: **{bimestre_ativo}**")
-
-        # Changed: Use is_master_admin for admin/rodrigo check
-        if st.session_state.get('is_master_admin', False) or is_soe:
-            todas_turmas = sorted(df_alunos['Turma'].unique().astype(str))
-        else:
-            turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
-            todas_turmas = sorted([t.strip() for t in turmas_vinc if t.strip()])
+        # --- SUB-ABA: NOVO REGISTRO ---
+        if aba_selecionada == "Novo registro":
+            st.subheader("📝 Cadastrar Novo Desempenho")
             
-        col_t1, col_t2 = st.columns([1, 4])
-        with col_t1:
-            turma_sel = st.selectbox("1. Turma", todas_turmas)
-        with col_t2:
-            alunos_da_turma = df_alunos[df_alunos['Turma'].astype(str) == turma_sel]['Nome_Aluno'].tolist()
-            aluno_sel = st.selectbox("2. Aluno", sorted(alunos_da_turma))
-
-        with st.form("form_registro", clear_on_submit=True):
-            # Changed: Use is_master_admin for admin/rodrigo check
-            if st.session_state.get('is_master_admin', False):
-                if not df_discs.empty:
-                    disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
-                else:
-                    disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida", "SOE"]
-            else:
-                discs_vinc = str(st.session_state.user_data.get('Disciplinas', "")).split(", ")
-                disciplina_opcoes = sorted([d.strip() for d in discs_vinc if d.strip()])
-                
-            disciplina = st.selectbox("Disciplina", disciplina_opcoes)
-            periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True)
-            
-            usuario_disciplinas = str(st.session_state.user_data.get('Disciplinas', "")).lower()
-            if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
-                opcoes_desempenho = ["Ponto de atenção"]
-            else:
-                opcoes_desempenho = ["Reprovado", "Aprovado após recuperação", "Ponto de atenção"]
-            
-            desempenho_escolha = st.radio("Desempenho do aluno", options=opcoes_desempenho, horizontal=True)
-            
-            opcoes_valores_atitudes = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho"]
-            if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
-                opcoes_valores_atitudes.append("Não fez o questionário participativo")
-                
-            tipo_selecao = st.multiselect("Valores e atitudes", options=opcoes_valores_atitudes)
-            obs = st.text_area("Observações")
-            
-            col_salvar, col_mensagem = st.columns([1, 2])
-            with col_salvar:
-                btn_salvar = st.form_submit_button("GRAVAR NA PLANILHA", disabled=(bimestre_ativo == "Bloqueado" or is_soe))
-
-        if btn_salvar:
             if is_soe:
-                st.error("Usuários SOE não possuem permissão para realizar registros.")
-            elif not tipo_selecao and not desempenho_escolha:
-                with col_mensagem:
-                    placeholder_erro = st.empty()
-                    placeholder_erro.error("Selecione pelo menos um item ou desempenho.")
-                    time.sleep(3)
-                    placeholder_erro.empty()
+                st.info("Você está logado como SOE. Este módulo é apenas para visualização de períodos e turmas.")
+            
+            hoje = data_atual
+            bimestres_disponiveis = []
+            
+            if not df_periodos.empty:
+                for _, row in df_periodos.iterrows():
+                    try:
+                        inicio = datetime.strptime(str(row['Inicio']), "%d/%m/%Y").date()
+                        fim = datetime.strptime(str(row['Fim']), "%d/%m/%Y").date()
+                        if inicio <= hoje <= fim:
+                            bimestres_disponiveis.append(row['Bimestre'])
+                    except:
+                        continue
+
+            if not bimestres_disponiveis:
+                st.warning("🏮 O período de lançamentos está fechado ou não configurado.")
+                bimestre_ativo = "Bloqueado"
             else:
-                try:
-                    sh = conectar_google_sheets()
-                    wks = sh.worksheet("Registros_Ocorrencias")
+                if len(bimestres_disponiveis) > 1:
+                    bimestre_ativo = st.selectbox("📅 Mais de um período aberto. Selecione o Bimestre:", bimestres_disponiveis)
+                else:
+                    bimestre_ativo = bimestres_disponiveis[0]
+                    st.info(f"📅 Período de lançamento aberto: **{bimestre_ativo}**")
+
+            # Changed: Use is_master_admin for admin/rodrigo check
+            if st.session_state.get('is_master_admin', False) or is_soe:
+                todas_turmas = sorted(df_alunos['Turma'].unique().astype(str))
+            else:
+                turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
+                todas_turmas = sorted([t.strip() for t in turmas_vinc if t.strip()])
+                
+            col_t1, col_t2 = st.columns([1, 4])
+            with col_t1:
+                turma_sel = st.selectbox("1. Turma", todas_turmas)
+            with col_t2:
+                alunos_da_turma = df_alunos[df_alunos['Turma'].astype(str) == turma_sel]['Nome_Aluno'].tolist()
+                aluno_sel = st.selectbox("2. Aluno", sorted(alunos_da_turma))
+
+            with st.form("form_registro", clear_on_submit=True):
+                # Changed: Use is_master_admin for admin/rodrigo check
+                if st.session_state.get('is_master_admin', False):
+                    if not df_discs.empty:
+                        disciplina_opcoes = sorted(df_discs['Disciplina'].unique().astype(str))
+                    else:
+                        disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida", "SOE"]
+                else:
+                    discs_vinc = str(st.session_state.user_data.get('Disciplinas', "")).split(", ")
+                    disciplina_opcoes = sorted([d.strip() for d in discs_vinc if d.strip()])
                     
-                    itens_finais = []
-                    if desempenho_escolha:
-                        itens_finais.append(desempenho_escolha)
-                    itens_finais.extend(tipo_selecao)
+                disciplina = st.selectbox("Disciplina", disciplina_opcoes)
+                periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True)
+                
+                usuario_disciplinas = str(st.session_state.user_data.get('Disciplinas', "")).lower()
+                if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
+                    opcoes_desempenho = ["Ponto de atenção"]
+                else:
+                    opcoes_desempenho = ["Reprovado", "Aprovado após recuperação", "Ponto de atenção"]
+                
+                desempenho_escolha = st.radio("Desempenho do aluno", options=opcoes_desempenho, horizontal=True)
+                
+                opcoes_valores_atitudes = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho"]
+                if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
+                    opcoes_valores_atitudes.append("Não fez o questionário participativo")
                     
-                    tipo_formatado = ", ".join(itens_finais)
-                    
-                    nova_linha = [
-                        datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
-                        prof_nome,
-                        turma_sel,
-                        aluno_sel,
-                        disciplina,
-                        periodo,
-                        tipo_formatado,
-                        obs
-                    ]
-                    
-                    wks.append_row(nova_linha)
+                tipo_selecao = st.multiselect("Valores e atitudes", options=opcoes_valores_atitudes)
+                obs = st.text_area("Observações")
+                
+                col_salvar, col_mensagem = st.columns([1, 2])
+                with col_salvar:
+                    btn_salvar = st.form_submit_button("GRAVAR NA PLANILHA", disabled=(bimestre_ativo == "Bloqueado" or is_soe))
+
+            if btn_salvar:
+                if is_soe:
+                    st.error("Usuários SOE não possuem permissão para realizar registros.")
+                elif not tipo_selecao and not desempenho_escolha:
                     with col_mensagem:
-                        placeholder_sucesso = st.empty()
-                        placeholder_sucesso.success(f"✅ Sucesso! Registro salvo.")
+                        placeholder_erro = st.empty()
+                        placeholder_erro.error("Selecione pelo menos um item ou desempenho.")
                         time.sleep(3)
-                        placeholder_sucesso.empty()
-                except Exception as e:
-                    st.error(f"Erro ao salvar: {e}")
+                        placeholder_erro.empty()
+                else:
+                    try:
+                        sh = conectar_google_sheets()
+                        wks = sh.worksheet("Registros_Ocorrencias")
+                        
+                        itens_finais = []
+                        if desempenho_escolha:
+                            itens_finais.append(desempenho_escolha)
+                        itens_finais.extend(tipo_selecao)
+                        
+                        tipo_formatado = ", ".join(itens_finais)
+                        
+                        nova_linha = [
+                            datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
+                            prof_nome,
+                            turma_sel,
+                            aluno_sel,
+                            disciplina,
+                            periodo,
+                            tipo_formatado,
+                            obs
+                        ]
+                        
+                        wks.append_row(nova_linha)
+                        with col_mensagem:
+                            placeholder_sucesso = st.empty()
+                            placeholder_sucesso.success(f"✅ Sucesso! Registro salvo.")
+                            time.sleep(3)
+                            placeholder_sucesso.empty()
+                    except Exception as e:
+                        st.error(f"Erro ao salvar: {e}")
+
+        # --- SUB-ABA: VISUALIZAR REGISTROS ---
+        elif aba_selecionada == "Visualizar registros":
+            st.subheader("📋 Histórico e Relatórios de Desempenho")
+            try:
+                sh = conectar_google_sheets()
+                wks_reg = sh.worksheet("Registros_Ocorrencias")
+                dados_brutos = wks_reg.get_all_values()
+                
+                if len(dados_brutos) > 1:
+                    df_reg = pd.DataFrame(dados_brutos[1:], columns=dados_brutos[0])
+                    df_reg = df_reg[~df_reg[df_reg.columns[6]].astype(str).str.contains("OCORRÊNCIA:", na=False)]
+                    
+                    colunas_df = df_reg.columns.tolist()
+                    
+                    col_f1, col_f2, col_f3 = st.columns(3)
+                    with col_f1:
+                        col_bim = 'Bimestre' if 'Bimestre' in colunas_df else colunas_df[5]
+                        lista_bimestres = ["Todos"] + sorted(df_reg[col_bim].unique().astype(str).tolist())
+                        bim_filtro = st.selectbox("Filtrar por Bimestre", lista_bimestres)
+                    
+                    with col_f2:
+                        col_turma = 'Turma' if 'Turma' in colunas_df else colunas_df[2]
+                        # Changed: Use is_master_admin for admin/rodrigo check
+                        if st.session_state.get('is_master_admin', False) or is_soe:
+                            opcoes_turmas_reg = sorted(df_reg[col_turma].unique().astype(str).tolist())
+                        else:
+                            turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
+                            opcoes_turmas_reg = sorted([t.strip() for t in turmas_vinc if t.strip()])
+                        turma_filtro = st.multiselect("Filtrar por Turma", options=opcoes_turmas_reg, default=[])
+
+                    with col_f3:
+                        col_disc_data = colunas_df[4]
+                        opcoes_disciplinas_reg = sorted(df_reg[col_disc_data].unique().astype(str).tolist())
+                        disciplina_filtro = st.multiselect("Filtrar por Disciplina", options=opcoes_disciplinas_reg, default=[])
+                    
+                    df_reg['ID_Original'] = range(2, len(df_reg) + 2)
+                    df_filtrado = df_reg.copy()
+                    
+                    if bim_filtro != "Todos":
+                        df_filtrado = df_filtrado[df_filtrado[col_bim].astype(str) == bim_filtro]
+                    
+                    if turma_filtro:
+                        df_filtrado = df_filtrado[df_filtrado[col_turma].astype(str).isin(turma_filtro)]
+                    else:
+                        # Changed: Use is_master_admin for admin/rodrigo check
+                        if not st.session_state.get('is_master_admin', False) and not is_soe:
+                            turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
+                            turmas_vinc = [t.strip() for t in turmas_vinc if t.strip()]
+                            df_filtrado = df_filtrado[df_filtrado[col_turma].astype(str).isin(turmas_vinc)]
+
+                    if disciplina_filtro:
+                        df_filtrado = df_filtrado[df_filtrado[col_disc_data].astype(str).isin(disciplina_filtro)]
+                    
+                    col_data = colunas_df[0]
+
+                    mapeamento_colunas = {
+                        colunas_df[2]: "Turma",
+                        colunas_df[3]: "Aluno",
+                        colunas_df[5]: "Periodo",
+                        colunas_df[4]: "Disciplina",
+                        colunas_df[1]: "Professor",
+                        colunas_df[6]: "Tipo_Registro",
+                        colunas_df[7]: "Descrição_Detalhada"
+                    }
+                    
+                    df_exibicao = df_filtrado.rename(columns=mapeamento_colunas)
+                    df_exibicao["Disciplina / Prof."] = df_exibicao["Disciplina"].astype(str) + " (" + df_exibicao["Professor"].astype(str) + ")"
+                    df_exibicao = df_exibicao.sort_values(by=["Periodo", "Turma", "Aluno"])
+                    
+                    ordem_colunas = ["Turma", "Aluno", "Periodo", "Disciplina / Prof.", "Tipo_Registro", "Descrição_Detalhada"]
+                    df_exibicao_viz = df_exibicao[ordem_colunas]
+                    
+                    st.dataframe(df_exibicao_viz, use_container_width=True, hide_index=True)
+
+                    output = io.BytesIO()
+                    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                        df_exibicao_viz.to_excel(writer, index=False, sheet_name='Relatorio')
+                        workbook = writer.book
+                        worksheet = writer.sheets['Relatorio']
+                        
+                        worksheet.set_landscape() 
+                        worksheet.set_paper(9) # A4
+                        worksheet.set_margins(0.5, 0.5, 0.5, 0.5)
+                        worksheet.fit_to_pages(1, 0)
+
+                        header_format = workbook.add_format({
+                            'bold': True, 
+                            'bg_color': '#D7E4BC', 
+                            'border': 1,
+                            'align': 'center',
+                            'valign': 'vcenter'
+                        })
+                        
+                        wrap_format = workbook.add_format({
+                            'text_wrap': True, 
+                            'valign': 'top',
+                            'border': 1
+                        })
+
+                        worksheet.set_column('A:A', 6, wrap_format)   # Turma
+                        worksheet.set_column('B:B', 25, wrap_format)  # Aluno
+                        worksheet.set_column('C:C', 10, wrap_format)  # Periodo
+                        worksheet.set_column('D:D', 28, wrap_format)  # Disciplina / Prof.
+                        worksheet.set_column('E:E', 25, wrap_format)  # Tipo_Registro
+                        worksheet.set_column('F:F', 40, wrap_format)  # Descrição_Detalhada
+
+                        for col_num, value in enumerate(df_exibicao_viz.columns.values):
+                            worksheet.write(0, col_num, value, header_format)
+
+                    processed_data = output.getvalue()
+
+                    st.download_button(
+                        label="📥 Baixar Relatório de Desempenho (A4 Paisagem)",
+                        data=processed_data,
+                        file_name=f'Relatorio_Desempenho_{datetime.now(fuso_roraima).strftime("%Y%m%d_%H%M")}.xlsx',
+                        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        use_container_width=True
+                    )
+
+                    st.divider()
+                    st.subheader("📝 Editar ou 🗑️ Excluir Registros de Desempenho")
+                    
+                    if is_soe:
+                        st.info("Usuários SOE não possuem permissão para editar ou excluir registros.")
+                    else:
+                        col_exc1, col_exc2 = st.columns(2)
+                        
+                        with col_exc1:
+                            st.markdown("**Gerenciar registro individual**")
+                            # Changed: Use is_master_admin for admin/rodrigo check
+                            if st.session_state.get('is_master_admin', False):
+                                df_edit_proprio = df_filtrado
+                            else:
+                                discs_usuario_reg = [d.strip().lower() for d in str(st.session_state.user_data.get('Disciplinas', "")).split(", ") if d.strip()]
+                                df_edit_proprio = df_filtrado[df_filtrado[colunas_df[4]].astype(str).str.lower().isin(discs_usuario_reg)]
+                            
+                            if not df_edit_proprio.empty:
+                                opcoes_edit = {f"{row[col_data]} - {row[colunas_df[3]]} ({row[colunas_df[4]]})": row['ID_Original'] for _, row in df_edit_proprio.iterrows()}
+                                selecionado_para_edit = st.selectbox("Selecione o registro para modificar (Apenas suas disciplinas)", [""] + list(opcoes_edit.keys()))
+                                
+                                if selecionado_para_edit != "":
+                                    linha_idx = opcoes_edit[selecionado_para_edit]
+                                    dados_reg_edit = df_edit_proprio[df_edit_proprio['ID_Original'] == linha_idx].iloc[0]
+                                    
+                                    with st.form("form_editar_registro"):
+                                        st.markdown(f"Editando registro de: **{dados_reg_edit[colunas_df[3]]}**")
+                                        itens_atuais = str(dados_reg_edit[colunas_df[6]]).split(", ")
+                                        usuario_disciplinas = str(st.session_state.user_data.get('Disciplinas', "")).lower()
+                                        
+                                        if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
+                                            opcoes_radio = ["Ponto de atenção"]
+                                        else:
+                                            opcoes_radio = ["Reprovado", "Aprovado após recuperação", "Ponto de atenção"]
+                                        
+                                        desemp_atual = next((i for i in itens_atuais if i in opcoes_radio), None)
+                                        edit_desempenho = st.radio("Desempenho", options=opcoes_radio, index=opcoes_radio.index(desemp_atual) if desemp_atual else 0, horizontal=True)
+                                        
+                                        opcoes_multi = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho"]
+                                        if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
+                                            opcoes_multi.append("Não fez o questionário participativo")
+                                            
+                                        itens_multi_atuais = [i for i in itens_atuais if i in opcoes_multi]
+                                        edit_tipo_selecao = st.multiselect("Valores e atitudes", options=opcoes_multi, default=itens_multi_atuais)
+                                        edit_obs = st.text_area("Observações", value=dados_reg_edit[colunas_df[7]])
+                                        
+                                        col_at1, col_at2 = st.columns(2)
+                                        with col_at1:
+                                            btn_confirmar_edit = st.form_submit_button("SALVAR ALTERAÇÕES")
+                                        with col_at2:
+                                            btn_confirmar_exc = st.form_submit_button("❌ EXCLUIR REGISTRO")
+                                            
+                                        if btn_confirmar_edit:
+                                            try:
+                                                itens_finais_edit = []
+                                                if edit_desempenho:
+                                                    itens_finais_edit.append(edit_desempenho)
+                                                itens_finais_edit.extend(edit_tipo_selecao)
+                                                tipo_formatado_edit = ", ".join(itens_finais_edit)
+                                                wks_reg.update_cell(linha_idx, 7, tipo_formatado_edit)
+                                                wks_reg.update_cell(linha_idx, 8, edit_obs)
+                                                st.success("Registro atualizado!")
+                                                time.sleep(2)
+                                                st.rerun()
+                                            except Exception as e:
+                                                st.error(f"Erro ao editar: {e}")
+                                                
+                                        if btn_confirmar_exc:
+                                            try:
+                                                wks_reg.delete_rows(linha_idx)
+                                                st.success("Registro excluído!")
+                                                time.sleep(2)
+                                                st.rerun()
+                                            except Exception as e:
+                                                st.error(f"Erro ao excluir: {e}")
+                            else:
+                                st.info("Nenhum registro de suas disciplinas disponível para gerenciar no filtro atual.")
+
+                        with col_exc2:
+                            # Changed: Use is_master_admin for admin/rodrigo check
+                            if st.session_state.get('is_master_admin', False):
+                                st.markdown("**Exclusão em massa**")
+                                if bim_filtro != "Todos":
+                                    if turma_filtro and len(turma_filtro) == 1:
+                                        t_unica = turma_filtro[0]
+                                        st.warning(f"Apagar TODOS os registros de {t_unica} no {bim_filtro}?")
+                                        if st.button(f"🚨 EXCLUIR TURMA: {t_unica} - {bim_filtro}"):
+                                            indices_massa = sorted(df_filtrado['ID_Original'].tolist(), reverse=True)
+                                            for idx in indices_massa:
+                                                wks_reg.delete_rows(idx)
+                                            st.success(f"Foram excluídos {len(indices_massa)} registros.")
+                                            st.rerun()
+                                    
+                                    st.divider()
+                                    st.error(f"Zerar BIMESTRE: Apagar TODOS os registros do {bim_filtro}?")
+                                    if st.button(f"💥 EXCLUIR TUDO DO {bim_filtro}"):
+                                        df_massa_bim = df_reg[df_reg[col_bim].astype(str) == bim_filtro]
+                                        if not df_massa_bim.empty:
+                                            indices_bim = sorted(df_massa_bim['ID_Original'].tolist(), reverse=True)
+                                            for idx in indices_bim:
+                                                wks_reg.delete_rows(idx)
+                                            st.success(f"Foram excluídos {len(indices_bim)} registros do {bim_filtro}.")
+                                            st.rerun()
+                                        else:
+                                            st.info("Não há registros para este bimestre.")
+                                else:
+                                    st.info("Selecione um Bimestre específico para habilitar a exclusão em massa.")
+                            else:
+                                st.empty()
+
+                else:
+                    st.info("Nenhum registro encontrado na planilha.")
+            except Exception as e:
+                st.error(f"Erro ao carregar registros: {e}")
 
     elif pagina_atual == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
@@ -668,239 +911,6 @@ else:
                     st.info("A planilha de registros está vazia.")
             except Exception as e:
                 st.error(f"Erro ao carregar ocorrências: {e}")
-
-    elif pagina_atual == "VisualizarRegistros":
-        st.title("📋 Registros de Desempenho Realizados")
-        try:
-            sh = conectar_google_sheets()
-            wks_reg = sh.worksheet("Registros_Ocorrencias")
-            dados_brutos = wks_reg.get_all_values()
-            
-            if len(dados_brutos) > 1:
-                df_reg = pd.DataFrame(dados_brutos[1:], columns=dados_brutos[0])
-                df_reg = df_reg[~df_reg[df_reg.columns[6]].astype(str).str.contains("OCORRÊNCIA:", na=False)]
-                
-                colunas_df = df_reg.columns.tolist()
-                
-                col_f1, col_f2, col_f3 = st.columns(3)
-                with col_f1:
-                    col_bim = 'Bimestre' if 'Bimestre' in colunas_df else colunas_df[5]
-                    lista_bimestres = ["Todos"] + sorted(df_reg[col_bim].unique().astype(str).tolist())
-                    bim_filtro = st.selectbox("Filtrar por Bimestre", lista_bimestres)
-                
-                with col_f2:
-                    col_turma = 'Turma' if 'Turma' in colunas_df else colunas_df[2]
-                    # Changed: Use is_master_admin for admin/rodrigo check
-                    if st.session_state.get('is_master_admin', False) or is_soe:
-                        opcoes_turmas_reg = sorted(df_reg[col_turma].unique().astype(str).tolist())
-                    else:
-                        turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
-                        opcoes_turmas_reg = sorted([t.strip() for t in turmas_vinc if t.strip()])
-                    turma_filtro = st.multiselect("Filtrar por Turma", options=opcoes_turmas_reg, default=[])
-
-                with col_f3:
-                    col_disc_data = colunas_df[4]
-                    opcoes_disciplinas_reg = sorted(df_reg[col_disc_data].unique().astype(str).tolist())
-                    disciplina_filtro = st.multiselect("Filtrar por Disciplina", options=opcoes_disciplinas_reg, default=[])
-                
-                df_reg['ID_Original'] = range(2, len(df_reg) + 2)
-                df_filtrado = df_reg.copy()
-                
-                if bim_filtro != "Todos":
-                    df_filtrado = df_filtrado[df_filtrado[col_bim].astype(str) == bim_filtro]
-                
-                if turma_filtro:
-                    df_filtrado = df_filtrado[df_filtrado[col_turma].astype(str).isin(turma_filtro)]
-                else:
-                    # Changed: Use is_master_admin for admin/rodrigo check
-                    if not st.session_state.get('is_master_admin', False) and not is_soe:
-                        turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
-                        turmas_vinc = [t.strip() for t in turmas_vinc if t.strip()]
-                        df_filtrado = df_filtrado[df_filtrado[col_turma].astype(str).isin(turmas_vinc)]
-
-                if disciplina_filtro:
-                    df_filtrado = df_filtrado[df_filtrado[col_disc_data].astype(str).isin(disciplina_filtro)]
-                
-                col_data = colunas_df[0]
-
-                mapeamento_colunas = {
-                    colunas_df[2]: "Turma",
-                    colunas_df[3]: "Aluno",
-                    colunas_df[5]: "Periodo",
-                    colunas_df[4]: "Disciplina",
-                    colunas_df[1]: "Professor",
-                    colunas_df[6]: "Tipo_Registro",
-                    colunas_df[7]: "Descrição_Detalhada"
-                }
-                
-                df_exibicao = df_filtrado.rename(columns=mapeamento_colunas)
-                df_exibicao["Disciplina / Prof."] = df_exibicao["Disciplina"].astype(str) + " (" + df_exibicao["Professor"].astype(str) + ")"
-                df_exibicao = df_exibicao.sort_values(by=["Periodo", "Turma", "Aluno"])
-                
-                ordem_colunas = ["Turma", "Aluno", "Periodo", "Disciplina / Prof.", "Tipo_Registro", "Descrição_Detalhada"]
-                df_exibicao_viz = df_exibicao[ordem_colunas]
-                
-                st.dataframe(df_exibicao_viz, use_container_width=True, hide_index=True)
-
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    df_exibicao_viz.to_excel(writer, index=False, sheet_name='Relatorio')
-                    workbook = writer.book
-                    worksheet = writer.sheets['Relatorio']
-                    
-                    worksheet.set_landscape() 
-                    worksheet.set_paper(9) # A4
-                    worksheet.set_margins(0.5, 0.5, 0.5, 0.5)
-                    worksheet.fit_to_pages(1, 0)
-
-                    header_format = workbook.add_format({
-                        'bold': True, 
-                        'bg_color': '#D7E4BC', 
-                        'border': 1,
-                        'align': 'center',
-                        'valign': 'vcenter'
-                    })
-                    
-                    wrap_format = workbook.add_format({
-                        'text_wrap': True, 
-                        'valign': 'top',
-                        'border': 1
-                    })
-
-                    worksheet.set_column('A:A', 6, wrap_format)   # Turma
-                    worksheet.set_column('B:B', 25, wrap_format)  # Aluno
-                    worksheet.set_column('C:C', 10, wrap_format)  # Periodo
-                    worksheet.set_column('D:D', 28, wrap_format)  # Disciplina / Prof.
-                    worksheet.set_column('E:E', 25, wrap_format)  # Tipo_Registro
-                    worksheet.set_column('F:F', 40, wrap_format)  # Descrição_Detalhada
-
-                    for col_num, value in enumerate(df_exibicao_viz.columns.values):
-                        worksheet.write(0, col_num, value, header_format)
-
-                processed_data = output.getvalue()
-
-                st.download_button(
-                    label="📥 Baixar Relatório de Desempenho (A4 Paisagem)",
-                    data=processed_data,
-                    file_name=f'Relatorio_Desempenho_{datetime.now(fuso_roraima).strftime("%Y%m%d_%H%M")}.xlsx',
-                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                    use_container_width=True
-                )
-
-                st.divider()
-                st.subheader("📝 Editar ou 🗑️ Excluir Registros de Desempenho")
-                
-                if is_soe:
-                    st.info("Usuários SOE não possuem permissão para editar ou excluir registros.")
-                else:
-                    col_exc1, col_exc2 = st.columns(2)
-                    
-                    with col_exc1:
-                        st.markdown("**Gerenciar registro individual**")
-                        # Changed: Use is_master_admin for admin/rodrigo check
-                        if st.session_state.get('is_master_admin', False):
-                            df_edit_proprio = df_filtrado
-                        else:
-                            discs_usuario_reg = [d.strip().lower() for d in str(st.session_state.user_data.get('Disciplinas', "")).split(", ") if d.strip()]
-                            df_edit_proprio = df_filtrado[df_filtrado[colunas_df[4]].astype(str).str.lower().isin(discs_usuario_reg)]
-                        
-                        if not df_edit_proprio.empty:
-                            opcoes_edit = {f"{row[col_data]} - {row[colunas_df[3]]} ({row[colunas_df[4]]})": row['ID_Original'] for _, row in df_edit_proprio.iterrows()}
-                            selecionado_para_edit = st.selectbox("Selecione o registro para modificar (Apenas suas disciplinas)", [""] + list(opcoes_edit.keys()))
-                            
-                            if selecionado_para_edit != "":
-                                linha_idx = opcoes_edit[selecionado_para_edit]
-                                dados_reg_edit = df_edit_proprio[df_edit_proprio['ID_Original'] == linha_idx].iloc[0]
-                                
-                                with st.form("form_editar_registro"):
-                                    st.markdown(f"Editando registro de: **{dados_reg_edit[colunas_df[3]]}**")
-                                    itens_atuais = str(dados_reg_edit[colunas_df[6]]).split(", ")
-                                    usuario_disciplinas = str(st.session_state.user_data.get('Disciplinas', "")).lower()
-                                    
-                                    if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
-                                        opcoes_radio = ["Ponto de atenção"]
-                                    else:
-                                        opcoes_radio = ["Reprovado", "Aprovado após recuperação", "Ponto de atenção"]
-                                    
-                                    desemp_atual = next((i for i in itens_atuais if i in opcoes_radio), None)
-                                    edit_desempenho = st.radio("Desempenho", options=opcoes_radio, index=opcoes_radio.index(desemp_atual) if desemp_atual else 0, horizontal=True)
-                                    
-                                    opcoes_multi = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho"]
-                                    if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
-                                        opcoes_multi.append("Não fez o questionário participativo")
-                                        
-                                    itens_multi_atuais = [i for i in itens_atuais if i in opcoes_multi]
-                                    edit_tipo_selecao = st.multiselect("Valores e atitudes", options=opcoes_multi, default=itens_multi_atuais)
-                                    edit_obs = st.text_area("Observações", value=dados_reg_edit[colunas_df[7]])
-                                    
-                                    col_at1, col_at2 = st.columns(2)
-                                    with col_at1:
-                                        btn_confirmar_edit = st.form_submit_button("SALVAR ALTERAÇÕES")
-                                    with col_at2:
-                                        btn_confirmar_exc = st.form_submit_button("❌ EXCLUIR REGISTRO")
-                                        
-                                    if btn_confirmar_edit:
-                                        try:
-                                            itens_finais_edit = []
-                                            if edit_desempenho:
-                                                itens_finais_edit.append(edit_desempenho)
-                                            itens_finais_edit.extend(edit_tipo_selecao)
-                                            tipo_formatado_edit = ", ".join(itens_finais_edit)
-                                            wks_reg.update_cell(linha_idx, 7, tipo_formatado_edit)
-                                            wks_reg.update_cell(linha_idx, 8, edit_obs)
-                                            st.success("Registro atualizado!")
-                                            time.sleep(2)
-                                            st.rerun()
-                                        except Exception as e:
-                                            st.error(f"Erro ao editar: {e}")
-                                            
-                                    if btn_confirmar_exc:
-                                        try:
-                                            wks_reg.delete_rows(linha_idx)
-                                            st.success("Registro excluído!")
-                                            time.sleep(2)
-                                            st.rerun()
-                                        except Exception as e:
-                                            st.error(f"Erro ao excluir: {e}")
-                        else:
-                            st.info("Nenhum registro de suas disciplinas disponível para gerenciar no filtro atual.")
-
-                    with col_exc2:
-                        # Changed: Use is_master_admin for admin/rodrigo check
-                        if st.session_state.get('is_master_admin', False):
-                            st.markdown("**Exclusão em massa**")
-                            if bim_filtro != "Todos":
-                                if turma_filtro and len(turma_filtro) == 1:
-                                    t_unica = turma_filtro[0]
-                                    st.warning(f"Apagar TODOS os registros de {t_unica} no {bim_filtro}?")
-                                    if st.button(f"🚨 EXCLUIR TURMA: {t_unica} - {bim_filtro}"):
-                                        indices_massa = sorted(df_filtrado['ID_Original'].tolist(), reverse=True)
-                                        for idx in indices_massa:
-                                            wks_reg.delete_rows(idx)
-                                        st.success(f"Foram excluídos {len(indices_massa)} registros.")
-                                        st.rerun()
-                                
-                                st.divider()
-                                st.error(f"Zerar BIMESTRE: Apagar TODOS os registros do {bim_filtro}?")
-                                if st.button(f"💥 EXCLUIR TUDO DO {bim_filtro}"):
-                                    df_massa_bim = df_reg[df_reg[col_bim].astype(str) == bim_filtro]
-                                    if not df_massa_bim.empty:
-                                        indices_bim = sorted(df_massa_bim['ID_Original'].tolist(), reverse=True)
-                                        for idx in indices_bim:
-                                            wks_reg.delete_rows(idx)
-                                        st.success(f"Foram excluídos {len(indices_bim)} registros do {bim_filtro}.")
-                                        st.rerun()
-                                    else:
-                                        st.info("Não há registros para este bimestre.")
-                            else:
-                                st.info("Selecione um Bimestre específico para habilitar a exclusão em massa.")
-                        else:
-                            st.empty()
-
-            else:
-                st.info("Nenhum registro encontrado na planilha.")
-        except Exception as e:
-            st.error(f"Erro ao carregar registros: {e}")
 
     elif st.session_state.pagina == "Segurança":
         st.title("🔒 Segurança")
