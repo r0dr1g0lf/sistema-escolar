@@ -1537,7 +1537,7 @@ else:
                 st.text_input("Data de Registro (Hoje):", value=data_registro, disabled=True, key="agend_reg")
                 
                 # Data de Uso usando o seletor de calendário nativo do Streamlit
-                data_uso = st.date_input("Data de Uso do Equipamento:", value=datetime.now(fuso_roraima), key="agend_uso")
+                data_uso = st.date_input("Data de Uso do Equipamento:", value=data_atual, format="DD/MM/YYYY", key="agend_uso")
                 data_uso_formatada = data_uso.strftime("%d/%m/%Y")
 
             st.markdown("---")
