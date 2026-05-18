@@ -5,13 +5,6 @@ import gspread
 from google.oauth2.service_account import Credentials
 import time
 import io
-import pytz
-
-# Configuração do fuso horário correto de Roraima
-fuso_roraima = pytz.timezone('America/Boa_Vista')
-
-# Esta variável garante a data certa em Boa Vista, mesmo rodando no servidor da nuvem
-data_atual = datetime.now(fuso_roraima).date()
 
 SHEET_ID = "153ohv6YsmfOZHjoLpb8He2VM2P-DYTVGh9zDVNRBdS0"
 
@@ -86,9 +79,9 @@ def atualizar_presenca(usuario, acao):
 
         if acao == "login":
             if celula:
-                wks_on.update_cell(celula.row, 2, datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"))
+                wks_on.update_cell(celula.row, 2, datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
             else:
-                wks_on.append_row([usuario, datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S")])
+                wks_on.append_row([usuario, datetime.now().strftime("%d/%m/%Y %H:%M:%S")])
         elif acao == "logout":
             if celula:
                 wks_on.delete_rows(celula.row)
@@ -127,43 +120,33 @@ if not st.session_state.logado:
         entrar = st.form_submit_button("Entrar")
         
         if entrar:
-            # Validação especial para Administradores e Rodrigo (Master Admin)
-            if user_input.lower() == 'admin':
-                admin_match = df_profs[df_profs['Usuario'].astype(str).str.lower() == 'admin']
-                senha_admin_planilha = str(admin_match.iloc[0]['Senha']).strip() if not admin_match.empty else "admin" # Fallback if 'admin' not in df_profs
-                if str(pass_input).strip() == senha_admin_planilha:
+            # Fetch admin's password for 'rodrigo' validation
+            admin_password = None
+            admin_match = df_profs[df_profs['Usuario'].astype(str).str.lower() == "admin"]
+            if not admin_match.empty:
+                admin_password = str(admin_match.iloc[0]['Senha'])
+
+            if user_input.lower() == "rodrigo":
+                if admin_password and pass_input == admin_password:
                     st.session_state.logado = True
-                    if not admin_match.empty:
-                        st.session_state.user_data = admin_match.iloc[0].to_dict()
-                    else:
-                        st.session_state.user_data = {'Professor': 'Administrador', 'Usuario': 'admin', 'Senha': senha_admin_planilha, 'Turmas': 'Todas', 'Disciplinas': 'Todas'}
-                    st.session_state.is_master_admin = True # Admin is a master admin
-                    atualizar_presenca("admin", "login")
-                    st.session_state.pagina = "Registro"
-                    st.success("Login realizado com sucesso!")
-                    time.sleep(1)
+                    # Fetch rodrigo's actual data from df_profs
+                    rodrigo_match = df_profs[df_profs['Usuario'].astype(str).str.lower() == "rodrigo"]
+                    if not rodrigo_match.empty:
+                        st.session_state.user_data = rodrigo_match.iloc[0].to_dict()
+                    else: # Fallback if 'rodrigo' isn't explicitly in Config_Professores
+                        st.session_state.user_data = {
+                            'Professor': 'Master Rodrigo',
+                            'Usuario': 'rodrigo',
+                            'Senha': admin_password, # Store admin's password for consistency
+                            'Turmas': 'Todas',
+                            'Disciplinas': 'Todas'
+                        }
+                    st.session_state.is_master_admin = True # Rodrigo logged in as master admin
+                    atualizar_presenca("rodrigo", "login")
                     st.rerun()
                 else:
-                    st.error("Senha incorreta para Admin.")
-                    
-            elif user_input.lower() == 'rodrigo':
-                rodrigo_match = df_profs[df_profs['Usuario'].astype(str).str.lower() == 'rodrigo']
-                if not rodrigo_match.empty:
-                    senha_rodrigo_planilha = str(rodrigo_match.iloc[0]['Senha']).strip()
-                    if str(pass_input).strip() == senha_rodrigo_planilha:
-                        st.session_state.logado = True
-                        st.session_state.user_data = rodrigo_match.iloc[0].to_dict() # Use full data from df_profs
-                        st.session_state.is_master_admin = True # Ativa os privilégios totais de Master
-                        atualizar_presenca("rodrigo", "login")
-                        st.session_state.pagina = "Registro"
-                        st.success("Login Master realizado com sucesso!")
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error("Senha incorreta para Rodrigo.")
-                else:
-                    st.error("Usuário 'rodrigo' não encontrado na configuração de professores.")
-            else: # Login de usuários regulares
+                    st.error("Usuário ou senha incorretos para Rodrigo (requer senha de admin).")
+            else: # Regular user login (including 'admin' itself)
                 match = df_profs[(df_profs['Usuario'].astype(str) == user_input) & (df_profs['Senha'].astype(str) == pass_input)]
                 if not match.empty:
                     user_row = match.iloc[0]
@@ -172,7 +155,7 @@ if not st.session_state.logado:
                     else:
                         st.session_state.logado = True
                         st.session_state.user_data = user_row.to_dict()
-                        st.session_state.is_master_admin = False # Usuários regulares não são master admin
+                        st.session_state.is_master_admin = (user_input.lower() == "admin") # Only 'admin' is master admin here
                         atualizar_presenca(user_input, "login")
                         st.rerun()
                 else:
@@ -193,7 +176,7 @@ else:
         if users_on:
             st.sidebar.markdown("---")
             st.sidebar.markdown("🟢 **Usuários Online**")
-            hoje_data = datetime.now(fuso_roraima).strftime("%d/%m/%Y")
+            hoje_data = datetime.now().strftime("%d/%m/%Y")
             for u in users_on:
                 if u['Ultimo_Acesso'].startswith(hoje_data):
                     st.sidebar.caption(f"👤 {u['Usuario']}")
@@ -214,17 +197,13 @@ else:
         st.session_state.pagina = "Ocorrencias"
         st.rerun()
 
-    # NOVO LOCAL: Botão posicionado logo abaixo de Ocorrências
-    if st.sidebar.button('📅 Agendar Equipamentos', key="btn_agendar_equipamentos_nav", use_container_width=True):
-        st.session_state.pagina = 'Agendamento de Equipamentos'
-        st.rerun()
+    # Changed: Only non-master-admins see "Segurança"
+    if not st.session_state.get('is_master_admin', False):
+        if st.sidebar.button("Segurança", key="btn_seguranca", use_container_width=True):
+            st.session_state.pagina = "Segurança"
+            st.rerun()
 
-    # All logged-in users can see "Segurança" to change their own password
-    if st.sidebar.button("Segurança", key="btn_seguranca", use_container_width=True):
-        st.session_state.pagina = "Segurança"
-        st.rerun()
-
-    # Apenas master-admins veem "Cadastro" e "Atualizar Dados"
+    # Changed: Only master-admins see "Cadastro" and "Atualizar Dados"
     if st.session_state.get('is_master_admin', False):
         if st.sidebar.button("Cadastro", key="btn_cadastro", use_container_width=True):
             st.session_state.pagina = "Cadastro"
@@ -233,6 +212,10 @@ else:
         if st.sidebar.button("Atualizar Dados", key="btn_atualizar", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
+
+    if st.sidebar.button('📅 Agendar Equipamentos', use_container_width=True):
+        st.session_state.pagina = 'Agendamento de Equipamentos'
+        st.rerun()
 
     if st.sidebar.button("Sair", key="btn_sair", use_container_width=True):
         atualizar_presenca(st.session_state.user_data['Usuario'], "logout")
@@ -251,7 +234,7 @@ else:
         if is_soe:
             st.info("Você está logado como SOE. Este módulo é apenas para visualização de períodos e turmas.")
         
-        hoje = data_atual
+        hoje = datetime.now().date()
         bimestres_disponiveis = []
         
         if not df_periodos.empty:
@@ -343,7 +326,7 @@ else:
                     tipo_formatado = ", ".join(itens_finais)
                     
                     nova_linha = [
-                        datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
+                        datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
                         prof_nome,
                         turma_sel,
                         aluno_sel,
@@ -369,7 +352,7 @@ else:
         with tab_oc1:
             if is_soe:
                 st.info("Você está logado como SOE. Este módulo é apenas para visualização.")
-            hoje = data_atual
+            hoje = datetime.now().date()
             bimestres_disponiveis = []
             if not df_periodos.empty:
                 for _, row in df_periodos.iterrows():
@@ -415,7 +398,7 @@ else:
                 disciplina = st.selectbox("Disciplina", disciplina_opcoes, key="disc_oc")
                 periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True, key="bim_oc")
                 
-                data_ocorrido = st.date_input("Data do ocorrido", value=data_atual, format="DD/MM/YYYY")
+                data_ocorrido = st.date_input("Data do ocorrido", value=datetime.now().date(), format="DD/MM/YYYY")
                 tempo_aula = st.selectbox("Tempo de aula", ["1º tempo", "2º tempo", "3º tempo", "4º tempo"])
                 
                 opcoes_ocorrencias = [
@@ -449,7 +432,7 @@ else:
                         tipo_formatado = ", ".join(selecao_oc)
                         detalhes_extras = f"DATA: {data_ocorrido.strftime('%d/%m/%Y')} | TEMPO: {tempo_aula} | {obs_oc}"
                         nova_linha = [
-                            datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
+                            datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
                             prof_nome,
                             turma_sel,
                             aluno_sel,
@@ -590,7 +573,7 @@ else:
                         st.download_button(
                             label="📥 Baixar Relatório de Ocorrências (A4 Paisagem)",
                             data=output_oc.getvalue(),
-                            file_name=f'Ocorrencias_{datetime.now(fuso_roraima).strftime("%Y%m%d")}.xlsx',
+                            file_name=f'Ocorrencias_{datetime.now().strftime("%Y%m%d")}.xlsx',
                             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                             use_container_width=True
                         )
@@ -782,7 +765,7 @@ else:
                 st.download_button(
                     label="📥 Baixar Relatório de Desempenho (A4 Paisagem)",
                     data=processed_data,
-                    file_name=f'Relatorio_Desempenho_{datetime.now(fuso_roraima).strftime("%Y%m%d_%H%M")}.xlsx',
+                    file_name=f'Relatorio_Desempenho_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx',
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     use_container_width=True
                 )
@@ -902,54 +885,39 @@ else:
         except Exception as e:
             st.error(f"Erro ao carregar registros: {e}")
 
-    elif st.session_state.pagina == "Segurança":
+    elif pagina_atual == "Segurança":
         st.title("🔒 Segurança")
         st.subheader("Alterar Minha Senha")
-        
         user_atual = st.session_state.user_data['Usuario']
         
-        # Bloqueia apenas o 'admin' genérico de mudar a senha por aqui, mas PERMITE o 'rodrigo' e os professores
-        if user_atual == "admin":
-            st.warning("O usuário 'admin' padrão não pode alterar a senha por esta interface.")
-        else:
-            with st.form("form_alterar_senha_prof"):
-                nova_senha_prof = st.text_input("Nova Senha", type="password")
-                confirmar_senha_prof = st.text_input("Confirmar Nova Senha", type="password")
-                
-                col_senha_p1, col_senha_p2 = st.columns([1, 2])
-                with col_senha_p1:
-                    btn_p = st.form_submit_button("Atualizar Minha Senha")
-                    
-                if btn_p:
-                    if nova_senha_prof != confirmar_senha_prof:
+        with st.form("form_alterar_senha_prof"):
+            nova_senha_prof = st.text_input("Nova Senha", type="password")
+            confirmar_senha_prof = st.text_input("Confirmar Nova Senha", type="password")
+            col_senha_p1, col_senha_p2 = st.columns([1, 2])
+            with col_senha_p1:
+                btn_p = st.form_submit_button("Atualizar Minha Senha")
+            
+            if btn_p:
+                if nova_senha_prof != confirmar_senha_prof:
+                    with col_senha_p2:
+                        msg_placeholder_err_p = st.empty()
+                        msg_placeholder_err_p.error("As senhas não coincidem.")
+                        time.sleep(3)
+                        msg_placeholder_err_p.empty()
+                else:
+                    try:
+                        sh = conectar_google_sheets()
+                        wks_p = sh.worksheet("Config_Professores")
+                        celula = wks_p.find(str(user_atual))
+                        wks_p.update_cell(celula.row, 3, str(nova_senha_prof))
                         with col_senha_p2:
-                            msg_placeholder_err_p = st.empty()
-                            msg_placeholder_err_p.error("As senhas não coincidem.")
+                            msg_placeholder_ok_p = st.empty()
+                            msg_placeholder_ok_p.success("✅ Senha atualizada!")
+                            st.cache_data.clear()
                             time.sleep(3)
-                            msg_placeholder_err_p.empty()
-                    elif len(nova_senha_prof.strip()) == 0:
-                        with col_senha_p2:
-                            st.error("A senha não pode ficar em branco.")
-                    else:
-                        try:
-                            sh = conectar_google_sheets()
-                            wks_p = sh.worksheet("Config_Professores")
-                            
-                            # Encontra a linha do 'rodrigo' ou do professor logado
-                            celula = wks_p.find(str(user_atual))
-                            
-                            # Atualiza a senha na coluna 3 (Coluna da Senha)
-                            wks_p.update_cell(celula.row, 3, str(nova_senha_prof).strip())
-                            
-                            with col_senha_p2:
-                                msg_placeholder_ok_p = st.empty()
-                                msg_placeholder_ok_p.success("✅ Sua senha foi alterada com sucesso!")
-                                st.cache_data.clear()
-                                time.sleep(2)
-                                msg_placeholder_ok_p.empty()
-                                st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao atualizar a senha na planilha: {e}")
+                            msg_placeholder_ok_p.empty()
+                    except Exception as e:
+                        st.error(f"Erro ao atualizar: {e}")
 
     # Changed: Use is_master_admin for Cadastro page access
     elif pagina_atual == "Cadastro" and st.session_state.get('is_master_admin', False):
@@ -1224,25 +1192,17 @@ else:
                     if not novo_prof or not novo_usuario:
                         st.error("Por favor, preencha o nome do professor e o nome de usuário.")
                     else:
-                        try:
-                            sh = conectar_google_sheets()
-                            wks_p = sh.worksheet("Config_Professores")
-                            
-                            # Carrega os usuários que já existem para fazer a checagem (live from sheet)
-                            dados_existentes = wks_p.get_all_records()
-                            usuarios_cadastrados = [str(linha.get("Usuario", "")).strip().lower() for linha in dados_existentes]
-                            
-                            usuario_verificar = str(novo_usuario).strip().lower()
-                            
-                            # VALIDAÇÃO CRÍTICA: Impede se o nome de usuário (login) já existir
-                            if usuario_verificar in usuarios_cadastrados:
-                                with col_msg_salvar:
-                                    msg_placeholder_prof_err = st.empty()
-                                    msg_placeholder_prof_err.error(f"❌ Não é possível cadastrar! O usuário '{novo_usuario}' já existe no sistema. Escolha outro nome de usuário para login.")
-                                    time.sleep(3)
-                                    msg_placeholder_prof_err.empty()
-                            else:
-                                # Se não existir, faz o cadastro normalmente
+                        duplicado_user = df_profs[df_profs['Usuario'].astype(str).str.upper() == novo_usuario.strip().upper()]
+                        if not duplicado_user.empty:
+                            with col_msg_salvar:
+                                msg_placeholder_prof_err = st.empty()
+                                msg_placeholder_prof_err.error(f"Erro: O nome de usuário '{novo_usuario}' já está cadastrado.")
+                                time.sleep(3)
+                                msg_placeholder_prof_err.empty()
+                        else:
+                            try:
+                                sh = conectar_google_sheets()
+                                wks_p = sh.worksheet("Config_Professores")
                                 turmas_str = ", ".join(turmas_vinculo)
                                 disciplinas_str = ", ".join(disciplinas_vinculo)
                                 senha_final = str(nova_senha) if nova_senha else ""
@@ -1254,9 +1214,8 @@ else:
                                     time.sleep(3)
                                     msg_placeholder_prof.empty()
                                 st.rerun()
-                                
-                        except Exception as e:
-                            st.error(f"Erro ao acessar o banco de dados: {e}")
+                            except Exception as e:
+                                st.error(f"Erro: {e}")
             
             st.divider()
             st.subheader("Editar ou Excluir Usuário Existente")
@@ -1533,11 +1492,11 @@ else:
                 
             with col2:
                 # Data de Registro automática capturada do Relógio do Sistema Operacional
-                data_registro = datetime.now(fuso_roraima).strftime("%d/%m/%Y")
+                data_registro = datetime.now().strftime("%d/%m/%Y")
                 st.text_input("Data de Registro (Hoje):", value=data_registro, disabled=True, key="agend_reg")
                 
                 # Data de Uso usando o seletor de calendário nativo do Streamlit
-                data_uso = st.date_input("Data de Uso do Equipamento:", value=data_atual, format="DD/MM/YYYY", key="agend_uso")
+                data_uso = st.date_input("Data de Uso do Equipamento:", value=datetime.now(), key="agend_uso")
                 data_uso_formatada = data_uso.strftime("%d/%m/%Y")
 
             st.markdown("---")
@@ -1642,7 +1601,7 @@ else:
                             opcoes_selecao.append(f"{row['linha_sheets']} - {row['Equipamento']} - {row['Turma']} ({row['Data Uso']} no {row['Tempo']})")
                         
                         if opcoes_selecao: # Only show selectbox if there are options
-                            agend_selecionado_texto = st.selectbox("Selecione um agendamento para Modificar ou Excluir:", opcoes_selecao)
+                            agend_selecionado_texto = st.selectbox("Selecione um agendamento para Modificar ou Excluir:", opciones_selecao)
                             
                             # Extract linha_sheets_alvo directly from the selected string
                             linha_sheets_alvo = int(agend_selecionado_texto.split(' - ')[0])
