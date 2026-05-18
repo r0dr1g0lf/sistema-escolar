@@ -605,7 +605,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrências":
+    elif pagina_atual == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -661,17 +661,21 @@ else:
                 data_ocorrido = st.date_input("Data do ocorrido", value=data_atual, format="DD/MM/YYYY")
                 tempo_aula = st.selectbox("Tempo de aula", ["1º tempo", "2º tempo", "3º tempo", "4º tempo"])
                 
-                lista_ocorrencias_padrao = [
-                                "Indisciplina em sala de aula",
-                                "Falta de material didático",
-                                "Agressão verbal entre alunos",
-                                "Uso indevido de aparelho celular",
-                                "Desrespeito com o professor",
-                                "Atraso frequente para a aula",
-                                "Não realização das atividades propostas",
-                                "Outras"
-                            ]
-                tipo_ocorrencia = st.selectbox("Selecione o Tipo de Ocorrência", lista_ocorrencias_padrao)
+                opcoes_ocorrencias = [
+                    "Agrediu o colega verbalmente", 
+                    "Agrediu o colega fisicamente", 
+                    "Agrediu o professor verbalmente", 
+                    "Agrediu o professor fisicamente", 
+                    "Não trouxe o livro",
+                    "Dormiu em sala", 
+                    "Usou o celular em sala", 
+                    "Não fez a tarefa em sala", 
+                    "Não fez a tarefa em casa", 
+                    "Não trouxe o material", 
+                    "Excesso de faltas"
+                ]
+                
+                selecao_oc = st.multiselect("Selecione as ocorrências", options=opcoes_ocorrencias)
                 obs_oc = st.text_area("Observações detalhadas")
                 
                 btn_salvar_oc = st.form_submit_button("GRAVAR OCORRÊNCIA", disabled=(bimestre_ativo == "Bloqueado" or is_soe))
@@ -679,13 +683,13 @@ else:
             if btn_salvar_oc:
                 if is_soe:
                     st.error("Usuários SOE não possuem permissão para realizar registros.")
-                elif not tipo_ocorrencia:
+                elif not selecao_oc:
                     st.error("Selecione pelo menos uma ocorrência.")
                 else:
                     try:
                         sh = conectar_google_sheets()
                         wks = sh.worksheet("Registros_Ocorrencias")
-                        tipo_formatado = tipo_ocorrencia
+                        tipo_formatado = ", ".join(selecao_oc)
                         detalhes_extras = f"DATA: {data_ocorrido.strftime('%d/%m/%Y')} | TEMPO: {tempo_aula} | {obs_oc}"
                         nova_linha = [
                             datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
