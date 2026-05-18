@@ -1545,7 +1545,7 @@ else:
                         periodo_selecionado = st.selectbox("Selecione o Período:", ["Matutino", "Vespertino"], key="agend_periodo")
                         
                         # Lista de equipamentos com a Caixa de som incluída
-                        equipamentos_disponiveis = ["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"]
+                        equipamentos_disponiveis = ["Tablets", "TV", "Datashow", "Notebook", "Caixa de som"]
                         equipamento_selecionado = st.selectbox("Selecione o Equipamento:", equipamentos_disponiveis, key="agend_equip")
                         
                         # Verificação dos Tablets alterada para menu de seleção (selectbox) de 1 a 30
@@ -1557,7 +1557,7 @@ else:
                                 index=0,  # Começa marcado no número 1
                                 key="agend_qtd_tablets"
                             )
-                            equipamento = f"Tablets (Maleta) ({quantidade_tablets} unidades)"
+                            equipamento = f"Tablets ({quantidade_tablets} unidades)"
                         else:
                             equipamento = equipamento_selecionado
                         
@@ -1662,7 +1662,7 @@ else:
                         df_exibicao = df_tabela.copy()
                     
                     # Filtro por equipamento
-                    filtro_equip = st.multiselect("Filtrar por Equipamento:", options=["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"], default=[], key="adm_filtro_equip")
+                    filtro_equip = st.multiselect("Filtrar por Equipamento:", options=["Tablets", "TV", "Datashow", "Notebook", "Caixa de som"], default=[], key="adm_filtro_equip")
                     if filtro_equip:
                         df_exibicao = df_exibicao[df_exibicao["Equipamento"].isin(filtro_equip)]
 
@@ -1719,7 +1719,7 @@ else:
                                     dado_antigo = selected_row_data # Use selected_row_data
                                     
                                     # Updated options for editing equipment
-                                    equipamentos_edit_opcoes = ["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"]
+                                    equipamentos_edit_opcoes = ["Tablets", "TV", "Datashow", "Notebook", "Caixa de som"]
                                     
                                     # Determine initial index for selectbox
                                     try:
@@ -1744,7 +1744,7 @@ else:
                                             step=1,
                                             key="ed_qtd_tablets"
                                         )
-                                        novo_equip_final = f"Tablets (Maleta) ({edit_quantidade_tablets} unidades)"
+                                        novo_equip_final = f"Tablets ({edit_quantidade_tablets} unidades)"
                                     
                                     novo_tempo = st.selectbox("Novo Tempo:", ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"].index(dado_antigo["Tempo"]), key="ed_tp")
                                     nova_observacao = st.text_area("Novas Observações:", value=dado_antigo["Observacoes"], key="ed_obs") # Added new text_area for editing
