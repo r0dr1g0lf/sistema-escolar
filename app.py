@@ -871,7 +871,7 @@ else:
                                             "Agrediu o professor verbalmente", "Agrediu o professor fisicamente", 
                                             "Não trouxe o livro", "Dormiu em sala", "Usou o celular em sala", 
                                             "Não fez a tarefa em sala", "Não fez a tarefa em casa", 
-                                            "Não trouxe o material", "Excesso de faltas"
+                                            "Não trouxe o material", "Excesso de faltas", "Outras"
                                         ]
                                         
                                         edit_selecao_oc = st.multiselect("Selecione as ocorrências", options=opcoes_oc_edit, default=[i for i in lista_oc_atual if i in opcoes_oc_edit])
