@@ -1565,7 +1565,7 @@ else:
                         if periodo_selecionado == "Matutino":
                             tempos_disponiveis = [
                                 "1º Tempo (Matutino)", "2º Tempo (Matutino)", 
-                                "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)"
+                                "3º Tempo (Matutino)", "4º Tempo (Matutino)"
                             ]
                         else: # Vespertino
                             tempos_disponiveis = [
@@ -1784,7 +1784,7 @@ else:
                                         novo_equip_final = f"Tablets ({edit_quantidade_tablets} unidades)"
                                     
                                     # Updated selectbox for Horario (was Tempo)
-                                    tempos_disponiveis_edit = ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"]
+                                    tempos_disponiveis_edit = ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"]
                                     try:
                                         initial_horario_index = tempos_disponiveis_edit.index(dado_antigo["Horario"])
                                     except ValueError:
