@@ -55,50 +55,19 @@ def carregar_agendamentos():
     except Exception as e:
         return pd.DataFrame(), None
 
-def verificar_conflito_agendamento(equipamento_base, data, tempo, quantidade_solicitada=1):
-    try:
-        sh = conectar_google_sheets()
-        wks_a = sh.worksheet("Config_Agendamentos")
-        dados = wks_a.get_all_records()
-        if not dados:
-            return False
-        df_agendamentos = pd.DataFrame(dados)
-        
-        # Garante que as colunas existem e são usadas corretamente
-        if 'Data Uso' not in df_agendamentos.columns or 'Tempo' not in df_agendamentos.columns or 'Equipamento' not in df_agendamentos.columns:
-            st.error("Colunas 'Data Uso', 'Tempo' ou 'Equipamento' não encontradas na planilha de agendamentos.")
-            return True # Considera como conflito para evitar agendamentos incorretos
-            
-        df_mesmo_horario = df_agendamentos[
-            (df_agendamentos['Data Uso'] == data) & 
-            (df_agendamentos['Tempo'] == tempo)
-        ]
-        if df_mesmo_horario.empty:
-            return False
-        
-        if equipamento_base == "Tablets (Maleta)": # Verifica pelo nome base do equipamento
-            tablets_reservados = 0
-            for item in df_mesmo_horario['Equipamento']:
-                if "Tablets (Maleta)" in str(item): # Procura pelo nome completo na string
-                    import re
-                    numeros = re.findall(r'\((\d+)\sunidades\)', str(item)) # Extrai o número dentro dos parênteses
-                    if numeros:
-                        tablets_reservados += int(numeros[0])
-            
-            if (tablets_reservados + quantidade_solicitada) > 30:
-                st.error(f"❌ Limite de Tablets atingido! Já existem {tablets_reservados} tablets reservados para este horário. Restam apenas {30 - tablets_reservados} disponíveis.")
-                return True
-            return False
-        else:
-            # Para outros equipamentos, verifica se já existe um agendamento para o mesmo item
-            df_conflito = df_mesmo_horario[df_mesmo_horario['Equipamento'].str.contains(equipamento_base, na=False)]
-            if not df_conflito.empty:
-                st.error(f"❌ O equipamento '{equipamento_base}' já está reservado para o dia {data} no {tempo}.")
-                return True
-            return False
-    except Exception as e:
-        st.error(f"Erro ao verificar conflito: {e}")
-        return True
+def verificar_conflito(equipamento, data_uso, turno, horario):
+    df_ag, _ = carregar_agendamentos()
+    if df_ag.empty:
+        return False
+    
+    # Verifica se já existe agendamento para o mesmo item, dia, turno e aula
+    conflito = df_ag[
+        (df_ag['Equipamento'] == equipamento) & 
+        (df_ag['Data_Uso'] == data_uso) & 
+        (df_ag['Turno'] == turno) & 
+        (df_ag['Horario'] == horario)
+    ]
+    return not conflito.empty
 
 def atualizar_presenca(usuario, acao):
     try:
@@ -636,7 +605,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrências":
+    elif pagina_atual == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -1580,7 +1549,6 @@ else:
                         equipamento_selecionado = st.selectbox("Selecione o Equipamento:", equipamentos_disponiveis, key="agend_equip")
                         
                         # Verificação dos Tablets alterada para menu de seleção (selectbox) de 1 a 30
-                        quantidade_tablets = 1 # Default value
                         if "Tablets" in equipamento_selecionado:
                             opcoes_quantidade = list(range(1, 31))  # Cria a lista de 1 a 30
                             quantidade_tablets = st.selectbox(
@@ -1622,29 +1590,39 @@ else:
                     
                     # Botão para processar e salvar no banco de dados do Sheets
                     if st.button("💾 Confirmar Agendamento do Equipamento", use_container_width=True, key="btn_confirmar_agendamento"):
-                        
-                        # Determine a quantidade a ser validada para Tablets
-                        qtd_validar = quantidade_tablets if equipamento_selecionado == "Tablets (Maleta)" else 1
-                        
-                        # Chama a nova função de verificação de conflito
-                        if verificar_conflito_agendamento(equipamento_selecionado, data_uso_formatada, tempo_aula, quantidade_solicitada=qtd_validar):
-                            pass # A mensagem de erro já foi exibida dentro da função de verificação
-                        else:
+                        try:
+                            sh = conectar_google_sheets()
+                            
+                            # Tenta acessar ou cria a aba de agendamentos caso ela não exista na planilha
                             try:
-                                sh = conectar_google_sheets()
-                                
-                                # Tenta acessar ou cria a aba de agendamentos caso ela não exista na planilha
-                                try:
-                                    wks_a = sh.worksheet("Config_Agendamentos")
-                                except:
-                                    wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7")
-                                    wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo", "Observacoes"])
-                                
+                                wks_a = sh.worksheet("Config_Agendamentos")
+                            except:
+                                wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7") # Changed cols to 7
+                                wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo", "Observacoes"]) # Added "Observacoes"
+                            
+                            # Verifica duplicidade (Evita conflito de agendamento do mesmo equipamento no mesmo dia/tempo)
+                            dados_agendados = wks_a.get_all_records()
+                            conflito = False
+                            
+                            if dados_agendados:
+                                df_agendados = pd.DataFrame(dados_agendados)
+                                # Verifica se o mesmo equipamento já está reservado no mesmo dia e tempo
+                                filtro_conflito = df_agendados[
+                                    (df_agendados["Equipamento"] == equipamento) & 
+                                    (df_agendados["Data Uso"] == data_uso_formatada) & 
+                                    (df_agendados["Tempo"] == tempo_aula)
+                                ]
+                                if not filtro_conflito.empty:
+                                    conflito = True
+                            
+                            if conflito:
+                                st.error(f"❌ Não é possível agendar! O equipamento '{equipamento}' já está reservado para o dia {data_uso_formatada} no {tempo_aula}.")
+                            else:
                                 # Registra a nova linha se estiver livre
                                 wks_a.append_row([
                                     str(nome_professor_logado),
                                     str(turma_selecionada),
-                                    str(equipamento), # 'equipamento' já contém a quantidade para tablets
+                                    str(equipamento),
                                     str(data_registro),
                                     str(data_uso_formatada),
                                     str(tempo_aula),
@@ -1655,8 +1633,8 @@ else:
                                 time.sleep(1.5)
                                 st.rerun()
                                 
-                            except Exception as e:
-                                st.error(f"Erro ao salvar os dados na planilha: {e}")
+                        except Exception as e:
+                            st.error(f"Erro ao salvar os dados na planilha: {e}")
 
         # ---------------------------------------------------------------------
         # ABA 2: TABELA DE VISUALIZAÇÃO E GERENCIAMENTO (ADM)
@@ -1686,8 +1664,7 @@ else:
                     # Filtro por equipamento
                     filtro_equip = st.multiselect("Filtrar por Equipamento:", options=["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"], default=[], key="adm_filtro_equip")
                     if filtro_equip:
-                        # Filtra se a coluna 'Equipamento' contém qualquer um dos itens selecionados
-                        df_exibicao = df_exibicao[df_exibicao["Equipamento"].apply(lambda x: any(f in str(x) for f in filtro_equip))]
+                        df_exibicao = df_exibicao[df_exibicao["Equipamento"].isin(filtro_equip)]
 
                     # Exibe a tabela sem mostrar a coluna de controle interno 'linha_sheets' para o usuário
                     st.dataframe(
@@ -1745,11 +1722,10 @@ else:
                                     equipamentos_edit_opcoes = ["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"]
                                     
                                     # Determine initial index for selectbox
-                                    initial_equip_index = 0
-                                    for i, opt in enumerate(equipamentos_edit_opcoes):
-                                        if opt in dado_antigo["Equipamento"]:
-                                            initial_equip_index = i
-                                            break
+                                    try:
+                                        initial_equip_index = next(i for i, opt in enumerate(equipamentos_edit_opcoes) if opt in dado_antigo["Equipamento"])
+                                    except StopIteration:
+                                        initial_equip_index = 0 # Default to first option if not found
                                         
                                     novo_equip_raw = st.selectbox("Novo Equipamento:", equipamentos_edit_opcoes, index=initial_equip_index, key="ed_eq")
                                     
@@ -1770,14 +1746,7 @@ else:
                                         )
                                         novo_equip_final = f"Tablets (Maleta) ({edit_quantidade_tablets} unidades)"
                                     
-                                    # Find the index for the current 'Tempo' value
-                                    tempos_completos = ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"]
-                                    try:
-                                        initial_tempo_index = tempos_completos.index(dado_antigo["Tempo"])
-                                    except ValueError:
-                                        initial_tempo_index = 0 # Default if not found
-                                        
-                                    novo_tempo = st.selectbox("Novo Tempo:", tempos_completos, index=initial_tempo_index, key="ed_tp")
+                                    novo_tempo = st.selectbox("Novo Tempo:", ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"].index(dado_antigo["Tempo"]), key="ed_tp")
                                     nova_observacao = st.text_area("Novas Observações:", value=dado_antigo["Observacoes"], key="ed_obs") # Added new text_area for editing
                                     
                                     if st.button("💾 Salvar Alterações", use_container_width=True):
