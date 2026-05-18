@@ -6,7 +6,6 @@ from google.oauth2.service_account import Credentials
 import time
 import io
 import pytz
-import re # Adicionado para uso na função verificar_conflito_agendamento
 
 # Configuração do fuso horário correto de Roraima
 fuso_roraima = pytz.timezone('America/Boa_Vista')
@@ -69,43 +68,6 @@ def verificar_conflito(equipamento, data_uso, turno, horario):
         (df_ag['Horario'] == horario)
     ]
     return not conflito.empty
-
-def verificar_conflito_agendamento(equipamento_tipo, data, tempo, quantidade_solicitada=1):
-    try:
-        sh = conectar_google_sheets()
-        wks_a = sh.worksheet("Config_Agendamentos")
-        dados = wks_a.get_all_records()
-        if not dados:
-            return False
-        df_agendamentos = pd.DataFrame(dados)
-        
-        # Garante que os nomes das colunas correspondem aos cabeçalhos reais da planilha
-        df_mesmo_horario = df_agendamentos[
-            (df_agendamentos['Data Uso'] == data) & 
-            (df_agendamentos['Tempo'] == tempo)
-        ]
-        
-        if df_mesmo_horario.empty:
-            return False
-        
-        if "Tablets" in equipamento_tipo: # Verifica se o equipamento solicitado é "Tablets"
-            tablets_reservados = 0
-            for item in df_mesmo_horario['Equipamento']: # Itera sobre a coluna 'Equipamento' dos registros existentes
-                if "Tablets" in str(item): # Verifica se o item registrado é "Tablets"
-                    numeros = re.findall(r'\((\d+)\sunidades\)', str(item)) # Extrai o número de unidades do texto
-                    if numeros:
-                        tablets_reservados += int(numeros[0])
-            
-            if (tablets_reservados + quantidade_solicitada) > 30:
-                st.error(f"Limite de Tablets atingido! Já existem {tablets_reservados} tablets reservados para este horário. Restam apenas {30 - tablets_reservados} disponíveis.")
-                return True
-            return False
-        else: # Para outros equipamentos, verifica por uma correspondência exata
-            df_conflito = df_mesmo_horario[df_mesmo_horario['Equipamento'] == equipamento_tipo]
-            return not df_conflito.empty
-    except Exception as e:
-        st.error(f"Erro ao verificar conflito: {e}")
-        return True
 
 def atualizar_presenca(usuario, acao):
     try:
@@ -643,7 +605,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrências":
+    elif pagina_atual == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -1587,7 +1549,6 @@ else:
                         equipamento_selecionado = st.selectbox("Selecione o Equipamento:", equipamentos_disponiveis, key="agend_equip")
                         
                         # Verificação dos Tablets alterada para menu de seleção (selectbox) de 1 a 30
-                        quantidade_tablets = 1 # Default value
                         if "Tablets" in equipamento_selecionado:
                             opcoes_quantidade = list(range(1, 31))  # Cria a lista de 1 a 30
                             quantidade_tablets = st.selectbox(
@@ -1596,9 +1557,9 @@ else:
                                 index=0,  # Começa marcado no número 1
                                 key="agend_qtd_tablets"
                             )
-                            equipamento_para_registro = f"Tablets (Maleta) ({quantidade_tablets} unidades)"
+                            equipamento = f"Tablets (Maleta) ({quantidade_tablets} unidades)"
                         else:
-                            equipamento_para_registro = equipamento_selecionado
+                            equipamento = equipamento_selecionado
                         
                         # Filtra os horários disponíveis com base no período selecionado
                         if periodo_selecionado == "Matutino":
@@ -1629,42 +1590,51 @@ else:
                     
                     # Botão para processar e salvar no banco de dados do Sheets
                     if st.button("💾 Confirmar Agendamento do Equipamento", use_container_width=True, key="btn_confirmar_agendamento"):
-                        
-                        # Determine a quantidade a ser validada para Tablets, caso contrário, 1
-                        qtd_validar = quantidade_tablets if "Tablets" in equipamento_selecionado else 1
-                        
-                        # Chama a nova função de verificação de conflito
-                        if verificar_conflito_agendamento(equipamento_selecionado, data_uso_formatada, tempo_aula, quantidade_solicitada=qtd_validar):
-                            # A mensagem de conflito já é exibida pela função verificar_conflito_agendamento
-                            pass 
-                        else:
+                        try:
+                            sh = conectar_google_sheets()
+                            
+                            # Tenta acessar ou cria a aba de agendamentos caso ela não exista na planilha
                             try:
-                                sh = conectar_google_sheets()
-                                
-                                # Tenta acessar ou cria a aba de agendamentos caso ela não exista na planilha
-                                try:
-                                    wks_a = sh.worksheet("Config_Agendamentos")
-                                except:
-                                    wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7") # Changed cols to 7
-                                    wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo", "Observacoes"]) # Added "Observacoes"
-                                
+                                wks_a = sh.worksheet("Config_Agendamentos")
+                            except:
+                                wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7") # Changed cols to 7
+                                wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo", "Observacoes"]) # Added "Observacoes"
+                            
+                            # Verifica duplicidade (Evita conflito de agendamento do mesmo equipamento no mesmo dia/tempo)
+                            dados_agendados = wks_a.get_all_records()
+                            conflito = False
+                            
+                            if dados_agendados:
+                                df_agendados = pd.DataFrame(dados_agendados)
+                                # Verifica se o mesmo equipamento já está reservado no mesmo dia e tempo
+                                filtro_conflito = df_agendados[
+                                    (df_agendados["Equipamento"] == equipamento) & 
+                                    (df_agendados["Data Uso"] == data_uso_formatada) & 
+                                    (df_agendados["Tempo"] == tempo_aula)
+                                ]
+                                if not filtro_conflito.empty:
+                                    conflito = True
+                            
+                            if conflito:
+                                st.error(f"❌ Não é possível agendar! O equipamento '{equipamento}' já está reservado para o dia {data_uso_formatada} no {tempo_aula}.")
+                            else:
                                 # Registra a nova linha se estiver livre
                                 wks_a.append_row([
                                     str(nome_professor_logado),
                                     str(turma_selecionada),
-                                    str(equipamento_para_registro), # Usa equipamento_para_registro aqui
+                                    str(equipamento),
                                     str(data_registro),
                                     str(data_uso_formatada),
                                     str(tempo_aula),
                                     str(observacoes)
                                 ])
-                                st.success(f"✅ Agendamento de {equipamento_para_registro} realizado com sucesso!")
+                                st.success(f"✅ Agendamento de {equipamento} realizado com sucesso!")
                                 st.cache_data.clear()
                                 time.sleep(1.5)
                                 st.rerun()
                                 
-                            except Exception as e:
-                                st.error(f"Erro ao salvar os dados na planilha: {e}")
+                        except Exception as e:
+                            st.error(f"Erro ao salvar os dados na planilha: {e}")
 
         # ---------------------------------------------------------------------
         # ABA 2: TABELA DE VISUALIZAÇÃO E GERENCIAMENTO (ADM)
@@ -1753,7 +1723,6 @@ else:
                                     
                                     # Determine initial index for selectbox
                                     try:
-                                        # Tenta encontrar o equipamento base (ex: "Tablets (Maleta)") no texto completo
                                         initial_equip_index = next(i for i, opt in enumerate(equipamentos_edit_opcoes) if opt in dado_antigo["Equipamento"])
                                     except StopIteration:
                                         initial_equip_index = 0 # Default to first option if not found
@@ -1762,7 +1731,8 @@ else:
                                     
                                     novo_equip_final = novo_equip_raw
                                     if "Tablets" in novo_equip_raw:
-                                        # Extrai a quantidade atual se existir na string, caso contrário, padrão para 1
+                                        # Extract current quantity if it exists in the string, otherwise default to 1
+                                        import re
                                         match = re.search(r'\((\d+)\sunidades\)', dado_antigo["Equipamento"])
                                         current_qty = int(match.group(1)) if match else 1
                                         
@@ -1776,14 +1746,7 @@ else:
                                         )
                                         novo_equip_final = f"Tablets (Maleta) ({edit_quantidade_tablets} unidades)"
                                     
-                                    # Encontra o índice do tempo de aula atual para pré-selecionar
-                                    tempos_disponiveis_edit = ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"]
-                                    try:
-                                        initial_tempo_index = tempos_disponiveis_edit.index(dado_antigo["Tempo"])
-                                    except ValueError:
-                                        initial_tempo_index = 0 # Default to first option if not found
-                                    
-                                    novo_tempo = st.selectbox("Novo Tempo:", tempos_disponiveis_edit, index=initial_tempo_index, key="ed_tp")
+                                    novo_tempo = st.selectbox("Novo Tempo:", ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"].index(dado_antigo["Tempo"]), key="ed_tp")
                                     nova_observacao = st.text_area("Novas Observações:", value=dado_antigo["Observacoes"], key="ed_obs") # Added new text_area for editing
                                     
                                     if st.button("💾 Salvar Alterações", use_container_width=True):
