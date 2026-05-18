@@ -1545,7 +1545,7 @@ else:
                         periodo_selecionado = st.selectbox("Selecione o Período:", ["Matutino", "Vespertino"], key="agend_periodo")
                         
                         # Lista de equipamentos com a Caixa de som incluída
-                        equipamentos_disponiveis = ["Tablets", "TV", "Datashow", "Notebook", "Caixa de som"]
+                        equipamentos_disponiveis = ["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"]
                         equipamento_selecionado = st.selectbox("Selecione o Equipamento:", equipamentos_disponiveis, key="agend_equip")
                         
                         # Verificação dos Tablets alterada para menu de seleção (selectbox) de 1 a 30
@@ -1557,7 +1557,7 @@ else:
                                 index=0,  # Começa marcado no número 1
                                 key="agend_qtd_tablets"
                             )
-                            equipamento = f"Tablets ({quantidade_tablets} unidades)"
+                            equipamento = f"Tablets (Maleta) ({quantidade_tablets} unidades)"
                         else:
                             equipamento = equipamento_selecionado
                         
@@ -1565,12 +1565,12 @@ else:
                         if periodo_selecionado == "Matutino":
                             tempos_disponiveis = [
                                 "1º Tempo (Matutino)", "2º Tempo (Matutino)", 
-                                "3º Tempo (Matutino)", "4º Tempo (Matutino)"
+                                "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)"
                             ]
                         else: # Vespertino
                             tempos_disponiveis = [
                                 "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", 
-                                "3º Tempo (Vespertino)", "4º Tempo (Vespertino)"
+                                "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"
                             ]
                         tempo_aula = st.selectbox("Tempo de Aula:", tempos_disponiveis, key="agend_tempo")
                         
@@ -1597,77 +1597,41 @@ else:
                             try:
                                 wks_a = sh.worksheet("Config_Agendamentos")
                             except:
-                                # Updated to 8 columns and new header
-                                wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="8")
-                                wks_a.append_row(["Professor", "Data Uso", "Turno", "Horario", "Equipamento", "Turma", "Observacoes", "Data Registro"])
+                                wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7") # Changed cols to 7
+                                wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo", "Observacoes"]) # Added "Observacoes"
                             
-                            # --- INÍCIO DO NOVO BLOCO DE VALIDAÇÃO DE CONFLITO ---
-                            if equipamento.startswith("Tablets"):
-                                # Get the requested quantity from the session state (set by st.selectbox)
-                                quantidade_requerida = st.session_state.get("agend_qtd_tablets", 1)
-
-                                # Load all existing reservations for conflict checking
-                                df_todas_reserva = pd.DataFrame(wks_a.get_all_records())
-
-                                # Filter for matching date, period, and equipment type (Tablets)
-                                conflitos_tablets = df_todas_reserva[
-                                    (df_todas_reserva["Data Uso"] == data_uso_formatada) &
-                                    (df_todas_reserva["Turno"] == periodo_selecionado) &
-                                    (df_todas_reserva["Horario"] == tempo_aula) &
-                                    (df_todas_reserva["Equipamento"].astype(str).str.startswith("Tablets"))
+                            # Verifica duplicidade (Evita conflito de agendamento do mesmo equipamento no mesmo dia/tempo)
+                            dados_agendados = wks_a.get_all_records()
+                            conflito = False
+                            
+                            if dados_agendados:
+                                df_agendados = pd.DataFrame(dados_agendados)
+                                # Verifica se o mesmo equipamento já está reservado no mesmo dia e tempo
+                                filtro_conflito = df_agendados[
+                                    (df_agendados["Equipamento"] == equipamento) & 
+                                    (df_agendados["Data Uso"] == data_uso_formatada) & 
+                                    (df_agendados["Tempo"] == tempo_aula)
                                 ]
-
-                                tablets_em_uso = 0
-                                if not conflitos_tablets.empty:
-                                    # Use regex to extract the number of units from the 'Equipamento' string
-                                    # e.g., "Tablets (15 unidades)" -> 15
-                                    import re
-                                    for equip_str in conflitos_tablets["Equipamento"]:
-                                        match = re.search(r'\((\d+)\sunidades\)', equip_str)
-                                        if match:
-                                            tablets_em_uso += int(match.group(1))
-
-                                estoque_restante = 30 - tablets_em_uso
-
-                                if quantidade_requerida > estoque_restante:
-                                    st.error(f"❌ Conflito de Agendamento: Apenas {estoque_restante} Tablets restantes para o dia {data_uso_formatada} no {tempo_aula}. Você solicitou {quantidade_requerida}.")
-                                else:
-                                    # Format the equipment string with the requested quantity
-                                    equipamento_formatado = f"Tablets ({quantidade_requerida} unidades)"
-                                    wks_a.append_row([
-                                        nome_professor_logado,
-                                        data_uso_formatada,
-                                        periodo_selecionado, # Use periodo_selecionado for Turno
-                                        tempo_aula,          # Use tempo_aula for Horario
-                                        equipamento_formatado,
-                                        turma_selecionada,
-                                        observacoes,
-                                        data_registro
-                                    ])
-                                    st.success(f"✅ Agendamento de '{equipamento_formatado}' realizado com sucesso!")
-                                    st.cache_data.clear()
-                                    time.sleep(1.5)
-                                    st.rerun()
-                            else: # Para outros equipamentos (não-Tablets)
-                                # Use a função verificar_conflito existente
-                                if verificar_conflito(equipamento, data_uso_formatada, periodo_selecionado, tempo_aula):
-                                    st.error(f"❌ Conflito de Agendamento: O recurso '{equipamento}' já está reservado para esta data, turno e tempo de aula!")
-                                else:
-                                    wks_a.append_row([
-                                        nome_professor_logado,
-                                        data_uso_formatada,
-                                        periodo_selecionado, # Use periodo_selecionado for Turno
-                                        tempo_aula,          # Use tempo_aula for Horario
-                                        equipamento,
-                                        turma_selecionada,
-                                        observacoes,
-                                        data_registro
-                                    ])
-                                    st.success(f"✅ Agendamento de '{equipamento}' realizado com sucesso!")
-                                    st.cache_data.clear()
-                                    time.sleep(1.5)
-                                    st.rerun()
-                            # --- FIM DO NOVO BLOCO DE VALIDAÇÃO DE CONFLITO ---
+                                if not filtro_conflito.empty:
+                                    conflito = True
+                            
+                            if conflito:
+                                st.error(f"❌ Não é possível agendar! O equipamento '{equipamento}' já está reservado para o dia {data_uso_formatada} no {tempo_aula}.")
+                            else:
+                                # Registra a nova linha se estiver livre
+                                wks_a.append_row([
+                                    str(nome_professor_logado),
+                                    str(turma_selecionada),
+                                    str(equipamento),
+                                    str(data_registro),
+                                    str(data_uso_formatada),
+                                    str(tempo_aula),
+                                    str(observacoes)
+                                ])
+                                st.success(f"✅ Agendamento de {equipamento} realizado com sucesso!")
+                                st.cache_data.clear()
+                                time.sleep(1.5)
+                                st.rerun()
                                 
                         except Exception as e:
                             st.error(f"Erro ao salvar os dados na planilha: {e}")
@@ -1691,15 +1655,14 @@ else:
                     # No gspread, a primeira linha de dados após o cabeçalho é a linha 2
                     df_tabela["linha_sheets"] = range(2, len(df_tabela) + 2)
                     
-                    # Updated colunas_ordenadas to reflect the new 8-column structure
-                    colunas_ordenadas = ["Data Uso", "Turno", "Horario", "Equipamento", "Turma", "Professor", "Observacoes", "Data Registro", "linha_sheets"]
+                    colunas_ordenadas = ["Data Uso", "Tempo", "Equipamento", "Turma", "Professor", "Data Registro", "Observacoes", "linha_sheets"] # Added "Observacoes"
                     if all(col in df_tabela.columns for col in colunas_ordenadas):
                         df_exibicao = df_tabela[colunas_ordenadas]
                     else:
                         df_exibicao = df_tabela.copy()
                     
                     # Filtro por equipamento
-                    filtro_equip = st.multiselect("Filtrar por Equipamento:", options=["Tablets", "TV", "Datashow", "Notebook", "Caixa de som"], default=[], key="adm_filtro_equip")
+                    filtro_equip = st.multiselect("Filtrar por Equipamento:", options=["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"], default=[], key="adm_filtro_equip")
                     if filtro_equip:
                         df_exibicao = df_exibicao[df_exibicao["Equipamento"].isin(filtro_equip)]
 
@@ -1723,7 +1686,7 @@ else:
                         opcoes_selecao = []
                         for idx, row in df_exibicao.iterrows():
                             # Embed linha_sheets directly into the option string
-                            opcoes_selecao.append(f"{row['linha_sheets']} - {row['Equipamento']} - {row['Turma']} ({row['Data Uso']} no {row['Horario']})") # Changed 'Tempo' to 'Horario'
+                            opcoes_selecao.append(f"{row['linha_sheets']} - {row['Equipamento']} - {row['Turma']} ({row['Data Uso']} no {row['Tempo']})")
                         
                         if opcoes_selecao: # Only show selectbox if there are options
                             agend_selecionado_texto = st.selectbox("Selecione um agendamento para Modificar ou Excluir:", opcoes_selecao)
@@ -1756,7 +1719,7 @@ else:
                                     dado_antigo = selected_row_data # Use selected_row_data
                                     
                                     # Updated options for editing equipment
-                                    equipamentos_edit_opcoes = ["Tablets", "TV", "Datashow", "Notebook", "Caixa de som"]
+                                    equipamentos_edit_opcoes = ["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"]
                                     
                                     # Determine initial index for selectbox
                                     try:
@@ -1781,35 +1744,17 @@ else:
                                             step=1,
                                             key="ed_qtd_tablets"
                                         )
-                                        novo_equip_final = f"Tablets ({edit_quantidade_tablets} unidades)"
+                                        novo_equip_final = f"Tablets (Maleta) ({edit_quantidade_tablets} unidades)"
                                     
-                                    # Updated selectbox for Horario (was Tempo)
-                                    tempos_disponiveis_edit = ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)"]
-                                    try:
-                                        initial_horario_index = tempos_disponiveis_edit.index(dado_antigo["Horario"])
-                                    except ValueError:
-                                        initial_horario_index = 0 # Default if not found
-                                    novo_horario = st.selectbox("Novo Horário:", tempos_disponiveis_edit, index=initial_horario_index, key="ed_hr")
-                                    
-                                    # Updated selectbox for Turno
-                                    turnos_disponiveis_edit = ["Matutino", "Vespertino"]
-                                    try:
-                                        initial_turno_index = turnos_disponiveis_edit.index(dado_antigo["Turno"])
-                                    except ValueError:
-                                        initial_turno_index = 0 # Default if not found
-                                    novo_turno = st.selectbox("Novo Turno:", turnos_disponiveis_edit, index=initial_turno_index, key="ed_tr")
-
+                                    novo_tempo = st.selectbox("Novo Tempo:", ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"].index(dado_antigo["Tempo"]), key="ed_tp")
                                     nova_observacao = st.text_area("Novas Observações:", value=dado_antigo["Observacoes"], key="ed_obs") # Added new text_area for editing
                                     
                                     if st.button("💾 Salvar Alterações", use_container_width=True):
                                         try:
                                             # Atualiza as células correspondentes (Colunas: 3=Equipamento, 6=Tempo, 7=Observacoes)
-                                            # Column indices for Config_Agendamentos:
-                                            # 1: Professor, 2: Data Uso, 3: Turno, 4: Horario, 5: Equipamento, 6: Turma, 7: Observacoes, 8: Data Registro
-                                            wks_a.update_cell(linha_sheets_alvo, 5, str(novo_equip_final)) # Equipamento
-                                            wks_a.update_cell(linha_sheets_alvo, 4, str(novo_horario))    # Horario
-                                            wks_a.update_cell(linha_sheets_alvo, 3, str(novo_turno))      # Turno
-                                            wks_a.update_cell(linha_sheets_alvo, 7, str(nova_observacao)) # Observacoes
+                                            wks_a.update_cell(linha_sheets_alvo, 3, str(novo_equip_final))
+                                            wks_a.update_cell(linha_sheets_alvo, 6, str(novo_tempo))
+                                            wks_a.update_cell(linha_sheets_alvo, 7, str(nova_observacao)) # Updated Observacoes
                                             st.success("✅ Agendamento atualizado!")
                                             st.cache_data.clear()
                                             time.sleep(1.5)
