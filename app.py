@@ -672,7 +672,8 @@ else:
                     "Não fez a tarefa em sala", 
                     "Não fez a tarefa em casa", 
                     "Não trouxe o material", 
-                    "Excesso de faltas"
+                    "Excesso de faltas",
+                    "Outras"
                 ]
                 
                 selecao_oc = st.multiselect("Selecione as ocorrências", options=opcoes_ocorrencias)
