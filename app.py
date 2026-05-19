@@ -6,7 +6,6 @@ from google.oauth2.service_account import Credentials
 import time
 import io
 import pytz
-import googleapiclient.discovery # Adicionado para a API do Google Sheets v4
 
 # Configuração do fuso horário correto de Roraima
 fuso_roraima = pytz.timezone('America/Boa_Vista')
@@ -21,15 +20,11 @@ def conectar_google_sheets():
     creds_dict = st.secrets["gcp_service_account"]
     credentials = Credentials.from_service_account_info(creds_dict, scopes=scope)
     client = gspread.authorize(credentials)
-    
-    # Retorna o cliente gspread e também o serviço da API do Google Sheets v4
-    service = googleapiclient.discovery.build('sheets', 'v4', credentials=credentials)
-    
-    return client.open_by_key(SHEET_ID), service
+    return client.open_by_key(SHEET_ID)
 
 @st.cache_data(ttl=60)
 def carregar_dados():
-    sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui, pois gspread é suficiente
+    sh = conectar_google_sheets()
     df_p = pd.DataFrame(sh.worksheet("Config_Professores").get_all_records())
     df_a = pd.DataFrame(sh.worksheet("Config_Alunos").get_all_records())
     
@@ -47,7 +42,7 @@ def carregar_dados():
 
 def carregar_agendamentos():
     try:
-        sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+        sh = conectar_google_sheets()
         try:
             wks = sh.worksheet("Agendamentos_Equipamentos")
         except:
@@ -76,7 +71,7 @@ def verificar_conflito(equipamento, data_uso, turno, horario):
 
 def atualizar_presenca(usuario, acao):
     try:
-        sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+        sh = conectar_google_sheets()
         try:
             wks_on = sh.worksheet("Usuarios_Online")
         except:
@@ -192,7 +187,7 @@ else:
     st.sidebar.markdown(f"<div style='text-align: center'>Professor: <b>{prof_nome}</b></div>", unsafe_allow_html=True)
     
     try:
-        sh_on, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+        sh_on = conectar_google_sheets()
         wks_online = sh_on.worksheet("Usuarios_Online")
         users_on = wks_online.get_all_records()
         if users_on:
@@ -346,7 +341,7 @@ else:
                         placeholder_erro.empty()
                 else:
                     try:
-                        sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                        sh = conectar_google_sheets()
                         wks = sh.worksheet("Registros_Ocorrencias")
                         
                         itens_finais = []
@@ -380,13 +375,9 @@ else:
         elif aba_selecionada == "Visualizar registros":
             st.subheader("📋 Histórico e Relatórios de Desempenho")
             try:
-                sh, service = conectar_google_sheets() # Obtém o serviço da API v4 aqui
+                sh = conectar_google_sheets()
                 wks_reg = sh.worksheet("Registros_Ocorrencias")
                 dados_brutos = wks_reg.get_all_values()
-                
-                # ID da aba "Registros_Ocorrencias" para a API v4 (precisa ser verificado na URL da sua planilha)
-                # O valor 253813050 é um placeholder do código fornecido, ajuste para o GID correto da sua aba "Registros_Ocorrencias"
-                SHEET_GID_REGISTROS_OCORRENCIAS = 253813050 
                 
                 if len(dados_brutos) > 1:
                     df_reg = pd.DataFrame(dados_brutos[1:], columns=dados_brutos[0])
@@ -558,19 +549,8 @@ else:
                                                     itens_finais_edit.append(edit_desempenho)
                                                 itens_finais_edit.extend(edit_tipo_selecao)
                                                 tipo_formatado_edit = ", ".join(itens_finais_edit)
-                                                
-                                                # NOVO: Usando a API do Google Sheets v4 para atualizar
-                                                corpo_atualizacao = {
-                                                    'values': [[tipo_formatado_edit, edit_obs]]
-                                                }
-                                                # Colunas G (Tipo_Registro) e H (Observacao) são as colunas 7 e 8 (1-indexed)
-                                                service.spreadsheets().values().update(
-                                                    spreadsheetId=SHEET_ID,
-                                                    range=f"'Registros_Ocorrencias'!G{linha_idx}:H{linha_idx}",
-                                                    valueInputOption="USER_ENTERED",
-                                                    body=corpo_atualizacao
-                                                ).execute()
-                                                
+                                                wks_reg.update_cell(linha_idx, 7, tipo_formatado_edit)
+                                                wks_reg.update_cell(linha_idx, 8, edit_obs)
                                                 st.success("Registro atualizado!")
                                                 time.sleep(2)
                                                 st.rerun()
@@ -579,26 +559,7 @@ else:
                                                 
                                         if btn_confirmar_exc:
                                             try:
-                                                # NOVO: Usando a API do Google Sheets v4 para excluir
-                                                corpo_requisicao = {
-                                                    "requests": [
-                                                        {
-                                                            "deleteDimension": {
-                                                                "range": {
-                                                                    "sheetId": SHEET_GID_REGISTROS_OCORRENCIAS, # GID da aba "Registros_Ocorrencias"
-                                                                    "dimension": "ROWS",
-                                                                    "startIndex": linha_idx - 1, # Ajuste de índice baseado em 0
-                                                                    "endIndex": linha_idx
-                                                                }
-                                                            }
-                                                        }
-                                                    ]
-                                                }
-                                                service.spreadsheets().batchUpdate(
-                                                    spreadsheetId=SHEET_ID,
-                                                    body=corpo_requisicao
-                                                ).execute()
-                                                
+                                                wks_reg.delete_rows(linha_idx)
                                                 st.success("Registro excluído!")
                                                 time.sleep(2)
                                                 st.rerun()
@@ -617,29 +578,10 @@ else:
                                         st.warning(f"Apagar TODOS os registros de {t_unica} no {bim_filtro}?")
                                         if st.button(f"🚨 EXCLUIR TURMA: {t_unica} - {bim_filtro}"):
                                             indices_massa = sorted(df_filtrado['ID_Original'].tolist(), reverse=True)
-                                            try:
-                                                # NOVO: Exclusão em massa usando API v4
-                                                requests = []
-                                                for idx in indices_massa:
-                                                    requests.append({
-                                                        "deleteDimension": {
-                                                            "range": {
-                                                                "sheetId": SHEET_GID_REGISTROS_OCORRENCIAS,
-                                                                "dimension": "ROWS",
-                                                                "startIndex": idx - 1,
-                                                                "endIndex": idx
-                                                            }
-                                                        }
-                                                    })
-                                                if requests:
-                                                    service.spreadsheets().batchUpdate(
-                                                        spreadsheetId=SHEET_ID,
-                                                        body={"requests": requests}
-                                                    ).execute()
-                                                st.success(f"Foram excluídos {len(indices_massa)} registros.")
-                                                st.rerun()
-                                            except Exception as e:
-                                                st.error(f"Erro ao excluir em massa: {e}")
+                                            for idx in indices_massa:
+                                                wks_reg.delete_rows(idx)
+                                            st.success(f"Foram excluídos {len(indices_massa)} registros.")
+                                            st.rerun()
                                     
                                     st.divider()
                                     st.error(f"Zerar BIMESTRE: Apagar TODOS os registros do {bim_filtro}?")
@@ -647,29 +589,10 @@ else:
                                         df_massa_bim = df_reg[df_reg[col_bim].astype(str) == bim_filtro]
                                         if not df_massa_bim.empty:
                                             indices_bim = sorted(df_massa_bim['ID_Original'].tolist(), reverse=True)
-                                            try:
-                                                # NOVO: Exclusão em massa usando API v4
-                                                requests = []
-                                                for idx in indices_bim:
-                                                    requests.append({
-                                                        "deleteDimension": {
-                                                            "range": {
-                                                                "sheetId": SHEET_GID_REGISTROS_OCORRENCIAS,
-                                                                "dimension": "ROWS",
-                                                                "startIndex": idx - 1,
-                                                                "endIndex": idx
-                                                            }
-                                                        }
-                                                    })
-                                                if requests:
-                                                    service.spreadsheets().batchUpdate(
-                                                        spreadsheetId=SHEET_ID,
-                                                        body={"requests": requests}
-                                                    ).execute()
-                                                st.success(f"Foram excluídos {len(indices_bim)} registros do {bim_bim_filtro}.")
-                                                st.rerun()
-                                            except Exception as e:
-                                                st.error(f"Erro ao excluir em massa: {e}")
+                                            for idx in indices_bim:
+                                                wks_reg.delete_rows(idx)
+                                            st.success(f"Foram excluídos {len(indices_bim)} registros do {bim_filtro}.")
+                                            st.rerun()
                                         else:
                                             st.info("Não há registros para este bimestre.")
                                 else:
@@ -682,7 +605,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrências":
+    elif pagina_atual == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -764,7 +687,7 @@ else:
                     st.error("Selecione pelo menos uma ocorrência.")
                 else:
                     try:
-                        sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                        sh = conectar_google_sheets()
                         wks = sh.worksheet("Registros_Ocorrencias")
                         tipo_formatado = ", ".join(selecao_oc)
                         detalhes_extras = f"DATA: {data_ocorrido.strftime('%d/%m/%Y')} | TEMPO: {tempo_aula} | {obs_oc}"
@@ -787,7 +710,7 @@ else:
 
         with tab_oc2:
             try:
-                sh, service = conectar_google_sheets() # Obtém o serviço da API v4 aqui
+                sh = conectar_google_sheets()
                 wks_reg = sh.worksheet("Registros_Ocorrencias")
                 dados_brutos = wks_reg.get_all_values()
                 
@@ -963,19 +886,8 @@ else:
                                         if btn_confirmar_edit_oc:
                                             try:
                                                 tipo_formatado_edit_oc = "OCORRÊNCIA: " + ", ".join(edit_selecao_oc)
-                                                
-                                                # NOVO: Usando a API do Google Sheets v4 para atualizar
-                                                corpo_atualizacao = {
-                                                    'values': [[tipo_formatado_edit_oc, edit_detalhes_oc]]
-                                                }
-                                                # Colunas G (Tipo_Registro) e H (Observacao) são as colunas 7 e 8 (1-indexed)
-                                                service.spreadsheets().values().update(
-                                                    spreadsheetId=SHEET_ID,
-                                                    range=f"'Registros_Ocorrencias'!G{linha_idx_oc}:H{linha_idx_oc}",
-                                                    valueInputOption="USER_ENTERED",
-                                                    body=corpo_atualizacao
-                                                ).execute()
-                                                
+                                                wks_reg.update_cell(linha_idx_oc, 7, tipo_formatado_edit_oc)
+                                                wks_reg.update_cell(linha_idx_oc, 8, edit_detalhes_oc)
                                                 st.success("Ocorrência atualizada!")
                                                 time.sleep(2)
                                                 st.rerun()
@@ -984,26 +896,7 @@ else:
                                                 
                                         if btn_confirmar_exc_oc:
                                             try:
-                                                # NOVO: Usando a API do Google Sheets v4 para excluir
-                                                corpo_requisicao = {
-                                                    "requests": [
-                                                        {
-                                                            "deleteDimension": {
-                                                                "range": {
-                                                                    "sheetId": SHEET_GID_REGISTROS_OCORRENCIAS, # GID da aba "Registros_Ocorrencias"
-                                                                    "dimension": "ROWS",
-                                                                    "startIndex": linha_idx_oc - 1, # Ajuste de índice baseado em 0
-                                                                    "endIndex": linha_idx_oc
-                                                                }
-                                                            }
-                                                        }
-                                                    ]
-                                                }
-                                                service.spreadsheets().batchUpdate(
-                                                    spreadsheetId=SHEET_ID,
-                                                    body=corpo_requisicao
-                                                ).execute()
-                                                
+                                                wks_reg.delete_rows(linha_idx_oc)
                                                 st.success("Ocorrência excluída!")
                                                 time.sleep(2)
                                                 st.rerun()
@@ -1049,7 +942,7 @@ else:
                             st.error("A senha não pode ficar em branco.")
                     else:
                         try:
-                            sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                            sh = conectar_google_sheets()
                             wks_p = sh.worksheet("Config_Professores")
                             
                             # Encontra a linha do 'rodrigo' ou do professor logado
@@ -1099,7 +992,7 @@ else:
                                 msg_placeholder_err.empty()
                         else:
                             try:
-                                sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                                sh = conectar_google_sheets()
                                 wks_a = sh.worksheet("Config_Alunos")
                                 wks_a.append_row([nova_turma, novo_aluno])
                                 with col_msg_ind:
@@ -1141,7 +1034,7 @@ else:
                                         time.sleep(3)
                                         msg_placeholder_massa_err.empty()
                                 elif novas_linhas:
-                                    sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                                    sh = conectar_google_sheets()
                                     wks_a = sh.worksheet("Config_Alunos")
                                     wks_a.append_rows(novas_linhas)
                                     with col_msg_massa:
@@ -1167,7 +1060,7 @@ else:
                         executar = st.button("Executar Transferência")
                     if aluno_a_transf != "" and turma_dest != "" and executar:
                         try:
-                            sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                            sh = conectar_google_sheets()
                             wks_a = sh.worksheet("Config_Alunos")
                             data = wks_a.get_all_values()
                             row_index = -1
@@ -1201,7 +1094,7 @@ else:
                         btn_excluir_def = st.button("❌ EXCLUIR ALUNO DEFINITIVAMENTE")
                     if aluno_a_excluir != "" and btn_excluir_def:
                         try:
-                            sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                            sh = conectar_google_sheets()
                             wks_a = sh.worksheet("Config_Alunos")
                             data = wks_a.get_all_values()
                             row_index = -1
@@ -1234,7 +1127,7 @@ else:
                     if btn_limpar_exec:
                         if confirmacao_turma:
                             try:
-                                sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                                sh = conectar_google_sheets()
                                 wks_a = sh.worksheet("Config_Alunos")
                                 data = wks_a.get_all_values()
                                 indices_para_deletar = [i + 1 for i, row in enumerate(data) if row[0] == turma_alvo_limpar]
@@ -1273,7 +1166,7 @@ else:
                                 msg_placeholder_d_err.empty()
                         else:
                             try:
-                                sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                                sh = conectar_google_sheets()
                                 try:
                                     wks_d = sh.worksheet("Config_Disciplinas")
                                 except:
@@ -1303,7 +1196,7 @@ else:
                 if btn_remover_disc:
                     if disc_excluir != "":
                         try:
-                            sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                            sh = conectar_google_sheets()
                             wks_d = sh.worksheet("Config_Disciplinas")
                             celula = wks_d.find(str(disc_excluir))
                             wks_d.delete_rows(celula.row)
@@ -1342,7 +1235,7 @@ else:
                         st.error("Por favor, preencha o nome do professor e o nome de usuário.")
                     else:
                         try:
-                            sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                            sh = conectar_google_sheets()
                             wks_p = sh.worksheet("Config_Professores")
                             
                             # Carrega os usuários que já existem para fazer a checagem (live from sheet)
@@ -1400,7 +1293,7 @@ else:
                         btn_delete = st.form_submit_button("❌ EXCLUIR USUÁRIO")
                 if btn_update:
                     try:
-                        sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                        sh = conectar_google_sheets()
                         wks_p = sh.worksheet("Config_Professores")
                         celula = wks_p.find(str(user_selecionado))
                         turmas_edit_str = ", ".join(edit_turmas)
@@ -1420,7 +1313,7 @@ else:
                         st.error(f"Erro ao atualizar: {e}")
                 if btn_delete:
                     try:
-                        sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                        sh = conectar_google_sheets()
                         wks_p = sh.worksheet("Config_Professores")
                         celula = wks_p.find(str(user_selecionado))
                         wks_p.delete_rows(celula.row)
@@ -1450,7 +1343,7 @@ else:
                     st.error("As senhas não coincidem.")
                 else:
                     try:
-                        sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                        sh = conectar_google_sheets()
                         wks_p = sh.worksheet("Config_Professores")
                         celula = wks_p.find(str(user_alvo))
                         wks_p.update_cell(celula.row, 3, str(nova_senha_input))
@@ -1471,7 +1364,7 @@ else:
                     btn_salvar_per = st.form_submit_button("Salvar Período")
                 if btn_salvar_per:
                     try:
-                        sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                        sh = conectar_google_sheets()
                         try:
                             wks_per = sh.worksheet("Config_Periodos")
                         except:
@@ -1507,7 +1400,7 @@ else:
                     btn_limpar_per = st.button("Limpar Todos os Períodos")
                 if btn_limpar_per:
                     try:
-                        sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                        sh = conectar_google_sheets()
                         wks_per = sh.worksheet("Config_Periodos")
                         rows = len(wks_per.get_all_values())
                         if rows > 1:
@@ -1541,7 +1434,7 @@ else:
                         with col_b1:
                             if st.button("🔴 BLOQUEAR TODOS"):
                                 try:
-                                    sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                                    sh = conectar_google_sheets()
                                     wks_p = sh.worksheet("Config_Professores")
                                     data_p = wks_p.get_all_values()
                                     for i in range(2, len(data_p) + 1):
@@ -1555,7 +1448,7 @@ else:
                         with col_b2:
                             if st.button("🟢 DESBLOQUEAR TODOS"):
                                 try:
-                                    sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                                    sh = conectar_google_sheets()
                                     wks_p = sh.worksheet("Config_Professores")
                                     data_p = wks_p.get_all_values()
                                     for i in range(2, len(data_p) + 1):
@@ -1574,7 +1467,7 @@ else:
                         with col_b1:
                             if st.button(f"🔴 BLOQUEAR {user_bloqueio}"):
                                 try:
-                                    sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                                    sh = conectar_google_sheets()
                                     wks_p = sh.worksheet("Config_Professores")
                                     celula = wks_p.find(str(user_bloqueio))
                                     wks_p.update_cell(celula.row, 6, "Bloqueado")
@@ -1587,7 +1480,7 @@ else:
                         with col_b2:
                             if st.button(f"🟢 DESBLOQUEAR {user_bloqueio}"):
                                 try:
-                                    sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                                    sh = conectar_google_sheets()
                                     wks_p = sh.worksheet("Config_Professores")
                                     celula = wks_p.find(str(user_bloqueio))
                                     wks_p.update_cell(celula.row, 6, "Ativo")
@@ -1624,7 +1517,7 @@ else:
                 
                 # 2. Carrega as turmas vinculadas ao professor logado para evitar componentes vazios
                 try:
-                    sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                    sh = conectar_google_sheets()
                     df_p = pd.DataFrame(sh.worksheet("Config_Professores").get_all_records())
                     
                     # Filtra na tabela onde a coluna Usuario bate com o professor logado
@@ -1698,7 +1591,7 @@ else:
                     # Botão para processar e salvar no banco de dados do Sheets
                     if st.button("💾 Confirmar Agendamento do Equipamento", use_container_width=True, key="btn_confirmar_agendamento"):
                         try:
-                            sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                            sh = conectar_google_sheets()
                             
                             # Tenta acessar ou cria a aba de agendamentos caso ela não exista na planilha
                             try:
@@ -1751,7 +1644,7 @@ else:
             st.write("Consulte e gerencie abaixo a lista completa de agendamentos realizados:")
             
             try:
-                sh, _ = conectar_google_sheets() # Ignora o serviço da API v4 aqui
+                sh = conectar_google_sheets()
                 wks_a = sh.worksheet("Config_Agendamentos")
                 dados_tabela = wks_a.get_all_records()
 
@@ -1853,7 +1746,7 @@ else:
                                         )
                                         novo_equip_final = f"Tablets (Maleta) ({edit_quantidade_tablets} unidades)"
                                     
-                                    novo_tempo = st.selectbox("Novo Tempo:", ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"], index=["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"].index(dado_antigo["Tempo"]), key="ed_tp")
+                                    novo_tempo = st.selectbox("Novo Tempo:", ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"].index(dado_antigo["Tempo"]), key="ed_tp")
                                     nova_observacao = st.text_area("Novas Observações:", value=dado_antigo["Observacoes"], key="ed_obs") # Added new text_area for editing
                                     
                                     if st.button("💾 Salvar Alterações", use_container_width=True):
