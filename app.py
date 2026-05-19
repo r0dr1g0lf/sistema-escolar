@@ -496,175 +496,116 @@ else:
                     if is_soe:
                         st.info("Usuários SOE não possuem permissão para editar ou excluir registros.")
                     else:
-                        # SEÇÃO 1: Filtros de Busca do Registro
-                        st.markdown("#### 🔍 Buscar e Selecionar Registro")
+                        col_exc1, col_exc2 = st.columns(2)
                         
-                        # Determine available turmas for filtering
-                        if st.session_state.get('is_master_admin', False):
-                            todas_turmas_disp_edit = sorted(df_alunos['Turma'].unique().astype(str))
-                        else:
-                            turmas_vinc_edit = str(st.session_state.user_data.get('Turmas', "")).split(", ")
-                            todas_turmas_disp_edit = sorted([t.strip() for t in turmas_vinc_edit if t.strip()])
-
-                        col_edit_filter1, col_edit_filter2 = st.columns([1, 2])
-                        with col_edit_filter1:
-                            busca_turma_sel = st.selectbox("Selecione a Turma:", [""] + todas_turmas_disp_edit, key="edit_busca_turma")
-                        
-                        # Filter records based on selected turma and user's permissions
-                        df_edit_filtered = df_filtrado.copy() # Start with already filtered data from "Visualizar registros"
-                        if busca_turma_sel:
-                            df_edit_filtered = df_edit_filtered[df_edit_filtered[colunas_df[2]].astype(str) == busca_turma_sel]
-                        
-                        # Further filter by user's disciplines if not master admin
-                        if not st.session_state.get('is_master_admin', False):
-                            discs_usuario_reg = [d.strip().lower() for d in str(st.session_state.user_data.get('Disciplinas', "")).split(", ") if d.strip()]
-                            df_edit_filtered = df_edit_filtered[df_edit_filtered[colunas_df[4]].astype(str).str.lower().isin(discs_usuario_reg)]
-
-                        # SEÇÃO 2: Área de Exibição dos Resultados (Lista/Tabela de Seleção)
-                        st.markdown("---")
-                        st.markdown("#### 📋 Registros Encontrados")
-                        
-                        if not df_edit_filtered.empty:
-                            # Prepare data for display and selection
-                            df_edit_display = df_edit_filtered.rename(columns={
-                                colunas_df[0]: "Data_Registro",
-                                colunas_df[1]: "Professor",
-                                colunas_df[2]: "Turma",
-                                colunas_df[3]: "Aluno",
-                                colunas_df[4]: "Disciplina",
-                                colunas_df[5]: "Bimestre",
-                                colunas_df[6]: "Tipo_Registro",
-                                colunas_df[7]: "Descrição_Detalhada"
-                            })
-                            df_edit_display['Opção de Edição'] = df_edit_display.apply(
-                                lambda row: f"{row['ID_Original']} - {row['Data_Registro'].split(' ')[0]} - {row['Aluno']} ({row['Disciplina']})", axis=1
-                            )
+                        with col_exc1:
+                            st.markdown("**Gerenciar registro individual**")
+                            # Changed: Use is_master_admin for admin/rodrigo check
+                            if st.session_state.get('is_master_admin', False):
+                                df_edit_proprio = df_filtrado
+                            else:
+                                discs_usuario_reg = [d.strip().lower() for d in str(st.session_state.user_data.get('Disciplinas', "")).split(", ") if d.strip()]
+                                df_edit_proprio = df_filtrado[df_filtrado[colunas_df[4]].astype(str).str.lower().isin(discs_usuario_reg)]
                             
-                            opcoes_selecao_edit = [""] + df_edit_display['Opção de Edição'].tolist()
-                            registro_selecionado_texto = st.selectbox(
-                                "Selecione o registro para editar ou excluir:",
-                                options=opcoes_selecao_edit,
-                                key="edit_select_record"
-                            )
-
-                            selected_record_id = None
-                            if registro_selecionado_texto:
-                                try:
-                                    selected_record_id = int(registro_selecionado_texto.split(' - ')[0])
-                                except ValueError:
-                                    selected_record_id = None
-
-                            if selected_record_id:
-                                dados_reg_edit = df_edit_filtered[df_edit_filtered['ID_Original'] == selected_record_id].iloc[0]
+                            if not df_edit_proprio.empty:
+                                opcoes_edit = {f"{row[col_data]} - {row[colunas_df[3]]} ({row[colunas_df[4]]})": row['ID_Original'] for _, row in df_edit_proprio.iterrows()}
+                                selecionado_para_edit = st.selectbox("Selecione o registro para modificar (Apenas suas disciplinas)", [""] + list(opcoes_edit.keys()))
                                 
-                                st.markdown("---")
-                                st.markdown(f"#### 📝 Editando Registro de: **{dados_reg_edit[colunas_df[3]]}** (ID: {selected_record_id})")
-                                
-                                with st.form("form_editar_registro_novo", clear_on_submit=False):
-                                    # Display read-only fields
-                                    st.text_input("Aluno:", value=dados_reg_edit[colunas_df[3]], disabled=True)
-                                    st.text_input("Turma:", value=dados_reg_edit[colunas_df[2]], disabled=True)
-                                    st.text_input("Disciplina:", value=dados_reg_edit[colunas_df[4]], disabled=True)
-                                    st.text_input("Bimestre:", value=dados_reg_edit[colunas_df[5]], disabled=True)
-
-                                    # Editable fields
-                                    itens_atuais = str(dados_reg_edit[colunas_df[6]]).split(", ")
-                                    usuario_disciplinas = str(st.session_state.user_data.get('Disciplinas', "")).lower()
+                                if selecionado_para_edit != "":
+                                    linha_idx = opcoes_edit[selecionado_para_edit]
+                                    dados_reg_edit = df_edit_proprio[df_edit_proprio['ID_Original'] == linha_idx].iloc[0]
                                     
-                                    if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
-                                        opcoes_radio = ["Ponto de atenção"]
-                                    else:
-                                        opcoes_radio = ["Reprovado", "Aprovado após recuperação", "Ponto de atenção"]
-                                    
-                                    desemp_atual = next((i for i in itens_atuais if i in opcoes_radio), None)
-                                    edit_desempenho = st.radio("Desempenho", options=opcoes_radio, index=opcoes_radio.index(desemp_atual) if desemp_atual else 0, horizontal=True, key="edit_desempenho")
-                                    
-                                    opcoes_multi = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho"]
-                                    if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
-                                        opcoes_multi.append("Não fez o questionário participativo")
+                                    with st.form("form_editar_registro"):
+                                        st.markdown(f"Editando registro de: **{dados_reg_edit[colunas_df[3]]}**")
+                                        itens_atuais = str(dados_reg_edit[colunas_df[6]]).split(", ")
+                                        usuario_disciplinas = str(st.session_state.user_data.get('Disciplinas', "")).lower()
                                         
-                                    itens_multi_atuais = [i for i in itens_atuais if i in opcoes_multi]
-                                    edit_tipo_selecao = st.multiselect("Valores e atitudes", options=opcoes_multi, default=itens_multi_atuais, key="edit_tipo_selecao")
-                                    edit_obs = st.text_area("Observações", value=dados_reg_edit[colunas_df[7]], key="edit_obs")
-                                    
-                                    col_at1, col_at2 = st.columns(2)
-                                    with col_at1:
-                                        btn_confirmar_edit = st.form_submit_button("💾 SALVAR ALTERAÇÕES")
-                                    with col_at2:
-                                        btn_confirmar_exc = st.form_submit_button("🗑️ EXCLUIR REGISTRO", type="secondary")
+                                        if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
+                                            opcoes_radio = ["Ponto de atenção"]
+                                        else:
+                                            opcoes_radio = ["Reprovado", "Aprovado após recuperação", "Ponto de atenção"]
                                         
-                                    if btn_confirmar_edit:
-                                        try:
-                                            sh = conectar_google_sheets()
-                                            wks_reg = sh.worksheet("Registros_Ocorrencias")
+                                        desemp_atual = next((i for i in itens_atuais if i in opcoes_radio), None)
+                                        edit_desempenho = st.radio("Desempenho", options=opcoes_radio, index=opcoes_radio.index(desemp_atual) if desemp_atual else 0, horizontal=True)
+                                        
+                                        opcoes_multi = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho"]
+                                        if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
+                                            opcoes_multi.append("Não fez o questionário participativo")
                                             
-                                            itens_finais_edit = []
-                                            if edit_desempenho:
-                                                itens_finais_edit.append(edit_desempenho)
-                                            itens_finais_edit.extend(edit_tipo_selecao)
-                                            tipo_formatado_edit = ", ".join(itens_finais_edit)
+                                        itens_multi_atuais = [i for i in itens_atuais if i in opcoes_multi]
+                                        edit_tipo_selecao = st.multiselect("Valores e atitudes", options=opcoes_multi, default=itens_multi_atuais)
+                                        edit_obs = st.text_area("Observações", value=dados_reg_edit[colunas_df[7]])
+                                        
+                                        col_at1, col_at2 = st.columns(2)
+                                        with col_at1:
+                                            btn_confirmar_edit = st.form_submit_button("SALVAR ALTERAÇÕES")
+                                        with col_at2:
+                                            btn_confirmar_exc = st.form_submit_button("❌ EXCLUIR REGISTRO")
                                             
-                                            wks_reg.update_cell(selected_record_id, 7, tipo_formatado_edit) # Column G
-                                            wks_reg.update_cell(selected_record_id, 8, edit_obs) # Column H
-                                            st.success("✅ Registro atualizado com sucesso!")
-                                            st.cache_data.clear()
-                                            time.sleep(2)
-                                            st.rerun()
-                                        except Exception as e:
-                                            st.error(f"Erro ao editar: {e}")
-                                            
-                                    if btn_confirmar_exc:
-                                        try:
-                                            sh = conectar_google_sheets()
-                                            wks_reg = sh.worksheet("Registros_Ocorrencias")
-                                            wks_reg.delete_rows(selected_record_id)
-                                            st.success("🗑️ Registro excluído com sucesso!")
-                                            st.cache_data.clear()
-                                            time.sleep(2)
-                                            st.rerun()
-                                        except Exception as e:
-                                            st.error(f"Erro ao excluir: {e}")
+                                        if btn_confirmar_edit:
+                                            try:
+                                                itens_finais_edit = []
+                                                if edit_desempenho:
+                                                    itens_finais_edit.append(edit_desempenho)
+                                                itens_finais_edit.extend(edit_tipo_selecao)
+                                                tipo_formatado_edit = ", ".join(itens_finais_edit)
+                                                wks_reg.update_cell(linha_idx, 7, tipo_formatado_edit)
+                                                wks_reg.update_cell(linha_idx, 8, edit_obs)
+                                                st.success("Registro atualizado!")
+                                                time.sleep(2)
+                                                st.rerun()
+                                            except Exception as e:
+                                                st.error(f"Erro ao editar: {e}")
+                                                
+                                        if btn_confirmar_exc:
+                                            try:
+                                                wks_reg.delete_rows(linha_idx)
+                                                st.success("Registro excluído!")
+                                                time.sleep(2)
+                                                st.rerun()
+                                            except Exception as e:
+                                                st.error(f"Erro ao excluir: {e}")
                             else:
-                                st.info("Selecione um registro acima para carregar o formulário de edição.")
-                        else:
-                            st.info("Nenhum registro de suas disciplinas disponível para gerenciar no filtro atual.")
+                                st.info("Nenhum registro de suas disciplinas disponível para gerenciar no filtro atual.")
 
-                        # Mass deletion section (only for master admin)
-                        if st.session_state.get('is_master_admin', False):
-                            st.divider()
-                            st.markdown("#### 🚨 Exclusão em Massa (Apenas Administrador Master)")
-                            if bim_filtro != "Todos":
-                                if turma_filtro and len(turma_filtro) == 1:
-                                    t_unica = turma_filtro[0]
-                                    st.warning(f"Apagar TODOS os registros de {t_unica} no {bim_filtro}?")
-                                    if st.button(f"🚨 EXCLUIR TURMA: {t_unica} - {bim_filtro}", key="btn_exc_turma_massa"):
-                                        indices_massa = sorted(df_filtrado['ID_Original'].tolist(), reverse=True)
-                                        for idx in indices_massa:
-                                            wks_reg.delete_rows(idx)
-                                        st.success(f"Foram excluídos {len(indices_massa)} registros.")
-                                        st.rerun()
-                                
-                                st.divider()
-                                st.error(f"Zerar BIMESTRE: Apagar TODOS os registros do {bim_filtro}?")
-                                if st.button(f"💥 EXCLUIR TUDO DO {bim_filtro}", key="btn_exc_bimestre_massa"):
-                                    df_massa_bim = df_reg[df_reg[col_bim].astype(str) == bim_filtro]
-                                    if not df_massa_bim.empty:
-                                        indices_bim = sorted(df_massa_bim['ID_Original'].tolist(), reverse=True)
-                                        for idx in indices_bim:
-                                            wks_reg.delete_rows(idx)
-                                        st.success(f"Foram excluídos {len(indices_bim)} registros do {bim_filtro}.")
-                                        st.rerun()
-                                    else:
-                                        st.info("Não há registros para este bimestre.")
+                        with col_exc2:
+                            # Changed: Use is_master_admin for admin/rodrigo check
+                            if st.session_state.get('is_master_admin', False):
+                                st.markdown("**Exclusão em massa**")
+                                if bim_filtro != "Todos":
+                                    if turma_filtro and len(turma_filtro) == 1:
+                                        t_unica = turma_filtro[0]
+                                        st.warning(f"Apagar TODOS os registros de {t_unica} no {bim_filtro}?")
+                                        if st.button(f"🚨 EXCLUIR TURMA: {t_unica} - {bim_filtro}"):
+                                            indices_massa = sorted(df_filtrado['ID_Original'].tolist(), reverse=True)
+                                            for idx in indices_massa:
+                                                wks_reg.delete_rows(idx)
+                                            st.success(f"Foram excluídos {len(indices_massa)} registros.")
+                                            st.rerun()
+                                    
+                                    st.divider()
+                                    st.error(f"Zerar BIMESTRE: Apagar TODOS os registros do {bim_filtro}?")
+                                    if st.button(f"💥 EXCLUIR TUDO DO {bim_filtro}"):
+                                        df_massa_bim = df_reg[df_reg[col_bim].astype(str) == bim_filtro]
+                                        if not df_massa_bim.empty:
+                                            indices_bim = sorted(df_massa_bim['ID_Original'].tolist(), reverse=True)
+                                            for idx in indices_bim:
+                                                wks_reg.delete_rows(idx)
+                                            st.success(f"Foram excluídos {len(indices_bim)} registros do {bim_filtro}.")
+                                            st.rerun()
+                                        else:
+                                            st.info("Não há registros para este bimestre.")
+                                else:
+                                    st.info("Selecione um Bimestre específico para habilitar a exclusão em massa.")
                             else:
-                                st.info("Selecione um Bimestre específico para habilitar a exclusão em massa.")
+                                st.empty()
 
                 else:
                     st.info("Nenhum registro encontrado na planilha.")
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrências":
+    elif pagina_atual == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -1035,7 +976,7 @@ else:
             
             if opcao_cadastro == "Individual":
                 with st.form("form_aluno", clear_on_submit=True):
-                    nova_turma = st.text_input("Turma (Ex: 101)")
+                    nova_turma = st.text_input("Turma (Ex: 101, 202)")
                     novo_aluno = st.text_input("Nome Completo do Aluno")
                     col_btn_ind, col_msg_ind = st.columns([1, 2])
                     with col_btn_ind:
@@ -1805,7 +1746,7 @@ else:
                                         )
                                         novo_equip_final = f"Tablets (Maleta) ({edit_quantidade_tablets} unidades)"
                                     
-                                    novo_tempo = st.selectbox("Novo Tempo:", ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"], index=["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"].index(dado_antigo["Tempo"]), key="ed_tp")
+                                    novo_tempo = st.selectbox("Novo Tempo:", ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"].index(dado_antigo["Tempo"]), key="ed_tp")
                                     nova_observacao = st.text_area("Novas Observações:", value=dado_antigo["Observacoes"], key="ed_obs") # Added new text_area for editing
                                     
                                     if st.button("💾 Salvar Alterações", use_container_width=True):
