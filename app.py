@@ -371,7 +371,7 @@ else:
                     except Exception as e:
                         st.error(f"Erro ao salvar: {e}")
 
-        # --- SUB-ABA: VISUALIZAR REGISTROS ---
+# --- SUB-ABA: VISUALIZAR REGISTROS ---
         elif aba_selecionada == "Visualizar registros":
             st.subheader("📋 Histórico e Relatórios de Desempenho")
             try:
@@ -393,7 +393,6 @@ else:
                     
                     with col_f2:
                         col_turma = 'Turma' if 'Turma' in colunas_df else colunas_df[2]
-                        # Changed: Use is_master_admin for admin/rodrigo check
                         if st.session_state.get('is_master_admin', False) or is_soe:
                             opcoes_turmas_reg = sorted(df_reg[col_turma].unique().astype(str).tolist())
                         else:
@@ -415,7 +414,6 @@ else:
                     if turma_filtro:
                         df_filtrado = df_filtrado[df_filtrado[col_turma].astype(str).isin(turma_filtro)]
                     else:
-                        # Changed: Use is_master_admin for admin/rodrigo check
                         if not st.session_state.get('is_master_admin', False) and not is_soe:
                             turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
                             turmas_vinc = [t.strip() for t in turmas_vinc if t.strip()]
@@ -500,7 +498,6 @@ else:
                         
                         with col_exc1:
                             st.markdown("**Gerenciar registro individual**")
-                            # Changed: Use is_master_admin for admin/rodrigo check
                             if st.session_state.get('is_master_admin', False):
                                 df_edit_proprio = df_filtrado
                             else:
@@ -515,6 +512,7 @@ else:
                                     linha_idx = opcoes_edit[selecionado_para_edit]
                                     dados_reg_edit = df_edit_proprio[df_edit_proprio['ID_Original'] == linha_idx].iloc[0]
                                     
+                                    # Form contendo apenas os inputs e o botão de salvar
                                     with st.form("form_editar_registro"):
                                         st.markdown(f"Editando registro de: **{dados_reg_edit[colunas_df[3]]}**")
                                         itens_atuais = str(dados_reg_edit[colunas_df[6]]).split(", ")
@@ -536,35 +534,38 @@ else:
                                         edit_tipo_selecao = st.multiselect("Valores e atitudes", options=opcoes_multi, default=itens_multi_atuais)
                                         edit_obs = st.text_area("Observações", value=dados_reg_edit[colunas_df[7]])
                                         
-                                        col_at1, col_at2 = st.columns(2)
-                                        with col_at1:
-                                            btn_confirmar_edit = st.form_submit_button("SALVAR ALTERAÇÕES")
-                                        with col_at2:
-                                            btn_confirmar_exc = st.form_submit_button("❌ EXCLUIR REGISTRO")
+                                        btn_confirmar_edit = st.form_submit_button("SALVAR ALTERAÇÕES", use_container_width=True)
+                                        
+                                    # Botão de exclusão posicionado fora do escopo do st.form para evitar conflito de envio
+                                    btn_confirmar_exc = st.button("❌ EXCLUIR REGISTRO", use_container_width=True, type="primary")
+                                        
+                                    if btn_confirmar_edit:
+                                        try:
+                                            itens_finais_edit = []
+                                            if edit_desempenho:
+                                                itens_finais_edit.append(edit_desempenho)
+                                            itens_finais_edit.extend(edit_tipo_selecao)
+                                            tipo_formatado_edit = ", ".join(itens_finais_edit)
                                             
-                                        if btn_confirmar_edit:
-                                            try:
-                                                itens_finais_edit = []
-                                                if edit_desempenho:
-                                                    itens_finais_edit.append(edit_desempenho)
-                                                itens_finais_edit.extend(edit_tipo_selecao)
-                                                tipo_formatado_edit = ", ".join(itens_finais_edit)
-                                                wks_reg.update_cell(linha_idx, 7, tipo_formatado_edit)
-                                                wks_reg.update_cell(linha_idx, 8, edit_obs)
-                                                st.success("Registro atualizado!")
-                                                time.sleep(2)
-                                                st.rerun()
-                                            except Exception as e:
-                                                st.error(f"Erro ao editar: {e}")
-                                                
-                                        if btn_confirmar_exc:
-                                            try:
-                                                wks_reg.delete_rows(linha_idx)
-                                                st.success("Registro excluído!")
-                                                time.sleep(2)
-                                                st.rerun()
-                                            except Exception as e:
-                                                st.error(f"Erro ao excluir: {e}")
+                                            wks_reg.update_cell(linha_idx, 7, tipo_formatado_edit)
+                                            wks_reg.update_cell(linha_idx, 8, edit_obs)
+                                            
+                                            st.success("🎉 Registro atualizado com sucesso!")
+                                            st.cache_data.clear()
+                                            time.sleep(1)
+                                            st.rerun()
+                                        except Exception as e:
+                                            st.error(f"Erro ao editar: {e}")
+                                            
+                                    if btn_confirmar_exc:
+                                        try:
+                                            wks_reg.delete_rows(linha_idx)
+                                            st.success("🗑️ Registro excluído permanentemente da planilha!")
+                                            st.cache_data.clear()
+                                            time.sleep(1)
+                                            st.rerun()
+                                        except Exception as e:
+                                            st.error(f"Erro ao excluir: {e}")
                             else:
                                 st.info("Nenhum registro de suas disciplinas disponível para gerenciar no filtro atual.")
 
