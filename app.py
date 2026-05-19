@@ -500,6 +500,7 @@ else:
                         
                         with col_exc1:
                             st.markdown("**Gerenciar registro individual**")
+                            # Changed: Use is_master_admin for admin/rodrigo check
                             if st.session_state.get('is_master_admin', False):
                                 df_edit_proprio = df_filtrado
                             else:
@@ -508,63 +509,59 @@ else:
                             
                             if not df_edit_proprio.empty:
                                 opcoes_edit = {f"{row[col_data]} - {row[colunas_df[3]]} ({row[colunas_df[4]]})": row['ID_Original'] for _, row in df_edit_proprio.iterrows()}
-                                selecionado_para_edit = st.selectbox("Selecione o registro para modificar (Apenas suas disciplinas)", [""] + list(opcoes_edit.keys()), key="reg_selecionado_edit_combo")
+                                selecionado_para_edit = st.selectbox("Selecione o registro para modificar (Apenas suas disciplinas)", [""] + list(opcoes_edit.keys()))
                                 
                                 if selecionado_para_edit != "":
                                     linha_idx = opcoes_edit[selecionado_para_edit]
                                     dados_reg_edit = df_edit_proprio[df_edit_proprio['ID_Original'] == linha_idx].iloc[0]
                                     
-                                    st.markdown(f"✍️ Editando registro de: **{dados_reg_edit[colunas_df[3]]}**")
-                                    itens_atuais = str(dados_reg_edit[colunas_df[6]]).split(", ")
-                                    usuario_disciplinas = str(st.session_state.user_data.get('Disciplinas', "")).lower()
-                                    
-                                    if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
-                                        opcoes_radio = ["Ponto de atenção"]
-                                    else:
-                                        opcoes_radio = ["Reprovado", "Aprovado após recuperação", "Ponto de atenção"]
-                                    
-                                    desemp_atual = next((i for i in itens_atuais if i in opcoes_radio), None)
-                                    edit_desempenho = st.radio("Desempenho", options=opcoes_radio, index=opcoes_radio.index(desemp_atual) if desemp_atual else 0, horizontal=True, key="edit_desemp_radio")
-                                    
-                                    opcoes_multi = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho"]
-                                    if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
-                                        opcoes_multi.append("Não fez o questionário participativo")
+                                    with st.form("form_editar_registro"):
+                                        st.markdown(f"Editando registro de: **{dados_reg_edit[colunas_df[3]]}**")
+                                        itens_atuais = str(dados_reg_edit[colunas_df[6]]).split(", ")
+                                        usuario_disciplinas = str(st.session_state.user_data.get('Disciplinas', "")).lower()
                                         
-                                    itens_multi_atuais = [i for i in itens_atuais if i in opcoes_multi]
-                                    edit_tipo_selecao = st.multiselect("Valores e atitudes", options=opcoes_multi, default=itens_multi_atuais, key="edit_valores_multi")
-                                    edit_obs = st.text_area("Observações", value=dados_reg_edit[colunas_df[7]], key="edit_obs_text")
-                                    
-                                    col_b1, col_b2 = st.columns(2)
-                                    
-                                    # Lógica direta de execução usando botões normais fora de formulários
-                                    with col_b1:
-                                        if st.button("💾 SALVAR ALTERAÇÕES", use_container_width=True, type="primary", key="btn_salvar_direto"):
+                                        if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
+                                            opcoes_radio = ["Ponto de atenção"]
+                                        else:
+                                            opcoes_radio = ["Reprovado", "Aprovado após recuperação", "Ponto de atenção"]
+                                        
+                                        desemp_atual = next((i for i in itens_atuais if i in opcoes_radio), None)
+                                        edit_desempenho = st.radio("Desempenho", options=opcoes_radio, index=opcoes_radio.index(desemp_atual) if desemp_atual else 0, horizontal=True)
+                                        
+                                        opcoes_multi = ["Indisciplinado (a)", "Não traz material", "Não realiza tarefa em sala", "Não realiza tarefa em casa", "Muitas faltas", "Baixo rendimento", "Não fez o simulado", "Não apresentou trabalho"]
+                                        if any(d in usuario_disciplinas for d in ["educação física", "religião", "artes"]):
+                                            opcoes_multi.append("Não fez o questionário participativo")
+                                            
+                                        itens_multi_atuais = [i for i in itens_atuais if i in opcoes_multi]
+                                        edit_tipo_selecao = st.multiselect("Valores e atitudes", options=opcoes_multi, default=itens_multi_atuais)
+                                        edit_obs = st.text_area("Observações", value=dados_reg_edit[colunas_df[7]])
+                                        
+                                        col_at1, col_at2 = st.columns(2)
+                                        with col_at1:
+                                            btn_confirmar_edit = st.form_submit_button("SALVAR ALTERAÇÕES")
+                                        with col_at2:
+                                            btn_confirmar_exc = st.form_submit_button("❌ EXCLUIR REGISTRO")
+                                            
+                                        if btn_confirmar_edit:
                                             try:
                                                 itens_finais_edit = []
                                                 if edit_desempenho:
                                                     itens_finais_edit.append(edit_desempenho)
                                                 itens_finais_edit.extend(edit_tipo_selecao)
                                                 tipo_formatado_edit = ", ".join(itens_finais_edit)
-                                                
-                                                # Gravação direta nas colunas 7 (G) e 8 (H) do Google Sheets
                                                 wks_reg.update_cell(linha_idx, 7, tipo_formatado_edit)
                                                 wks_reg.update_cell(linha_idx, 8, edit_obs)
-                                                
-                                                st.success("🎉 Registro atualizado com sucesso na planilha!")
-                                                st.cache_data.clear()
-                                                time.sleep(1)
+                                                st.success("Registro atualizado!")
+                                                time.sleep(2)
                                                 st.rerun()
                                             except Exception as e:
                                                 st.error(f"Erro ao editar: {e}")
                                                 
-                                    with col_b2:
-                                        if st.button("❌ EXCLUIR REGISTRO", use_container_width=True, key="btn_excluir_direto"):
+                                        if btn_confirmar_exc:
                                             try:
-                                                # Remoção física da linha mapeada no banco
                                                 wks_reg.delete_rows(linha_idx)
-                                                st.success("🗑️ Registro excluído permanentemente da planilha!")
-                                                st.cache_data.clear()
-                                                time.sleep(1)
+                                                st.success("Registro excluído!")
+                                                time.sleep(2)
                                                 st.rerun()
                                             except Exception as e:
                                                 st.error(f"Erro ao excluir: {e}")
@@ -608,7 +605,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrências":
+    elif pagina_atual == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -1749,7 +1746,7 @@ else:
                                         )
                                         novo_equip_final = f"Tablets (Maleta) ({edit_quantidade_tablets} unidades)"
                                     
-                                    novo_tempo = st.selectbox("Novo Tempo:", ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"], index=["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"].index(dado_antigo["Tempo"]), key="ed_tp")
+                                    novo_tempo = st.selectbox("Novo Tempo:", ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"].index(dado_antigo["Tempo"]), key="ed_tp")
                                     nova_observacao = st.text_area("Novas Observações:", value=dado_antigo["Observacoes"], key="ed_obs") # Added new text_area for editing
                                     
                                     if st.button("💾 Salvar Alterações", use_container_width=True):
