@@ -1572,8 +1572,15 @@ else:
                         periodo_selecionado = st.selectbox("Selecione o Período:", ["Matutino", "Vespertino"], key="agend_periodo")
                         
                         # Lista de equipamentos com a Caixa de som incluída
-                        equipamentos_disponiveis = ["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"]
-                        equipamento_selecionado = st.selectbox("Selecione o Equipamento:", equipamentos_disponiveis, key="agend_equip")
+                        # 1. Lista que o professor vê na tela (Limpa, apenas "Tablets")
+equipamentos_disponiveis = ["Tablets", "TV", "Datashow", "Notebook", "Caixa de som"]
+equipamento_selecionado_tela = st.selectbox("Selecione o Equipamento:", equipamentos_disponiveis, key="agend_equip")
+
+# 2. Conversão automática para salvar correto na folha de cálculo
+if equipamento_selecionado_tela == "Tablets":
+    equipamento_selecionado = "Tablets (Maleta)"
+else:
+    equipamento_selecionado = equipamento_selecionado_tela
                         
                         # Verificação dos Tablets alterada para menu de seleção (selectbox) de 1 a 30
                         if "Tablets" in equipamento_selecionado:
