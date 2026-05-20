@@ -186,116 +186,46 @@ else:
     prof_nome = st.session_state.user_data['Professor']
     st.sidebar.markdown(f"<div style='text-align: center'>Professor: <b>{prof_nome}</b></div>", unsafe_allow_html=True)
     
-    # --- BLOCO DE MONITORAMENTO TOP (ADMIN) EM TEMPO REAL ---
-    if st.session_state.get('is_master_admin', False):
-        st.sidebar.markdown("---")
-        st.sidebar.markdown("🟢 **Usuários Online (Admin)**")
-        container_admin_online = st.sidebar.container()
-
-        @st.fragment(run_every=2)
-        def atualizar_admin_online(conteudo_painel):
-            try:
-                sh_on = conectar_google_sheets()
-                wks_online = sh_on.worksheet("Usuarios_Online")
-                agora = datetime.now(fuso_roraima)
-                agora_str = agora.strftime("%d/%m/%Y %H:%M:%S")
-                user_atual = st.session_state.user_data['Usuario']
-                
-                dados_brutos = wks_online.get_all_records()
-                linha_usuario = None
-                for idx, r in enumerate(dados_brutos, start=2):
-                    if str(r.get('Usuario', '')).strip() == user_atual:
-                        linha_usuario = idx
-                        break
-                if linha_usuario:
-                    wks_online.update_cell(linha_usuario, 2, agora_str)
-                else:
-                    wks_online.append_row([user_atual, agora_str])
-                
-                dados_atualizados = wks_online.get_all_records()
-                exibidos_admin = set()
-                with conteudo_painel:
-                    for r in dados_atualizados:
-                        u_nome = str(r.get('Usuario', '')).strip()
-                        u_acesso = str(r.get('Ultimo_Acesso', '')).strip()
-                        if not u_nome or not u_acesso:
-                            continue
-                        try:
-                            t_user = datetime.strptime(u_acesso, "%d/%m/%Y %H:%M:%S")
-                            t_user = fuso_roraima.localize(t_user)
-                            if (agora - t_user).total_seconds() <= 5 and u_nome not in exibidos_admin:
-                                st.caption(f"👤 {u_nome} - {u_acesso}")
-                                exibidos_admin.add(u_nome)
-                        except:
-                            continue
-            except:
-                pass
-
-        atualizar_admin_online(container_admin_online)
-
-    # --- ESCOPO DE PÁGINAS DISPONÍVEIS (MANTIDO NO LUGAR ORIGINAL) ---
-    paginas = ["Registro", "Ocorrencias", "Agendamento de Equipamentos"]
-    if st.session_state.get('is_master_admin', False):
-        paginas.append("Cadastro")
-
-    pagina_atual = st.sidebar.radio("Navegação", paginas, index=paginas.index(st.session_state.pagina))
-    st.session_state.pagina = pagina_atual
-
-    # --- BLOCO DE MONITORAMENTO BASE (GERAL) EM TEMPO REAL ---
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("🟢 **Usuários Online**")
-    container_geral_online = st.sidebar.container()
-
-    @st.fragment(run_every=2)
-    def atualizar_geral_online(conteudo_painel):
-        try:
-            sh_on = conectar_google_sheets()
-            wks_online = sh_on.worksheet("Usuarios_Online")
-            agora = datetime.now(fuso_roraima)
-            agora_str = agora.strftime("%d/%m/%Y %H:%M:%S")
-            user_atual = st.session_state.user_data['Usuario']
-            
-            dados_brutos = wks_online.get_all_records()
-            linha_usuario = None
-            for idx, r in enumerate(dados_brutos, start=2):
-                if str(r.get('Usuario', '')).strip() == user_atual:
-                    linha_usuario = idx
-                    break
-            if linha_usuario:
-                wks_online.update_cell(linha_usuario, 2, agora_str)
-            else:
-                wks_online.append_row([user_atual, agora_str])
-            
-            dados_atualizados = wks_online.get_all_records()
-            exibidos_geral = set()
-            with conteudo_painel:
-                for r in dados_atualizados:
-                    u_nome = str(r.get('Usuario', '')).strip()
-                    u_acesso = str(r.get('Ultimo_Acesso', '')).strip()
-                    if not u_nome or not u_acesso:
-                        continue
-                    try:
-                        t_user = datetime.strptime(u_acesso, "%d/%m/%Y %H:%M:%S")
-                        t_user = fuso_roraima.localize(t_user)
-                        if (agora - t_user).total_seconds() <= 5 and u_nome not in exibidos_geral:
-                            st.caption(f"👤 {u_nome}")
-                            exibidos_geral.add(u_nome)
-                    except:
-                        continue
-        except:
-            pass
-
-    atualizar_geral_online(container_geral_online)
+    try:
+        sh_on = conectar_google_sheets()
+        wks_online = sh_on.worksheet("Usuarios_Online")
+        users_on = wks_online.get_all_records()
+        if users_on:
+            st.sidebar.markdown("---")
+            st.sidebar.markdown("🟢 **Usuários Online**")
+            hoje_data = datetime.now(fuso_roraima).strftime("%d/%m/%Y")
+            for u in users_on:
+                if u['Ultimo_Acesso'].startswith(hoje_data):
+                    st.sidebar.caption(f"👤 {u['Usuario']}")
+    except:
+        pass
 
     st.sidebar.divider()
     
+    if st.sidebar.button("Registro", key="btn_desempenho", use_container_width=True):
+        st.session_state.pagina = "Registro"
+        st.rerun()
+
+    if st.sidebar.button("Ocorrências", key="btn_ocorrencias_nav", use_container_width=True):
+        st.session_state.pagina = "Ocorrencias"
+        st.rerun()
+
+    # NOVO LOCAL: Botão posicionado logo abaixo de Ocorrências
+    if st.sidebar.button('📅 Agendar Equipamentos', key="btn_agendar_equipamentos_nav", use_container_width=True):
+        st.session_state.pagina = 'Agendamento de Equipamentos'
+        st.rerun()
+
     # All logged-in users can see "Segurança" to change their own password
     if st.sidebar.button("Segurança", key="btn_seguranca", use_container_width=True):
         st.session_state.pagina = "Segurança"
         st.rerun()
 
-    # Apenas master-admins veem "Atualizar Dados"
+    # Apenas master-admins veem "Cadastro" e "Atualizar Dados"
     if st.session_state.get('is_master_admin', False):
+        if st.sidebar.button("Cadastro", key="btn_cadastro", use_container_width=True):
+            st.session_state.pagina = "Cadastro"
+            st.rerun()
+        
         if st.sidebar.button("Atualizar Dados", key="btn_atualizar", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
