@@ -186,19 +186,77 @@ else:
     prof_nome = st.session_state.user_data['Professor']
     st.sidebar.markdown(f"<div style='text-align: center'>Professor: <b>{prof_nome}</b></div>", unsafe_allow_html=True)
     
+# --- BLOCO DE MONITORAMENTO CONSTANTE DE USUÁRIOS ONLINE (TEMPO REAL) ---
     try:
         sh_on = conectar_google_sheets()
         wks_online = sh_on.worksheet("Usuarios_Online")
-        users_on = wks_online.get_all_records()
-        if users_on:
-            st.sidebar.markdown("---")
-            st.sidebar.markdown("🟢 **Usuários Online**")
-            hoje_data = datetime.now(fuso_roraima).strftime("%d/%m/%Y")
-            for u in users_on:
-                if u['Ultimo_Acesso'].startswith(hoje_data):
-                    st.sidebar.caption(f"👤 {u['Usuario']}")
+        
+        # Fragmento isolado que roda a cada 2 segundos atualizando apenas a lista na barra lateral
+        @st.fragment(run_every=2)
+        def monitorar_usuarios_online():
+            try:
+                agora = datetime.now(fuso_roraima)
+                agora_str = agora.strftime("%d/%m/%Y %H:%M:%S")
+                user_atual = st.session_state.user_data['Usuario']
+                
+                # 1. ATUALIZA O HORÁRIO DE ATIVIDADE DO PRÓPRIO USUÁRIO LOGADO
+                dados_on = wks_online.get_all_records()
+                linha_usuario = None
+                for idx, r in enumerate(dados_on, start=2):
+                    if str(r.get('Usuario', '')) == user_atual:
+                        linha_usuario = idx
+                        break
+                
+                if linha_usuario:
+                    wks_online.update_cell(linha_usuario, 2, agora_str)
+                else:
+                    wks_online.append_row([user_atual, agora_str])
+                    
+                # 2. SELECIONA E EXIBE APENAS QUEM TEVE ATIVIDADE NOS ÚLTIMOS 15 SEGUNDOS
+                dados_atualizados = wks_online.get_all_records()
+                
+                st.sidebar.markdown("---")
+                st.sidebar.markdown("🟢 **Usuários Online**")
+                
+                for r in dados_atualizados:
+                    u_nome = str(r.get('Usuario', ''))
+                    u_acesso = str(r.get('Ultimo_Acesso', ''))
+                    
+                    try:
+                        timestamp_user = datetime.strptime(u_acesso, "%d/%m/%Y %H:%M:%S")
+                        timestamp_user = fuso_roraima.localize(timestamp_user)
+                        diferenca_segundos = (agora - timestamp_user).total_seconds()
+                        
+                        # Se o tempo de inatividade for de até 15 segundos, o usuário permanece visível
+                        if diferenca_segundos <= 15:
+                            st.sidebar.caption(f"👤 {u_nome}")
+                    except:
+                        continue
+            except:
+                pass
+
+        # Executa o fragmento de checagem contínua na barra lateral
+        monitorar_usuarios_online()
+        
     except:
         pass
+
+    # LIMPEZA IMEDIATA AO CLICAR EM SAIR DO SISTEMA
+    st.sidebar.markdown("---")
+    if st.sidebar.button("🔴 SAIR DO SISTEMA", key="btn_sair_sistema_global", use_container_width=True):
+        try:
+            sh_exit = conectar_google_sheets()
+            wks_exit = sh_exit.worksheet("Usuarios_Online")
+            dados_exit = wks_exit.get_all_records()
+            user_atual = st.session_state.user_data['Usuario']
+            for idx, r in enumerate(dados_exit, start=2):
+                if str(r.get('Usuario', '')) == user_atual:
+                    wks_exit.delete_rows(idx)
+                    break
+        except:
+            pass
+        st.session_state.clear()
+        st.rerun()
 
     st.sidebar.divider()
     
@@ -229,13 +287,6 @@ else:
         if st.sidebar.button("Atualizar Dados", key="btn_atualizar", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
-
-    if st.sidebar.button("Sair", key="btn_sair", use_container_width=True):
-        atualizar_presenca(st.session_state.user_data['Usuario'], "logout")
-        st.session_state.logado = False
-        st.session_state.is_master_admin = False # NEW: Reset master admin status on logout
-        st.session_state.pagina = "Registro"
-        st.rerun()
 
     is_soe = "SOE" in str(st.session_state.user_data.get('Disciplinas', ""))
 
