@@ -371,7 +371,7 @@ else:
                     except Exception as e:
                         st.error(f"Erro ao salvar: {e}")
 
-        # --- SUB-ABA: VISUALIZAR REGISTROS ---
+# --- SUB-ABA: VISUALIZAR REGISTROS ---
         elif aba_selecionada == "Visualizar registros":
             st.subheader("📋 Histórico e Relatórios de Desempenho")
             try:
@@ -381,6 +381,11 @@ else:
                 
                 if len(dados_brutos) > 1:
                     df_reg = pd.DataFrame(dados_brutos[1:], columns=dados_brutos[0])
+                    
+                    # CORREÇÃO CRÍTICA: Mapeia o índice REAL da linha na planilha ANTES de aplicar qualquer filtro por conteúdo
+                    df_reg['ID_Original'] = range(2, len(df_reg) + 2)
+                    
+                    # Filtro padrão para separar o desempenho
                     df_reg = df_reg[~df_reg[df_reg.columns[6]].astype(str).str.contains("OCORRÊNCIA:", na=False)]
                     
                     colunas_df = df_reg.columns.tolist()
@@ -393,7 +398,6 @@ else:
                     
                     with col_f2:
                         col_turma = 'Turma' if 'Turma' in colunas_df else colunas_df[2]
-                        # Changed: Use is_master_admin for admin/rodrigo check
                         if st.session_state.get('is_master_admin', False) or is_soe:
                             opcoes_turmas_reg = sorted(df_reg[col_turma].unique().astype(str).tolist())
                         else:
@@ -406,7 +410,6 @@ else:
                         opcoes_disciplinas_reg = sorted(df_reg[col_disc_data].unique().astype(str).tolist())
                         disciplina_filtro = st.multiselect("Filtrar por Disciplina", options=opcoes_disciplinas_reg, default=[])
                     
-                    df_reg['ID_Original'] = range(2, len(df_reg) + 2)
                     df_filtrado = df_reg.copy()
                     
                     if bim_filtro != "Todos":
@@ -415,7 +418,6 @@ else:
                     if turma_filtro:
                         df_filtrado = df_filtrado[df_filtrado[col_turma].astype(str).isin(turma_filtro)]
                     else:
-                        # Changed: Use is_master_admin for admin/rodrigo check
                         if not st.session_state.get('is_master_admin', False) and not is_soe:
                             turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
                             turmas_vinc = [t.strip() for t in turmas_vinc if t.strip()]
@@ -500,7 +502,6 @@ else:
                         
                         with col_exc1:
                             st.markdown("**Gerenciar registro individual**")
-                            # Changed: Use is_master_admin for admin/rodrigo check
                             if st.session_state.get('is_master_admin', False):
                                 df_edit_proprio = df_filtrado
                             else:
@@ -549,27 +550,51 @@ else:
                                                     itens_finais_edit.append(edit_desempenho)
                                                 itens_finais_edit.extend(edit_tipo_selecao)
                                                 tipo_formatado_edit = ", ".join(itens_finais_edit)
-                                                wks_reg.update_cell(linha_idx, 7, tipo_formatado_edit)
-                                                wks_reg.update_cell(linha_idx, 8, edit_obs)
-                                                st.success("Registro atualizado!")
-                                                time.sleep(2)
-                                                st.rerun()
+                                                
+                                                # SEGURANÇA ADICIONAL: Procura a correspondência exata antes da gravação direta
+                                                valores_verificacao = wks_reg.get_all_values()
+                                                linha_alvo_sheets = None
+                                                for idx_v, linha_v in enumerate(valores_verificacao[1:], start=2):
+                                                    if linha_v[0] == dados_reg_edit[col_data] and linha_v[3] == dados_reg_edit[colunas_df[3]]:
+                                                        linha_alvo_sheets = idx_v
+                                                        break
+                                                
+                                                if linha_alvo_sheets:
+                                                    wks_reg.update_cell(linha_alvo_sheets, 7, tipo_formatado_edit)
+                                                    wks_reg.update_cell(linha_alvo_sheets, 8, edit_obs)
+                                                    st.success("Registro de desempenho alterado e salvo com sucesso!")
+                                                    st.cache_data.clear()
+                                                    time.sleep(1.5)
+                                                    st.rerun()
+                                                else:
+                                                    st.error("O registro não foi encontrado para atualização.")
                                             except Exception as e:
                                                 st.error(f"Erro ao editar: {e}")
                                                 
                                         if btn_confirmar_exc:
                                             try:
-                                                wks_reg.delete_rows(linha_idx)
-                                                st.success("Registro excluído!")
-                                                time.sleep(2)
-                                                st.rerun()
+                                                # SEGURANÇA ADICIONAL: Procura a linha correta pelo Timestamp e Aluno
+                                                valores_verificacao = wks_reg.get_all_values()
+                                                linha_alvo_sheets = None
+                                                for idx_v, linha_v in enumerate(valores_verificacao[1:], start=2):
+                                                    if linha_v[0] == dados_reg_edit[col_data] and linha_v[3] == dados_reg_edit[colunas_df[3]]:
+                                                        linha_alvo_sheets = idx_v
+                                                        break
+                                                
+                                                if linha_alvo_sheets:
+                                                    wks_reg.delete_rows(linha_alvo_sheets)
+                                                    st.success("Registro de desempenho excluído permanentemente!")
+                                                    st.cache_data.clear()
+                                                    time.sleep(1.5)
+                                                    st.rerun()
+                                                else:
+                                                    st.error("O registro já foi removido ou não pôde ser encontrado.")
                                             except Exception as e:
                                                 st.error(f"Erro ao excluir: {e}")
                             else:
                                 st.info("Nenhum registro de suas disciplinas disponível para gerenciar no filtro atual.")
 
                         with col_exc2:
-                            # Changed: Use is_master_admin for admin/rodrigo check
                             if st.session_state.get('is_master_admin', False):
                                 st.markdown("**Exclusão em massa**")
                                 if bim_filtro != "Todos":
@@ -581,6 +606,7 @@ else:
                                             for idx in indices_massa:
                                                 wks_reg.delete_rows(idx)
                                             st.success(f"Foram excluídos {len(indices_massa)} registros.")
+                                            st.cache_data.clear()
                                             st.rerun()
                                     
                                     st.divider()
@@ -592,6 +618,7 @@ else:
                                             for idx in indices_bim:
                                                 wks_reg.delete_rows(idx)
                                             st.success(f"Foram excluídos {len(indices_bim)} registros do {bim_filtro}.")
+                                            st.cache_data.clear()
                                             st.rerun()
                                         else:
                                             st.info("Não há registros para este bimestre.")
@@ -1746,7 +1773,7 @@ else:
                                         )
                                         novo_equip_final = f"Tablets (Maleta) ({edit_quantidade_tablets} unidades)"
                                     
-                                    novo_tempo = st.selectbox("Novo Tempo:", ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"].index(dado_antigo["Tempo"]), key="ed_tp")
+                                    novo_tempo = st.selectbox("Novo Tempo:", ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"], index=["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"].index(dado_antigo["Tempo"]), key="ed_tp")
                                     nova_observacao = st.text_area("Novas Observações:", value=dado_antigo["Observacoes"], key="ed_obs") # Added new text_area for editing
                                     
                                     if st.button("💾 Salvar Alterações", use_container_width=True):
