@@ -186,14 +186,22 @@ else:
     prof_nome = st.session_state.user_data['Professor']
     st.sidebar.markdown(f"<div style='text-align: center'>Professor: <b>{prof_nome}</b></div>", unsafe_allow_html=True)
     
-# --- BLOCO DE MONITORAMENTO EM TEMPO REAL DE USUÁRIOS ONLINE (ANTI-REPETIÇÃO) ---
+    # --- ESCOPO DE PÁGINAS DISPONÍVEIS ---
+    paginas = ["Registro", "Ocorrencias", "Agendamento de Equipamentos", "Segurança"]
+    if st.session_state.is_master_admin:
+        paginas.append("Cadastro")
+
+    pagina_atual = st.sidebar.radio("Navegação", paginas, index=paginas.index(st.session_state.pagina))
+    st.session_state.pagina = pagina_atual
+
+    # --- BLOCO UNIFICADO DE MONITORAMENTO EM TEMPO REAL (ANTI-REPETIÇÃO) ---
     st.sidebar.markdown("---")
     st.sidebar.markdown("🟢 **Usuários Online**")
     
-    # Container visual fixo onde a lista tratada e sem duplicados será desenhada
+    # Container visual estável para renderização dos professores logados
     container_usuarios_online = st.sidebar.container()
 
-    # Função isolada que executa a cada 2 segundos atualizando apenas este bloco lateral
+    # Função isolada executada a cada 2 segundos nos bastidores
     @st.fragment(run_every=2)
     def monitorar_usuarios_online_sem_duplicados(conteudo_painel):
         try:
@@ -203,8 +211,9 @@ else:
             agora = datetime.now(fuso_roraima)
             agora_str = agora.strftime("%d/%m/%Y %H:%M:%S")
             user_atual = st.session_state.user_data['Usuario']
+            is_master_admin_current_session = st.session_state.is_master_admin
             
-            # 1. Atualiza o carimbo de tempo do próprio usuário ativo para manter o ping ativo
+            # 1. Atualiza o carimbo de atividade do próprio usuário conectado
             dados_brutos = wks_online.get_all_records()
             linha_usuario = None
             for idx, r in enumerate(dados_brutos, start=2):
@@ -217,9 +226,10 @@ else:
             else:
                 wks_online.append_row([user_atual, agora_str])
                 
-            # 2. Re-analisa os dados coletados filtrando inativos e removendo duplicados estritamente
+            # 2. Coleta dados e filtra inatividades e duplicados usando um conjunto (Set)
             dados_atualizados = wks_online.get_all_records()
             professores_ativos_unicos = set()
+            detalhes_admin = []
             
             for r in dados_atualizados:
                 u_nome = str(r.get('Usuario', '')).strip()
@@ -233,54 +243,39 @@ else:
                     timestamp_user = fuso_roraima.localize(timestamp_user)
                     diferenca_segundos = (agora - timestamp_user).total_seconds()
                     
-                    # Se o usuário interagiu nos últimos 15 segundos, é elegível para aparecer
+                    # Considera online se o ping ocorreu nos últimos 15 segundos
                     if diferenca_segundos <= 15:
                         professores_ativos_unicos.add(u_nome)
+                        if is_master_admin_current_session and u_nome not in [x[0] for x in detalhes_admin]:
+                            detalhes_admin.append((u_nome, u_acesso.split(" ")[1]))
                 except:
                     continue
             
-            # Garante que o próprio usuário conectado sempre apareça na sua lista
+            # Garante a presença do usuário conectado na própria tela
             professores_ativos_unicos.add(user_atual)
             
-            # 3. Desenha a listagem purificada dentro do container na tela (apenas uma ocorrência por nome)
+            # 3. Renderiza a lista limpa na tela do usuário
             with conteudo_painel:
-                for professor in sorted(list(professores_ativos_unicos)):
-                    st.caption(f"👤 {professor}")
-                    
+                if is_master_admin_current_session:
+                    # Exibição detalhada com horário para o Administrador
+                    for p_nome, p_hora in sorted(detalhes_admin, key=lambda x: x[0]):
+                        st.caption(f"👤 {p_nome} ({p_hora})")
+                else:
+                    # Exibição limpa padrão para os Professores
+                    for professor in sorted(list(professores_ativos_unicos)):
+                        st.caption(f"👤 {professor}")
+                        
         except Exception as e_sheets:
-            # Caso a API do Google oscile, mantém o painel estável sem quebrar a barra lateral
             with conteudo_painel:
                 st.caption("🔄 Atualizando lista...")
 
-    # Aciona a verificação em tempo real enviando o bloco fixado
+    # Ativa o monitoramento contínuo passando o container
     monitorar_usuarios_online_sem_duplicados(container_usuarios_online)
 
     st.sidebar.divider()
     
-    if st.sidebar.button("Registro", key="btn_desempenho", use_container_width=True):
-        st.session_state.pagina = "Registro"
-        st.rerun()
-
-    if st.sidebar.button("Ocorrências", key="btn_ocorrencias_nav", use_container_width=True):
-        st.session_state.pagina = "Ocorrencias"
-        st.rerun()
-
-    # NOVO LOCAL: Botão posicionado logo abaixo de Ocorrências
-    if st.sidebar.button('📅 Agendar Equipamentos', key="btn_agendar_equipamentos_nav", use_container_width=True):
-        st.session_state.pagina = 'Agendamento de Equipamentos'
-        st.rerun()
-
-    # All logged-in users can see "Segurança" to change their own password
-    if st.sidebar.button("Segurança", key="btn_seguranca", use_container_width=True):
-        st.session_state.pagina = "Segurança"
-        st.rerun()
-
-    # Apenas master-admins veem "Cadastro" e "Atualizar Dados"
+    # Apenas master-admins veem "Atualizar Dados" (ação, não página de navegação)
     if st.session_state.get('is_master_admin', False):
-        if st.sidebar.button("Cadastro", key="btn_cadastro", use_container_width=True):
-            st.session_state.pagina = "Cadastro"
-            st.rerun()
-        
         if st.sidebar.button("Atualizar Dados", key="btn_atualizar", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
@@ -294,7 +289,7 @@ else:
 
     is_soe = "SOE" in str(st.session_state.user_data.get('Disciplinas', ""))
 
-    pagina_atual = st.session_state.get("pagina", "Registro")
+    # A linha 'pagina_atual = st.session_state.get("pagina", "Registro")' foi removida pois já é definida pelo st.sidebar.radio
 
     if pagina_atual == "Registro":
         st.title("📊 Desempenho do Aluno")
