@@ -187,37 +187,40 @@ else:
     st.sidebar.markdown(f"<div style='text-align: center'>Professor: <b>{prof_nome}</b></div>", unsafe_allow_html=True)
     
 # --- BLOCO DE MONITORAMENTO EM TEMPO REAL DE USUÁRIOS ONLINE ---
-    try:
-        sh_on = conectar_google_sheets()
-        wks_online = sh_on.worksheet("Usuarios_Online")
-        
-        # Cria um fragmento isolado que executa a cada 2 segundos atualizando apenas esta lista
-        @st.fragment(run_every=2)
-        def monitorar_professores_online():
-            try:
-                agora = datetime.now(fuso_roraima)
-                agora_str = agora.strftime("%d/%m/%Y %H:%M:%S")
-                user_atual = st.session_state.user_data['Usuario']
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("🟢 **Usuários Online**")
+    
+    # Container visual fixo onde a lista de usuários será exibida e atualizada
+    container_usuarios_online = st.sidebar.container()
+
+    # Função isolada que roda a cada 2 segundos nos bastidores atualizando apenas o container
+    @st.fragment(run_every=2)
+    def atualizar_painel_usuarios_online(conteudo_painel):
+        try:
+            sh_on = conectar_google_sheets()
+            wks_online = sh_on.worksheet("Usuarios_Online")
+            
+            agora = datetime.now(fuso_roraima)
+            agora_str = agora.strftime("%d/%m/%Y %H:%M:%S")
+            user_atual = st.session_state.user_data['Usuario']
+            
+            # 1. Atualiza o carimbo de atividade do próprio usuário conectado
+            dados_on = wks_online.get_all_records()
+            linha_usuario = None
+            for idx, r in enumerate(dados_on, start=2):
+                if str(r.get('Usuario', '')) == user_atual:
+                    linha_usuario = idx
+                    break
+            
+            if linha_usuario:
+                wks_online.update_cell(linha_usuario, 2, agora_str)
+            else:
+                wks_online.append_row([user_atual, agora_str])
                 
-                # 1. Atualiza o timestamp de atividade do usuário que está mexendo agora
-                dados_on = wks_online.get_all_records()
-                linha_usuario = None
-                for idx, r in enumerate(dados_on, start=2):
-                    if str(r.get('Usuario', '')) == user_atual:
-                        linha_usuario = idx
-                        break
-                
-                if linha_usuario:
-                    wks_online.update_cell(linha_usuario, 2, agora_str)
-                else:
-                    wks_online.append_row([user_atual, agora_str])
-                    
-                # 2. Renderiza a lista contendo apenas quem teve atividade nos últimos 15 segundos
-                dados_atualizados = wks_online.get_all_records()
-                
-                st.sidebar.markdown("---")
-                st.sidebar.markdown("🟢 **Usuários Online**")
-                
+            # 2. Busca dados atualizados e filtra quem está online de verdade (últimos 15 segundos)
+            dados_atualizados = wks_online.get_all_records()
+            
+            with conteudo_painel:
                 for r in dados_atualizados:
                     u_nome = str(r.get('Usuario', ''))
                     u_acesso = str(r.get('Ultimo_Acesso', ''))
@@ -227,19 +230,18 @@ else:
                         timestamp_user = fuso_roraima.localize(timestamp_user)
                         diferenca_segundos = (agora - timestamp_user).total_seconds()
                         
-                        # Se o usuário realizou ping nos últimos 15 segundos, aparece como online
+                        # Exibe o usuário se ele realizou ping nos últimos 15 segundos
                         if diferenca_segundos <= 15:
-                            st.sidebar.caption(f"👤 {u_nome}")
+                            st.caption(f"👤 {u_nome}")
                     except:
                         continue
-            except:
-                pass
+        except Exception as e_sheets:
+            # Caso o Google Sheets falhe por instabilidade de rede, mantém os componentes visuais estáveis
+            with conteudo_painel:
+                st.caption("🔄 Atualizando lista...")
 
-        # Executa o monitoramento contínuo na barra lateral
-        monitorar_professores_online()
-        
-    except:
-        pass
+    # Ativa o monitoramento em tempo real passando o container criado
+    atualizar_painel_usuarios_online(container_usuarios_online)
 
     st.sidebar.divider()
     
