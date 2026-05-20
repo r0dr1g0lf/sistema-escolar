@@ -186,20 +186,20 @@ else:
     prof_nome = st.session_state.user_data['Professor']
     st.sidebar.markdown(f"<div style='text-align: center'>Professor: <b>{prof_nome}</b></div>", unsafe_allow_html=True)
     
-# --- BLOCO DE MONITORAMENTO CONSTANTE DE USUÁRIOS ONLINE (TEMPO REAL) ---
+# --- BLOCO DE MONITORAMENTO EM TEMPO REAL DE USUÁRIOS ONLINE ---
     try:
         sh_on = conectar_google_sheets()
         wks_online = sh_on.worksheet("Usuarios_Online")
         
-        # Fragmento isolado que roda a cada 2 segundos atualizando apenas a lista na barra lateral
+        # Cria um fragmento isolado que executa a cada 2 segundos atualizando apenas esta lista
         @st.fragment(run_every=2)
-        def monitorar_usuarios_online():
+        def monitorar_professores_online():
             try:
                 agora = datetime.now(fuso_roraima)
                 agora_str = agora.strftime("%d/%m/%Y %H:%M:%S")
                 user_atual = st.session_state.user_data['Usuario']
                 
-                # 1. ATUALIZA O HORÁRIO DE ATIVIDADE DO PRÓPRIO USUÁRIO LOGADO
+                # 1. Atualiza o timestamp de atividade do usuário que está mexendo agora
                 dados_on = wks_online.get_all_records()
                 linha_usuario = None
                 for idx, r in enumerate(dados_on, start=2):
@@ -212,7 +212,7 @@ else:
                 else:
                     wks_online.append_row([user_atual, agora_str])
                     
-                # 2. SELECIONA E EXIBE APENAS QUEM TEVE ATIVIDADE NOS ÚLTIMOS 15 SEGUNDOS
+                # 2. Renderiza a lista contendo apenas quem teve atividade nos últimos 15 segundos
                 dados_atualizados = wks_online.get_all_records()
                 
                 st.sidebar.markdown("---")
@@ -227,7 +227,7 @@ else:
                         timestamp_user = fuso_roraima.localize(timestamp_user)
                         diferenca_segundos = (agora - timestamp_user).total_seconds()
                         
-                        # Se o tempo de inatividade for de até 15 segundos, o usuário permanece visível
+                        # Se o usuário realizou ping nos últimos 15 segundos, aparece como online
                         if diferenca_segundos <= 15:
                             st.sidebar.caption(f"👤 {u_nome}")
                     except:
@@ -235,28 +235,11 @@ else:
             except:
                 pass
 
-        # Executa o fragmento de checagem contínua na barra lateral
-        monitorar_usuarios_online()
+        # Executa o monitoramento contínuo na barra lateral
+        monitorar_professores_online()
         
     except:
         pass
-
-    # LIMPEZA IMEDIATA AO CLICAR EM SAIR DO SISTEMA
-    st.sidebar.markdown("---")
-    if st.sidebar.button("🔴 SAIR DO SISTEMA", key="btn_sair_sistema_global", use_container_width=True):
-        try:
-            sh_exit = conectar_google_sheets()
-            wks_exit = sh_exit.worksheet("Usuarios_Online")
-            dados_exit = wks_exit.get_all_records()
-            user_atual = st.session_state.user_data['Usuario']
-            for idx, r in enumerate(dados_exit, start=2):
-                if str(r.get('Usuario', '')) == user_atual:
-                    wks_exit.delete_rows(idx)
-                    break
-        except:
-            pass
-        st.session_state.clear()
-        st.rerun()
 
     st.sidebar.divider()
     
@@ -287,6 +270,13 @@ else:
         if st.sidebar.button("Atualizar Dados", key="btn_atualizar", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
+
+    if st.sidebar.button("Sair", key="btn_sair", use_container_width=True):
+        atualizar_presenca(st.session_state.user_data['Usuario'], "logout")
+        st.session_state.logado = False
+        st.session_state.is_master_admin = False # NEW: Reset master admin status on logout
+        st.session_state.pagina = "Registro"
+        st.rerun()
 
     is_soe = "SOE" in str(st.session_state.user_data.get('Disciplinas', ""))
 
@@ -683,7 +673,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrencias":
+    elif pagina_atual == "Ocorrências":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
