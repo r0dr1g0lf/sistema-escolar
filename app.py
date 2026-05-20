@@ -56,16 +56,13 @@ def carregar_agendamentos():
         return pd.DataFrame(), None
 
 def verificar_conflito(equipamento, data_uso, turno, horario):
-    # Se o sistema checar "Tablets", ele converte para buscar o nome antigo salvo na planilha
-    equipamento_real = "Tablets (Maleta)" if equipamento == "Tablets" else equipamento
-
     df_ag, _ = carregar_agendamentos()
     if df_ag.empty:
         return False
     
-    # Verifica se já existe agendamento usando o equipamento_real
+    # Verifica se já existe agendamento para o mesmo item, dia, turno e aula
     conflito = df_ag[
-        (df_ag['Equipamento'] == equipamento_real) & 
+        (df_ag['Equipamento'] == equipamento) & 
         (df_ag['Data_Uso'] == data_uso) & 
         (df_ag['Turno'] == turno) & 
         (df_ag['Horario'] == horario)
@@ -353,8 +350,7 @@ else:
                         itens_finais.extend(tipo_selecao)
                         
                         tipo_formatado = ", ".join(itens_finais)
-                       # Converte o nome visual para o nome da planilha antes de salvar
-                    equipamento_salvar = "Tablets (Maleta)" if equipamento == "Tablets" else equipamento 
+                        
                         nova_linha = [
                             datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
                             prof_nome,
@@ -1576,15 +1572,8 @@ else:
                         periodo_selecionado = st.selectbox("Selecione o Período:", ["Matutino", "Vespertino"], key="agend_periodo")
                         
                         # Lista de equipamentos com a Caixa de som incluída
-                        # 1. Lista que o professor vê na tela (Limpa, apenas "Tablets")
-equipamentos_disponiveis = ["Tablets", "TV", "Datashow", "Notebook", "Caixa de som"]
-equipamento_selecionado_tela = st.selectbox("Selecione o Equipamento:", equipamentos_disponiveis, key="agend_equip")
-
-# 2. Conversão automática para salvar correto na folha de cálculo
-if equipamento_selecionado_tela == "Tablets":
-    equipamento_selecionado = "Tablets (Maleta)"
-else:
-    equipamento_selecionado = equipamento_selecionado_tela
+                        equipamentos_disponiveis = ["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"]
+                        equipamento_selecionado = st.selectbox("Selecione o Equipamento:", equipamentos_disponiveis, key="agend_equip")
                         
                         # Verificação dos Tablets alterada para menu de seleção (selectbox) de 1 a 30
                         if "Tablets" in equipamento_selecionado:
