@@ -186,97 +186,35 @@ else:
     prof_nome = st.session_state.user_data['Professor']
     st.sidebar.markdown(f"<div style='text-align: center'>Professor: <b>{prof_nome}</b></div>", unsafe_allow_html=True)
     
-# --- ESCOPO DE PÁGINAS DISPONÍVEIS ---
-    paginas = ["Registro", "Ocorrencias", "Agendamento de Equipamentos"]
-    if st.session_state.get('is_master_admin', False):
-        paginas.append("Cadastro")
-
-    pagina_atual = st.sidebar.radio("Navegação", paginas, index=paginas.index(st.session_state.pagina))
-    st.session_state.pagina = pagina_atual
-
-    # --- BLOCO UNIFICADO DE MONITORAMENTO EM TEMPO REAL (DESAPARECE EM 5 SEGUNDOS) ---
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("🟢 **Usuários Online**")
-    
-    # Container visual fixo onde a lista tratada e sem duplicados será desenhada
-    container_usuarios_online = st.sidebar.container()
-
-    # Função isolada que executa a cada 2 segundos atualizando apenas este bloco lateral
-    @st.fragment(run_every=2)
-    def monitorar_usuarios_online_sem_duplicados(conteudo_painel):
-        try:
-            sh_on = conectar_google_sheets()
-            wks_online = sh_on.worksheet("Usuarios_Online")
-            
-            agora = datetime.now(fuso_roraima)
-            agora_str = agora.strftime("%d/%m/%Y %H:%M:%S")
-            user_atual = st.session_state.user_data['Usuario']
-            is_master_admin_frag = st.session_state.get('is_master_admin', False)
-            
-            # 1. Atualiza o carimbo de tempo do próprio usuário ativo para manter o ping ativo
-            dados_brutos = wks_online.get_all_records()
-            linha_usuario = None
-            for idx, r in enumerate(dados_brutos, start=2):
-                if str(r.get('Usuario', '')).strip() == user_atual:
-                    linha_usuario = idx
-                    break
-            
-            if linha_usuario:
-                wks_online.update_cell(linha_usuario, 2, agora_str)
-            else:
-                wks_online.append_row([user_atual, agora_str])
-                
-            # 2. Re-analisa os dados coletados filtrando inativos e removendo duplicados estritamente
-            dados_atualizados = wks_online.get_all_records()
-            professores_ativos_unicos = set()
-            detalhes_admin = []
-            
-            for r in dados_atualizados:
-                u_nome = str(r.get('Usuario', '')).strip()
-                u_acesso = str(r.get('Ultimo_Acesso', '')).strip()
-                
-                if not u_nome or not u_acesso:
-                    continue
-                    
-                try:
-                    timestamp_user = datetime.strptime(u_acesso, "%d/%m/%Y %H:%M:%S")
-                    timestamp_user = fuso_roraima.localize(timestamp_user)
-                    diferenca_segundos = (agora - timestamp_user).total_seconds()
-                    
-                    # Desaparece estritamente após 5 segundos sem atividade (PC desligado, navegador fechado, etc)
-                    if diferenca_segundos <= 5:
-                        professores_ativos_unicos.add(u_nome)
-                        if is_master_admin_frag and u_nome not in [x[0] for x in detalhes_admin]:
-                            detalhes_admin.append((u_nome, u_acesso.split(" ")[1]))
-                except:
-                    continue
-            
-            # Garante que o próprio usuário conectado sempre apareça na sua lista
-            professores_ativos_unicos.add(user_atual)
-            if is_master_admin_frag and user_atual not in [x[0] for x in detalhes_admin]:
-                detalhes_admin.append((user_atual, agora_str.split(" ")[1]))
-            
-            # 3. Desenha a listagem purificada dentro do container na tela (apenas uma ocorrência por nome)
-            with conteudo_painel:
-                if is_master_admin_frag:
-                    # Exibição unificada com horário para o Administrador (Sem repetição)
-                    for p_nome, p_hora in sorted(detalhes_admin, key=lambda x: x[0]):
-                        st.caption(f"👤 {p_nome} ({p_hora})")
-                else:
-                    # Exibição limpa padrão para os Professores (Sem repetição)
-                    for professor in sorted(list(professores_ativos_unicos)):
-                        st.caption(f"👤 {professor}")
-                        
-        except Exception as e_sheets:
-            # Caso a API do Google oscile, mantém o painel estável sem quebrar a barra lateral
-            with conteudo_painel:
-                st.caption("🔄 Atualizando lista...")
-
-    # Aciona a verificação em tempo real enviando o bloco fixado
-    monitorar_usuarios_online_sem_duplicados(container_usuarios_online)
+    try:
+        sh_on = conectar_google_sheets()
+        wks_online = sh_on.worksheet("Usuarios_Online")
+        users_on = wks_online.get_all_records()
+        if users_on:
+            st.sidebar.markdown("---")
+            st.sidebar.markdown("🟢 **Usuários Online**")
+            hoje_data = datetime.now(fuso_roraima).strftime("%d/%m/%Y")
+            for u in users_on:
+                if u['Ultimo_Acesso'].startswith(hoje_data):
+                    st.sidebar.caption(f"👤 {u['Usuario']}")
+    except:
+        pass
 
     st.sidebar.divider()
     
+    if st.sidebar.button("Registro", key="btn_desempenho", use_container_width=True):
+        st.session_state.pagina = "Registro"
+        st.rerun()
+
+    if st.sidebar.button("Ocorrências", key="btn_ocorrencias_nav", use_container_width=True):
+        st.session_state.pagina = "Ocorrencias"
+        st.rerun()
+
+    # NOVO LOCAL: Botão posicionado logo abaixo de Ocorrências
+    if st.sidebar.button('📅 Agendar Equipamentos', key="btn_agendar_equipamentos_nav", use_container_width=True):
+        st.session_state.pagina = 'Agendamento de Equipamentos'
+        st.rerun()
+
     # All logged-in users can see "Segurança" to change their own password
     if st.sidebar.button("Segurança", key="btn_seguranca", use_container_width=True):
         st.session_state.pagina = "Segurança"
@@ -1334,7 +1272,7 @@ else:
                             usuario_verificar = str(novo_usuario).strip().lower()
                             
                             # VALIDAÇÃO CRÍTICA: Impede se o nome de usuário (login) já existir
-                            if usuario_verificacao in usuarios_cadastrados:
+                            if usuario_verificar in usuarios_cadastrados:
                                 with col_msg_salvar:
                                     msg_placeholder_prof_err = st.empty()
                                     msg_placeholder_prof_err.error(f"❌ Não é possível cadastrar! O usuário '{novo_usuario}' já existe no sistema. Escolha outro nome de usuário para login.")
