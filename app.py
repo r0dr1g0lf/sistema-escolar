@@ -186,16 +186,16 @@ else:
     prof_nome = st.session_state.user_data['Professor']
     st.sidebar.markdown(f"<div style='text-align: center'>Professor: <b>{prof_nome}</b></div>", unsafe_allow_html=True)
     
-    # --- BLOCO DE MONITORAMENTO EM TEMPO REAL E AUTO-LIMPEZA DE DUPLICADOS ---
+# --- BLOCO DE MONITORAMENTO EM TEMPO REAL DE USUÁRIOS ONLINE (ANTI-REPETIÇÃO) ---
     st.sidebar.markdown("---")
     st.sidebar.markdown("🟢 **Usuários Online**")
     
-    # Container visual fixo onde a lista limpa e em tempo real será mostrada
+    # Container visual fixo onde a lista tratada e sem duplicados será desenhada
     container_usuarios_online = st.sidebar.container()
 
-    # Função isolada que roda a cada 2 segundos efetuando a limpeza e a exibição
+    # Função isolada que executa a cada 2 segundos atualizando apenas este bloco lateral
     @st.fragment(run_every=2)
-    def gerenciar_usuarios_online_tempo_real(conteudo_painel):
+    def monitorar_usuarios_online_sem_duplicados(conteudo_painel):
         try:
             sh_on = conectar_google_sheets()
             wks_online = sh_on.worksheet("Usuarios_Online")
@@ -204,20 +204,28 @@ else:
             agora_str = agora.strftime("%d/%m/%Y %H:%M:%S")
             user_atual = st.session_state.user_data['Usuario']
             
-            # 1. Busca os registros atuais para processar a limpeza na planilha
+            # 1. Atualiza o carimbo de tempo do próprio usuário ativo para manter o ping ativo
             dados_brutos = wks_online.get_all_records()
-            linhas_para_deletar = []
-            ja_vistos = set()
+            linha_usuario = None
+            for idx, r in enumerate(dados_brutos, start=2):
+                if str(r.get('Usuario', '')).strip() == user_atual:
+                    linha_usuario = idx
+                    break
             
-            # Percorre de baixo para cima (do mais recente ao mais antigo) para identificar duplicados e inativos
-            for idx in range(len(dados_brutos) - 1, -1, -1):
-                registro = dados_brutos[idx]
-                u_nome = str(registro.get('Usuario', '')).strip()
-                u_acesso = str(registro.get('Ultimo_Acesso', '')).strip()
-                numero_linha_sheet = idx + 2  # Cabeçalho está na linha 1
+            if linha_usuario:
+                wks_online.update_cell(linha_usuario, 2, agora_str)
+            else:
+                wks_online.append_row([user_atual, agora_str])
+                
+            # 2. Re-analisa os dados coletados filtrando inativos e removendo duplicados estritamente
+            dados_atualizados = wks_online.get_all_records()
+            professores_ativos_unicos = set()
+            
+            for r in dados_atualizados:
+                u_nome = str(r.get('Usuario', '')).strip()
+                u_acesso = str(r.get('Ultimo_Acesso', '')).strip()
                 
                 if not u_nome or not u_acesso:
-                    linhas_para_deletar.append(numero_linha_sheet)
                     continue
                     
                 try:
@@ -225,55 +233,27 @@ else:
                     timestamp_user = fuso_roraima.localize(timestamp_user)
                     diferenca_segundos = (agora - timestamp_user).total_seconds()
                     
-                    # Condição 1: Se o usuário já foi processado nesta rodada, este registro mais antigo é duplicado
-                    # Condição 2: Se o registro está inativo há mais de 15 segundos, está offline
-                    if u_nome in ja_vistos or diferenca_segundos > 15:
-                        linhas_para_deletar.append(numero_linha_sheet)
-                    else:
-                        ja_vistos.add(u_nome)
+                    # Se o usuário interagiu nos últimos 15 segundos, é elegível para aparecer
+                    if diferenca_segundos <= 15:
+                        professores_ativos_unicos.add(u_nome)
                 except:
-                    linhas_para_deletar.append(numero_linha_sheet)
+                    continue
             
-            # Executa a remoção física das linhas duplicadas ou inativas do Sheets
-            if linhas_para_deletar:
-                # Ordena do maior para o menor para não deslocar os índices durante a deleção
-                for linha_del in sorted(linhas_para_deletar, reverse=True):
-                    try:
-                        wks_online.delete_rows(linha_del)
-                    except:
-                        pass
+            # Garante que o próprio usuário conectado sempre apareça na sua lista
+            professores_ativos_unicos.add(user_atual)
             
-            # 2. Garante que o próprio usuário atual permaneça registrado e ativo
-            dados_apos_limpeza = wks_online.get_all_records()
-            linha_propria = None
-            for idx, r in enumerate(dados_apos_limpeza, start=2):
-                if str(r.get('Usuario', '')).strip() == user_atual:
-                    linha_propria = idx
-                    break
+            # 3. Desenha a listagem purificada dentro do container na tela (apenas uma ocorrência por nome)
+            with conteudo_painel:
+                for professor in sorted(list(professores_ativos_unicos)):
+                    st.caption(f"👤 {professor}")
                     
-            if linha_propria:
-                wks_online.update_cell(linha_propria, 2, agora_str)
-            else:
-                wks_online.append_row([user_atual, agora_str])
-                # Atualiza a lista local para inclusão imediata na tela
-                dados_apos_limpeza.append({'Usuario': user_atual, 'Ultimo_Acesso': agora_str})
-            
-            # 3. Renderiza os nomes únicos e higienizados na tela do professor
-            with conteudo_painel:
-                exibidos = set()
-                for r in dados_apos_limpeza:
-                    u_nome = str(r.get('Usuario', '')).strip()
-                    if u_nome and u_nome not in exibidos:
-                        st.caption(f"👤 {u_nome}")
-                        exibidos.add(u_nome)
-                        
         except Exception as e_sheets:
-            # Mantém a estabilidade visual da barra lateral caso ocorra oscilação na API do Google
+            # Caso a API do Google oscile, mantém o painel estável sem quebrar a barra lateral
             with conteudo_painel:
-                st.caption("🔄 Sincronizando rede...")
+                st.caption("🔄 Atualizando lista...")
 
-    # Invoca o gerenciador automático passando o container visual
-    gerenciar_usuarios_online_tempo_real(container_usuarios_online)
+    # Aciona a verificação em tempo real enviando o bloco fixado
+    monitorar_usuarios_online_sem_duplicados(container_usuarios_online)
 
     st.sidebar.divider()
     
