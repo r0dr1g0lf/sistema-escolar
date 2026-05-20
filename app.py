@@ -186,14 +186,14 @@ else:
     prof_nome = st.session_state.user_data['Professor']
     st.sidebar.markdown(f"<div style='text-align: center'>Professor: <b>{prof_nome}</b></div>", unsafe_allow_html=True)
     
-# --- BLOCO DE MONITORAMENTO EM TEMPO REAL DE USUÁRIOS ONLINE ---
+# --- BLOCO DE MONITORAMENTO EM TEMPO REAL DE USUÁRIOS ONLINE (SEM REPETIÇÃO) ---
     st.sidebar.markdown("---")
     st.sidebar.markdown("🟢 **Usuários Online**")
     
-    # Container visual fixo onde a lista de usuários será exibida e atualizada
+    # Container visual fixo onde a lista limpa de usuários será renderizada
     container_usuarios_online = st.sidebar.container()
 
-    # Função isolada que roda a cada 2 segundos nos bastidores atualizando apenas o container
+    # Função de atualização contínua isolada que roda a cada 2 segundos nos bastidores
     @st.fragment(run_every=2)
     def atualizar_painel_usuarios_online(conteudo_painel):
         try:
@@ -204,7 +204,7 @@ else:
             agora_str = agora.strftime("%d/%m/%Y %H:%M:%S")
             user_atual = st.session_state.user_data['Usuario']
             
-            # 1. Atualiza o carimbo de atividade do próprio usuário conectado
+            # 1. Registra ou atualiza o carimbo de atividade do usuário ativo no momento
             dados_on = wks_online.get_all_records()
             linha_usuario = None
             for idx, r in enumerate(dados_on, start=2):
@@ -217,30 +217,45 @@ else:
             else:
                 wks_online.append_row([user_atual, agora_str])
                 
-            # 2. Busca dados atualizados e filtra quem está online de verdade (últimos 15 segundos)
+            # 2. Busca dados e processa para remover duplicados, mantendo apenas o acesso mais recente
             dados_atualizados = wks_online.get_all_records()
+            ultimos_acessos_por_user = {}
             
-            with conteudo_painel:
-                for r in dados_atualizados:
-                    u_nome = str(r.get('Usuario', ''))
-                    u_acesso = str(r.get('Ultimo_Acesso', ''))
+            for r in dados_atualizados:
+                u_nome = str(r.get('Usuario', '')).strip()
+                u_acesso = str(r.get('Ultimo_Acesso', '')).strip()
+                
+                if not u_nome or not u_acesso:
+                    continue
                     
-                    try:
-                        timestamp_user = datetime.strptime(u_acesso, "%d/%m/%Y %H:%M:%S")
-                        timestamp_user = fuso_roraima.localize(timestamp_user)
-                        diferenca_segundos = (agora - timestamp_user).total_seconds()
+                try:
+                    timestamp_user = datetime.strptime(u_acesso, "%d/%m/%Y %H:%M:%S")
+                    timestamp_user = fuso_roraima.localize(timestamp_user)
+                    
+                    # Se o usuário já foi visto, substitui apenas se este registro for mais novo
+                    if u_nome in ultimos_acessos_por_user:
+                        if timestamp_user > ultimos_acessos_por_user[u_nome]:
+                            ultimos_acessos_por_user[u_nome] = timestamp_user
+                    else:
+                        ultimos_acessos_por_user[u_nome] = timestamp_user
+                except:
+                    continue
+            
+            # 3. Renderiza no painel apenas os usuários cujo acesso mais recente foi há menos de 15 segundos
+            with conteudo_painel:
+                for nome_professor, horario_mais_recente in ultimos_acessos_por_user.items():
+                    diferenca_segundos = (agora - horario_mais_recente).total_seconds()
+                    
+                    # Exibe o professor uma única vez se ele realizou ping nos últimos 15 segundos
+                    if diferenca_segundos <= 15:
+                        st.caption(f"👤 {nome_professor}")
                         
-                        # Exibe o usuário se ele realizou ping nos últimos 15 segundos
-                        if diferenca_segundos <= 15:
-                            st.caption(f"👤 {u_nome}")
-                    except:
-                        continue
         except Exception as e_sheets:
-            # Caso o Google Sheets falhe por instabilidade de rede, mantém os componentes visuais estáveis
+            # Mantém a estabilidade visual da barra lateral caso ocorra oscilação na API do Google
             with conteudo_painel:
                 st.caption("🔄 Atualizando lista...")
 
-    # Ativa o monitoramento em tempo real passando o container criado
+    # Ativa o monitoramento passando o container limpo
     atualizar_painel_usuarios_online(container_usuarios_online)
 
     st.sidebar.divider()
@@ -1315,7 +1330,7 @@ else:
                             usuario_verificar = str(novo_usuario).strip().lower()
                             
                             # VALIDAÇÃO CRÍTICA: Impede se o nome de usuário (login) já existir
-                            if usuario_verificar in usuarios_cadastrados:
+                            if usuario_verificacao in usuarios_cadastrados:
                                 with col_msg_salvar:
                                     msg_placeholder_prof_err = st.empty()
                                     msg_placeholder_prof_err.error(f"❌ Não é possível cadastrar! O usuário '{novo_usuario}' já existe no sistema. Escolha outro nome de usuário para login.")
