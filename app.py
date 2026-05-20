@@ -56,13 +56,16 @@ def carregar_agendamentos():
         return pd.DataFrame(), None
 
 def verificar_conflito(equipamento, data_uso, turno, horario):
+    # Se o sistema checar "Tablets", ele converte para buscar o nome antigo salvo na planilha
+    equipamento_real = "Tablets (Maleta)" if equipamento == "Tablets" else equipamento
+
     df_ag, _ = carregar_agendamentos()
     if df_ag.empty:
         return False
     
-    # Verifica se já existe agendamento para o mesmo item, dia, turno e aula
+    # Verifica se já existe agendamento usando o equipamento_real
     conflito = df_ag[
-        (df_ag['Equipamento'] == equipamento) & 
+        (df_ag['Equipamento'] == equipamento_real) & 
         (df_ag['Data_Uso'] == data_uso) & 
         (df_ag['Turno'] == turno) & 
         (df_ag['Horario'] == horario)
@@ -350,7 +353,8 @@ else:
                         itens_finais.extend(tipo_selecao)
                         
                         tipo_formatado = ", ".join(itens_finais)
-                        
+                       # Converte o nome visual para o nome da planilha antes de salvar
+                    equipamento_salvar = "Tablets (Maleta)" if equipamento == "Tablets" else equipamento 
                         nova_linha = [
                             datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
                             prof_nome,
