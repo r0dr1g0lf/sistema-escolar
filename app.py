@@ -186,13 +186,10 @@ else:
     prof_nome = st.session_state.user_data['Professor']
     st.sidebar.markdown(f"<div style='text-align: center'>Professor: <b>{prof_nome}</b></div>", unsafe_allow_html=True)
     
-# --- BLOCO DE USUÁRIOS ONLINE E BATE-PAPO EM TEMPO REAL ---
     try:
         sh_on = conectar_google_sheets()
         wks_online = sh_on.worksheet("Usuarios_Online")
         users_on = wks_online.get_all_records()
-        
-        lista_usuarios_online = []
         if users_on:
             st.sidebar.markdown("---")
             st.sidebar.markdown("🟢 **Usuários Online**")
@@ -200,82 +197,6 @@ else:
             for u in users_on:
                 if u['Ultimo_Acesso'].startswith(hoje_data):
                     st.sidebar.caption(f"👤 {u['Usuario']}")
-                    if u['Usuario'] != st.session_state.user_data['Usuario']:
-                        lista_usuarios_online.append(u['Usuario'])
-                    
-        # --- BATE-PAPO DINÂMICO COM ATUALIZAÇÃO AUTOMÁTICA ---
-        st.sidebar.markdown("---")
-        with st.sidebar.expander("💬 Bate-Papo da Escola", expanded=False):
-            try:
-                try:
-                    wks_chat = sh_on.worksheet("Chat_Mensagens")
-                except:
-                    wks_chat = sh_on.add_worksheet(title="Chat_Mensagens", rows="1500", cols="4")
-                    wks_chat.append_row(["Data_Hora", "Remetente", "Destinatario", "Mensagem"])
-                
-                # Seleção do destinatário (Todos ou um usuário específico)
-                opcoes_destino = ["Todos"] + sorted(lista_usuarios_online)
-                destino_sel = st.selectbox("Conversar com:", opcoes_destino, key="destino_chat")
-                
-                # Fragmento isolado para atualizar o chat a cada 2 segundos sem recarregar o app todo
-                @st.fragment(run_every=2)
-                def atualizar_mensagens_chat(wks_alvo, destino):
-                    try:
-                        mensagens_todas = wks_alvo.get_all_records()
-                    except:
-                        mensagens_todas = []
-                        
-                    user_logado = st.session_state.user_data['Usuario']
-                    mensagens_filtradas = []
-                    
-                    for m in mensagens_todas:
-                        rem = str(m.get('Remetente', ''))
-                        dest = str(m.get('Destinatario', ''))
-                        msg = str(m.get('Mensagem', ''))
-                        
-                        # Regra de exibição das mensagens filtradas
-                        if dest == "Todos" and destino == "Todos":
-                            mensagens_filtradas.append((rem, msg, False))
-                        elif dest == destino and rem == user_logado and destino != "Todos":
-                            mensagens_filtradas.append(("Você (Reservado)", msg, True))
-                        elif dest == user_logado and rem == destino and destino != "Todos":
-                            mensagens_filtradas.append((rem, msg, True))
-                    
-                    # Exibe as últimas 12 mensagens do canal selecionado
-                    st.markdown(f"**Mensagens ({destino}):**")
-                    box_mensagens = st.container(height=180)
-                    with box_mensagens:
-                        ultimas_visiveis = mensagens_filtradas[-12:] if mensagens_filtradas else []
-                        if ultimas_visiveis:
-                            for remetente, mensagem, eh_privado in ultimas_visiveis:
-                                if "Você" in remetente:
-                                    st.markdown(f"**{remetente}:** {mensagem}")
-                                elif eh_privado:
-                                    st.markdown(f"🔒 *{remetente}:* {mensagem}")
-                                else:
-                                    st.markdown(f"*{remetente}:* {mensagem}")
-                        else:
-                            st.caption("Nenhuma mensagem neste canal...")
-                            
-                # Chama a função de atualização em tempo real
-                atualizar_mensagens_chat(wks_chat, destino_sel)
-                
-                # Formulário de envio de mensagens
-                with st.form("form_enviar_chat", clear_on_submit=True):
-                    texto_msg = st.text_input("Sua mensagem", key="input_msg_chat", label_visibility="collapsed")
-                    btn_enviar_msg = st.form_submit_button("Enviar 🚀", use_container_width=True)
-                    
-                    if btn_enviar_msg and texto_msg.strip() != "":
-                        nova_msg_linha = [
-                            datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
-                            st.session_state.user_data['Usuario'],
-                            destino_sel,
-                            texto_msg.strip()
-                        ]
-                        wks_chat.append_row(nova_msg_linha)
-                        st.rerun()
-            except Exception as e_chat:
-                st.caption(f"Erro no chat: {e_chat}")
     except:
         pass
 
