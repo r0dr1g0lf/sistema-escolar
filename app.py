@@ -1593,12 +1593,12 @@ else:
                         if periodo_selecionado == "Matutino":
                             tempos_disponiveis = [
                                 "1º Tempo (Matutino)", "2º Tempo (Matutino)", 
-                                "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)"
+                                "3º Tempo (Matutino)", "4º Tempo (Matutino)"
                             ]
                         else: # Vespertino
                             tempos_disponiveis = [
                                 "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", 
-                                "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"
+                                "3º Tempo (Vespertino)", "4º Tempo (Vespertino)"
                             ]
                         tempo_aula = st.selectbox("Tempo de Aula:", tempos_disponiveis, key="agend_tempo")
                         
