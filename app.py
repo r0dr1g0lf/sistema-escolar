@@ -1583,9 +1583,10 @@ else:
                         
                         recurso_selecionado = st.selectbox("Selecione o Recurso", recursos_interface)
                         
-                        # Se selecionar Tablets, exibe a opção de quantidade de 1 a 30
+                        # Se selecionar Tablets, exibe um menu suspenso para selecionar a quantidade de 1 a 30
                         if recurso_selecionado == "Tablets":
-                            qtd_tablets = st.number_input("Selecione a quantidade de Tablets (1 a 30)", min_value=1, max_value=30, value=1, step=1)
+                            opcoes_qtd = list(range(1, 31))  # Cria a lista de 1 a 30
+                            qtd_tablets = st.selectbox("Selecione a quantidade de Tablets", opcoes_qtd)
                             recurso = f"Tablets (Maleta) - Qtd: {qtd_tablets}"
                         else:
                             recurso = recurso_selecionado
