@@ -632,7 +632,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrencias":
+    elif pagina_atual == "Ocorrências":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -1572,22 +1572,19 @@ else:
                         # Novo campo para selecionar o período logo abaixo da turma
                         periodo_selecionado = st.selectbox("Selecione o Período:", ["Matutino", "Vespertino"], key="agend_periodo")
                         
-                        # Lista de equipamentos com a Caixa de som incluída
-                        equipamentos_disponiveis = ["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"]
-                        equipamento_selecionado = st.selectbox("Selecione o Equipamento:", equipamentos_disponiveis, key="agend_equip")
+                        # Lista de recursos visível para os professores na interface
+                        recursos_interface = [
+                            "Chromebooks", 
+                            "Tablets", 
+                            "Data Show / Caixa de Som", 
+                            "Laboratório de Ciências", 
+                            "Espaço Maker"
+                        ]
                         
-                        # Verificação dos Tablets alterada para menu de seleção (selectbox) de 1 a 30
-                        if "Tablets" in equipamento_selecionado:
-                            opcoes_quantidade = list(range(1, 31))  # Cria a lista de 1 a 30
-                            quantidade_tablets = st.selectbox(
-                                "Selecione a quantidade de Tablets (1 a 30)", 
-                                options=opcoes_quantidade,
-                                index=0,  # Começa marcado no número 1
-                                key="agend_qtd_tablets"
-                            )
-                            equipamento = f"Tablets (Maleta) ({quantidade_tablets} unidades)"
-                        else:
-                            equipamento = equipamento_selecionado
+                        recurso_selecionado = st.selectbox("Selecione o Recurso", recursos_interface)
+                        
+                        # Conversão interna: Se o professor escolheu "Tablets", o sistema trata como "Tablets (Maleta)"
+                        recurso = "Tablets (Maleta)" if recurso_selecionado == "Tablets" else recurso_selecionado
                         
                         # Filtra os horários disponíveis com base no período selecionado
                         if periodo_selecionado == "Matutino":
@@ -1636,7 +1633,7 @@ else:
                                 df_agendados = pd.DataFrame(dados_agendados)
                                 # Verifica se o mesmo equipamento já está reservado no mesmo dia e tempo
                                 filtro_conflito = df_agendados[
-                                    (df_agendados["Equipamento"] == equipamento) & 
+                                    (df_agendados["Equipamento"] == recurso) & 
                                     (df_agendados["Data Uso"] == data_uso_formatada) & 
                                     (df_agendados["Tempo"] == tempo_aula)
                                 ]
@@ -1644,19 +1641,19 @@ else:
                                     conflito = True
                             
                             if conflito:
-                                st.error(f"❌ Não é possível agendar! O equipamento '{equipamento}' já está reservado para o dia {data_uso_formatada} no {tempo_aula}.")
+                                st.error(f"❌ Não é possível agendar! O equipamento '{recurso}' já está reservado para o dia {data_uso_formatada} no {tempo_aula}.")
                             else:
                                 # Registra a nova linha se estiver livre
                                 wks_a.append_row([
                                     str(nome_professor_logado),
                                     str(turma_selecionada),
-                                    str(equipamento),
+                                    str(recurso),
                                     str(data_registro),
                                     str(data_uso_formatada),
                                     str(tempo_aula),
                                     str(observacoes)
                                 ])
-                                st.success(f"✅ Agendamento de {equipamento} realizado com sucesso!")
+                                st.success(f"✅ Agendamento de {recurso} realizado com sucesso!")
                                 st.cache_data.clear()
                                 time.sleep(1.5)
                                 st.rerun()
