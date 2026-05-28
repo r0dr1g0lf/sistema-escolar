@@ -632,7 +632,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrências":
+    elif pagina_atual == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -1572,24 +1572,22 @@ else:
                         # Novo campo para selecionar o período logo abaixo da turma
                         periodo_selecionado = st.selectbox("Selecione o Período:", ["Matutino", "Vespertino"], key="agend_periodo")
                         
-                        # Lista de recursos exata solicitada pelo usuário
-                        recursos_interface = [
-                            "Notebook", 
-                            "Datashow", 
-                            "Caixa de som", 
-                            "Smart TV", 
-                            "Tablets"
-                        ]
+                        # Lista de equipamentos com a Caixa de som incluída
+                        equipamentos_disponiveis = ["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"]
+                        equipamento_selecionado = st.selectbox("Selecione o Equipamento:", equipamentos_disponiveis, key="agend_equip")
                         
-                        recurso_selecionado = st.selectbox("Selecione o Recurso", recursos_interface)
-                        
-                        # Se selecionar Tablets, exibe um menu suspenso para selecionar a quantidade de 1 a 30
-                        if recurso_selecionado == "Tablets":
-                            opcoes_qtd = list(range(1, 31))  # Cria a lista de 1 a 30
-                            qtd_tablets = st.selectbox("Selecione a quantidade de Tablets", opcoes_qtd)
-                            recurso = f"Tablets (Maleta) - Qtd: {qtd_tablets}"
+                        # Verificação dos Tablets alterada para menu de seleção (selectbox) de 1 a 30
+                        if "Tablets" in equipamento_selecionado:
+                            opcoes_quantidade = list(range(1, 31))  # Cria a lista de 1 a 30
+                            quantidade_tablets = st.selectbox(
+                                "Selecione a quantidade de Tablets (1 a 30)", 
+                                options=opcoes_quantidade,
+                                index=0,  # Começa marcado no número 1
+                                key="agend_qtd_tablets"
+                            )
+                            equipamento = f"Tablets (Maleta) ({quantidade_tablets} unidades)"
                         else:
-                            recurso = recurso_selecionado
+                            equipamento = equipamento_selecionado
                         
                         # Filtra os horários disponíveis com base no período selecionado
                         if periodo_selecionado == "Matutino":
@@ -1638,7 +1636,7 @@ else:
                                 df_agendados = pd.DataFrame(dados_agendados)
                                 # Verifica se o mesmo equipamento já está reservado no mesmo dia e tempo
                                 filtro_conflito = df_agendados[
-                                    (df_agendados["Equipamento"] == recurso) & 
+                                    (df_agendados["Equipamento"] == equipamento) & 
                                     (df_agendados["Data Uso"] == data_uso_formatada) & 
                                     (df_agendados["Tempo"] == tempo_aula)
                                 ]
@@ -1646,19 +1644,19 @@ else:
                                     conflito = True
                             
                             if conflito:
-                                st.error(f"❌ Não é possível agendar! O equipamento '{recurso}' já está reservado para o dia {data_uso_formatada} no {tempo_aula}.")
+                                st.error(f"❌ Não é possível agendar! O equipamento '{equipamento}' já está reservado para o dia {data_uso_formatada} no {tempo_aula}.")
                             else:
                                 # Registra a nova linha se estiver livre
                                 wks_a.append_row([
                                     str(nome_professor_logado),
                                     str(turma_selecionada),
-                                    str(recurso),
+                                    str(equipamento),
                                     str(data_registro),
                                     str(data_uso_formatada),
                                     str(tempo_aula),
                                     str(observacoes)
                                 ])
-                                st.success(f"✅ Agendamento de {recurso} realizado com sucesso!")
+                                st.success(f"✅ Agendamento de {equipamento} realizado com sucesso!")
                                 st.cache_data.clear()
                                 time.sleep(1.5)
                                 st.rerun()
@@ -1692,7 +1690,7 @@ else:
                         df_exibicao = df_tabela.copy()
                     
                     # Filtro por equipamento
-                    filtro_equip = st.multiselect("Filtrar por Equipamento:", options=["Notebook", "Datashow", "Caixa de som", "Smart TV", "Tablets (Maleta) - Qtd: 1", "Tablets (Maleta) - Qtd: 2", "Tablets (Maleta) - Qtd: 3", "Tablets (Maleta) - Qtd: 4", "Tablets (Maleta) - Qtd: 5", "Tablets (Maleta) - Qtd: 6", "Tablets (Maleta) - Qtd: 7", "Tablets (Maleta) - Qtd: 8", "Tablets (Maleta) - Qtd: 9", "Tablets (Maleta) - Qtd: 10", "Tablets (Maleta) - Qtd: 11", "Tablets (Maleta) - Qtd: 12", "Tablets (Maleta) - Qtd: 13", "Tablets (Maleta) - Qtd: 14", "Tablets (Maleta) - Qtd: 15", "Tablets (Maleta) - Qtd: 16", "Tablets (Maleta) - Qtd: 17", "Tablets (Maleta) - Qtd: 18", "Tablets (Maleta) - Qtd: 19", "Tablets (Maleta) - Qtd: 20", "Tablets (Maleta) - Qtd: 21", "Tablets (Maleta) - Qtd: 22", "Tablets (Maleta) - Qtd: 23", "Tablets (Maleta) - Qtd: 24", "Tablets (Maleta) - Qtd: 25", "Tablets (Maleta) - Qtd: 26", "Tablets (Maleta) - Qtd: 27", "Tablets (Maleta) - Qtd: 28", "Tablets (Maleta) - Qtd: 29", "Tablets (Maleta) - Qtd: 30"], default=[], key="adm_filtro_equip")
+                    filtro_equip = st.multiselect("Filtrar por Equipamento:", options=["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"], default=[], key="adm_filtro_equip")
                     if filtro_equip:
                         df_exibicao = df_exibicao[df_exibicao["Equipamento"].isin(filtro_equip)]
 
@@ -1749,26 +1747,21 @@ else:
                                     dado_antigo = selected_row_data # Use selected_row_data
                                     
                                     # Updated options for editing equipment
-                                    equipamentos_edit_opcoes = ["Notebook", "Datashow", "Caixa de som", "Smart TV", "Tablets"]
+                                    equipamentos_edit_opcoes = ["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"]
                                     
                                     # Determine initial index for selectbox
-                                    # Extract base name for comparison
-                                    current_equip_base = dado_antigo["Equipamento"].split(" - Qtd:")[0].strip()
-                                    if current_equip_base == "Tablets (Maleta)":
-                                        current_equip_base = "Tablets" # Map back to the interface option
-                                    
                                     try:
-                                        initial_equip_index = next(i for i, opt in enumerate(equipamentos_edit_opcoes) if opt == current_equip_base)
+                                        initial_equip_index = next(i for i, opt in enumerate(equipamentos_edit_opcoes) if opt in dado_antigo["Equipamento"])
                                     except StopIteration:
                                         initial_equip_index = 0 # Default to first option if not found
                                         
                                     novo_equip_raw = st.selectbox("Novo Equipamento:", equipamentos_edit_opcoes, index=initial_equip_index, key="ed_eq")
                                     
                                     novo_equip_final = novo_equip_raw
-                                    if novo_equip_raw == "Tablets":
+                                    if "Tablets" in novo_equip_raw:
                                         # Extract current quantity if it exists in the string, otherwise default to 1
                                         import re
-                                        match = re.search(r'Qtd:\s*(\d+)', dado_antigo["Equipamento"])
+                                        match = re.search(r'\((\d+)\sunidades\)', dado_antigo["Equipamento"])
                                         current_qty = int(match.group(1)) if match else 1
                                         
                                         edit_quantidade_tablets = st.number_input(
@@ -1779,7 +1772,7 @@ else:
                                             step=1,
                                             key="ed_qtd_tablets"
                                         )
-                                        novo_equip_final = f"Tablets (Maleta) - Qtd: {edit_quantidade_tablets}"
+                                        novo_equip_final = f"Tablets (Maleta) ({edit_quantidade_tablets} unidades)"
                                     
                                     novo_tempo = st.selectbox("Novo Tempo:", ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"], index=["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"].index(dado_antigo["Tempo"]), key="ed_tp")
                                     nova_observacao = st.text_area("Novas Observações:", value=dado_antigo["Observacoes"], key="ed_obs") # Added new text_area for editing
@@ -1826,5 +1819,3 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
