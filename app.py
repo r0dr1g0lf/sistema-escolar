@@ -1572,18 +1572,18 @@ else:
                         # Novo campo para selecionar o período logo abaixo da turma
                         periodo_selecionado = st.selectbox("Selecione o Período:", ["Matutino", "Vespertino"], key="agend_periodo")
                         
-                        # Lista de recursos visível para os professores na interface
+                        # Lista de recursos exata solicitada pelo usuário
                         recursos_interface = [
-                            "Chromebooks", 
-                            "Tablets", 
-                            "Data Show / Caixa de Som", 
-                            "Laboratório de Ciências", 
-                            "Espaço Maker"
+                            "Notebook", 
+                            "Datashow", 
+                            "Caixa de som", 
+                            "Smart TV", 
+                            "Tablets"
                         ]
                         
                         recurso_selecionado = st.selectbox("Selecione o Recurso", recursos_interface)
                         
-                        # Conversão interna: Se o professor escolheu "Tablets", o sistema trata como "Tablets (Maleta)"
+                        # Conversão interna para manter a compatibilidade com "Tablets (Maleta)"
                         recurso = "Tablets (Maleta)" if recurso_selecionado == "Tablets" else recurso_selecionado
                         
                         # Filtra os horários disponíveis com base no período selecionado
