@@ -632,7 +632,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrências":
+    elif pagina_atual == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -1566,8 +1566,7 @@ else:
                         "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", 
                         "3º Tempo (Vespertino)", "4º Tempo (Vespertino)"
                     ]
-                # ALTERAÇÃO: Agora é multiselect para permitir selecionar vários tempos
-                tempo_aula = st.multiselect("Tempo(s) de Aula:", tempos_disponiveis, key="agend_tempo")
+                tempo_aula = st.selectbox("Tempo de Aula:", tempos_disponiveis, key="agend_tempo")
                 
             with col2:
                 data_registro = datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S")
@@ -1582,8 +1581,8 @@ else:
             if btn_agendar:
                 if not turma_selecionada:
                     st.error("⚠️ Por favor, selecione uma turma antes de prosseguir.")
-                elif not tempo_aula:
-                    st.error("⚠️ Por favor, selecione ao menos um tempo de aula.")
+                elif verificar_conflito(equipamento, data_uso_formatada, periodo_selecionado, tempo_aula):
+                    st.error(f"❌ Não foi possível agendar! O equipamento '{equipamento}' já está reservado para o dia {data_uso_formatada} no {tempo_aula}.")
                 else:
                     try:
                         sh = conectar_google_sheets()
@@ -1593,33 +1592,19 @@ else:
                             wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7")
                             wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo", "Observacoes"])
                         
-                        # Primeiro valida se há conflito em ALGUM dos tempos selecionados
-                        houve_conflito = False
-                        tempos_com_conflito = []
-                        for tempo in tempo_aula:
-                            if verificar_conflito(equipamento, data_uso_formatada, periodo_selecionado, tempo):
-                                houve_conflito = True
-                                tempos_com_conflito.append(tempo)
-                        
-                        if houve_conflito:
-                            conflitos_str = ", ".join(tempos_com_conflito)
-                            st.error(f"❌ Não foi possível agendar! O equipamento '{equipamento}' já está reservado no dia {data_uso_formatada} para o(s) tempo(s): {conflitos_str}.")
-                        else:
-                            # Se tudo estiver livre, salva cada tempo selecionado em linhas separadas
-                            for tempo in tempo_aula:
-                                wks_a.append_row([
-                                    str(nome_professor_logado),
-                                    str(turma_selecionada),
-                                    str(equipamento),
-                                    str(data_registro),
-                                    str(data_uso_formatada),
-                                    str(tempo),
-                                    str(observacoes)
-                                ])
-                            st.success(f"✅ Agendamento de {equipamento} realizado com sucesso para os tempos: {', '.join(tempo_aula)}!")
-                            st.cache_data.clear()
-                            time.sleep(1.5)
-                            st.rerun()
+                        wks_a.append_row([
+                            str(nome_professor_logado),
+                            str(turma_selecionada),
+                            str(equipamento),
+                            str(data_registro),
+                            str(data_uso_formatada),
+                            str(tempo_aula),
+                            str(observacoes)
+                        ])
+                        st.success(f"✅ Agendamento de {equipamento} realizado com sucesso!")
+                        st.cache_data.clear()
+                        time.sleep(1.5)
+                        st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao salvar os dados na planilha: {e}")
 
@@ -1772,3 +1757,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
