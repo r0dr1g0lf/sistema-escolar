@@ -1635,6 +1635,7 @@ else:
                     # Se as colunas vierem do dicionário do Sheets, reconstrói com segurança
                     for col in colunas_ordenadas:
                         if col not in df_tabela.columns:
+                            # Caso as chaves estejam com nomes ligeiramente diferentes por conta do gspread
                             mapeamento_chaves = {
                                 "Professor": "Professor", "Turma": "Turma", "Equipamento": "Equipamento",
                                 "Data Registro": "Data Registro", "Data_Registro": "Data Registro",
@@ -1645,11 +1646,6 @@ else:
                             break
 
                     df_exibicao = df_tabela[["Data Uso", "Tempo", "Equipamento", "Turma", "Professor", "Data Registro", "Observacoes", "linha_sheets"]].copy()
-                    
-                    # Tratamento Visual: Remove o "(Maleta) (X unidades)" para exibir apenas "Tablets" na tabela dos professores
-                    df_exibicao["Equipamento"] = df_exibicao["Equipamento"].astype(str).apply(
-                        lambda x: "Tablets" if x.startswith("Tablets (Maleta)") else x
-                    )
                     
                     # Filtros dinâmicos superiores
                     col_filt1, col_filt2, col_filt3 = st.columns(3)
@@ -1667,8 +1663,7 @@ else:
                         df_exibicao = df_exibicao[df_exibicao["Professor"].astype(str) == filtro_prof]
                     if filtro_eq != "Todos":
                         if filtro_eq == "Tablets":
-                            # Garante que o filtro funcione buscando o termo limpo "Tablets"
-                            df_exibicao = df_exibicao[df_exibicao["Equipamento"].astype(str) == "Tablets"]
+                            df_exibicao = df_exibicao[df_exibicao["Equipamento"].astype(str).str.contains("Tablets", na=False)]
                         else:
                             df_exibicao = df_exibicao[df_exibicao["Equipamento"].astype(str) == filtro_eq]
                     if filtro_turma_v != "Todas":
@@ -1682,10 +1677,9 @@ else:
                         st.markdown("---")
                         st.markdown("🛠️ **Painel de Controle de Agendamentos (Administrador)**")
                         
-                        # No painel do ADM, mostra o nome original da tabela bruta para ele saber qual linha alterar
                         opcoes_gerenciamento = [
                             f"Linha {row['linha_sheets']}: {row['Data Uso']} - {row['Tempo']} | {row['Equipamento']} ({row['Professor']})"
-                            for _, row in df_tabela.iterrows() if row['linha_sheets'] in df_exibicao['linha_sheets'].values
+                            for _, row in df_exibicao.iterrows()
                         ]
                         
                         selecionado_gerenciar = st.selectbox("Selecione um agendamento para Modificar ou Remover:", [""] + opcoes_gerenciamento, key="selecao_gerenciar_equip")
@@ -1772,3 +1766,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
