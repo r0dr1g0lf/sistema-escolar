@@ -650,7 +650,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrências":
+    elif pagina_atual == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -1538,106 +1538,149 @@ else:
                                     st.error(f"Erro: {e}")
 
     elif pagina_atual == "Agendamento de Equipamentos":
-        st.title("📅 Agendamento de Equipamentos")
+        st.title("📅 Gerenciamento de Equipamentos")
+        st.subheader("Escola Diva Lima")
         
-        aba_agendar, aba_visualizar = st.tabs(["📝 Realizar Agendamento", "📋 Visualizar Agendamentos"])
+        # 1. Identifica o professor logado com segurança
+        usuario_logado = st.session_state.user_data['Usuario']
+        nome_professor_logado = st.session_state.user_data['Professor']
+        st.info(f"👤 **Usuário Conectado:** {nome_professor_logado}")
+        
+        # Criação das duas abas na interface
+        aba_cadastrar, aba_visualizar = st.tabs(["🆕 Realizar Agendamento", "📋 Visualizar Agendamentos"])
         
         # ---------------------------------------------------------------------
         # ABA 1: FORMULÁRIO DE CADASTRO DE AGENDAMENTO
         # ---------------------------------------------------------------------
-        with aba_agendar:
-            st.markdown("### 📝 Nova Reserva de Equipamento")
+        with aba_cadastrar:
+            st.subheader("🗓️ Realizar Agendamento de Equipamento")
             
-            nome_professor_logado = st.session_state.user_data['Professor']
-            todas_turmas_cadastradas = sorted(df_alunos['Turma'].unique().astype(str))
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                turma_selecionada = st.selectbox("Selecione a Turma:", [""] + todas_turmas_cadastradas, key="agend_turma")
-                periodo_selecionado = st.selectbox("Selecione o Turno:", ["Matutino", "Vespertino"], key="agend_periodo")
+            # Trava de Segurança: Apenas ADM MASTER acessa durante a manutenção
+            if not st.session_state.get('is_master_admin', False):
+                st.info("🛠️ **Sistema em Manutenção Preventiva**\n\nEstamos atualizando a ferramenta de agendamentos para trazer melhorias! O recurso estará liberado para todos os professores em breve. Agradecemos a compreensão.")
+            else:
+                st.warning("⚡ **Acesso Administrativo Ativo:** Você está visualizando esta aba porque está logado como ADM MASTER durante os testes de atualização.")
                 
-                equipamentos_disponiveis = ["Tablets", "TV", "Datashow", "Notebook", "Caixa de som"]
-                equipamento_selecionado = st.selectbox("Selecione o Equipamento:", equipamentos_disponiveis, key="agend_equip")
-                
-                if equipamento_selecionado == "Tablets":
-                    opcoes_quantidade = list(range(1, 31))
-                    quantidade_tablets = st.selectbox(
-                        "Selecione a quantidade de Tablets (1 a 30)",
-                        options=opcoes_quantidade,
-                        index=0,
-                        key="agend_qtd_tablets"
-                    )
-                    equipamento = f"Tablets (Maleta) ({quantidade_tablets} unidades)"
+                # 2. Carrega as turmas vinculadas ao professor logado para evitar componentes vazios
+                try:
+                    sh = conectar_google_sheets()
+                    df_p = pd.DataFrame(sh.worksheet("Config_Professores").get_all_records())
+                    
+                    # Filtra na tabela onde a coluna Usuario bate com o professor logado
+                    dados_prof = df_p[df_p["Usuario"] == usuario_logado]
+                    # Como estamos no bloco de 'is_master_admin', sempre mostra todas as turmas
+                    df_a = pd.DataFrame(sh.worksheet("Config_Alunos").get_all_records())
+                    if "Turma" in df_a.columns:
+                        turmas_disponiveis = sorted(df_a["Turma"].dropna().unique().tolist())
+                    else:
+                        turmas_disponiveis = ["Regular A", "Regular B"] # Fallback
+                except Exception as e:
+                    st.error(f"Erro ao carregar turmas: {e}")
+                    turmas_disponiveis = ["Erro ao carregar turmas"]
+
+                if not turmas_disponiveis or turmas_disponiveis == ["Erro ao carregar turmas"]:
+                    st.warning("⚠️ Não foi possível carregar as turmas. Por favor, verifique a configuração ou tente novamente.")
                 else:
-                    equipamento = equipamento_selecionado
-                
-                if periodo_selecionado == "Matutino":
-                    tempos_disponiveis = [
-                        "1º Tempo (Matutino)", "2º Tempo (Matutino)", 
-                        "3º Tempo (Matutino)", "4º Tempo (Matutino)"
-                    ]
-                else:
-                    tempos_disponiveis = [
-                        "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", 
-                        "3º Tempo (Vespertino)", "4º Tempo (Vespertino)"
-                    ]
-                # ALTERAÇÃO: Agora usa multiselect para permitir a escolha de vários tempos juntos
-                tempo_aula = st.multiselect("Tempo(s) de Aula:", tempos_disponiveis, key="agend_tempo")
-                
-            with col2:
-                data_registro = datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S")
-                data_uso = st.date_input("Data de Uso do Equipamento:", format="DD/MM/YYYY", key="agend_data_uso")
-                data_uso_formatada = data_uso.strftime("%d/%m/%Y")
-                
-                observacoes = st.text_area("Observações / Detalhes adicionais:", placeholder="Ex: Uso para atividade prática de pesquisa.", key="agend_obs")
-                
-                st.markdown("<br>", unsafe_allow_html=True)
-                btn_agendar = st.button("🚀 CONFIRMAR AGENDAMENTO", use_container_width=True, type="primary")
-            
-            if btn_agendar:
-                if not turma_selecionada:
-                    st.error("⚠️ Por favor, selecione uma turma antes de prosseguir.")
-                elif not tempo_aula:
-                    st.error("⚠️ Por favor, selecione ao menos um tempo de aula.")
-                else:
-                    try:
-                        sh = conectar_google_sheets()
-                        try:
-                            wks_a = sh.worksheet("Agendamentos_Equipamentos") # Corrigido para o nome da aba consistente
-                        except:
-                            wks_a = sh.add_worksheet(title="Agendamentos_Equipamentos", rows="1000", cols="7")
-                            wks_a.append_row(["Data_Registro", "Equipamento", "Professor", "Data_Uso", "Turno", "Horario", "Observacao"]) # Corrigido para os cabeçalhos consistentes
+                    # Componentes visuais organizados
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        turma_selecionada = st.selectbox("Selecione a Turma:", turmas_disponiveis, key="agend_turma")
                         
-                        # Loop preventivo para validar se existe conflito em algum dos horários selecionados
-                        houve_conflito = False
-                        tempos_com_conflito = []
-                        for tempo in tempo_aula:
-                            if verificar_conflito(equipamento, data_uso_formatada, periodo_selecionado, tempo):
-                                houve_conflito = True
-                                tempos_com_conflito.append(tempo)
+                        # Novo campo para selecionar o período logo abaixo da turma
+                        periodo_selecionado = st.selectbox("Selecione o Período:", ["Matutino", "Vespertino"], key="agend_periodo")
                         
-                        if houve_conflito:
-                            conflitos_str = ", ".join(tempos_com_conflito)
-                            st.error(f"❌ Não foi possível agendar! O equipamento '{equipamento}' já está reservado no dia {data_uso_formatada} para o(s) tempo(s): {conflitos_str}.")
+                        # Lista de equipamentos com a Caixa de som incluída
+                        equipamentos_disponiveis = ["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"]
+                        equipamento_selecionado = st.selectbox("Selecione o Equipamento:", equipamentos_disponiveis, key="agend_equip")
+                        
+                        # Verificação dos Tablets alterada para menu de seleção (selectbox) de 1 a 30
+                        if "Tablets" in equipamento_selecionado:
+                            opcoes_quantidade = list(range(1, 31))  # Cria a lista de 1 a 30
+                            quantidade_tablets = st.selectbox(
+                                "Selecione a quantidade de Tablets (1 a 30)", 
+                                options=opcoes_quantidade,
+                                index=0,  # Começa marcado no número 1
+                                key="agend_qtd_tablets"
+                            )
+                            equipamento = f"Tablets (Maleta) ({quantidade_tablets} unidades)"
                         else:
-                            # Se todos estiverem livres, salva cada tempo individualmente como uma linha na planilha
-                            for tempo in tempo_aula:
+                            equipamento = equipamento_selecionado
+                        
+                        # Filtra os horários disponíveis com base no período selecionado
+                        if periodo_selecionado == "Matutino":
+                            tempos_disponiveis = [
+                                "1º Tempo (Matutino)", "2º Tempo (Matutino)", 
+                                "3º Tempo (Matutino)", "4º Tempo (Matutino)"
+                            ]
+                        else: # Vespertino
+                            tempos_disponiveis = [
+                                "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", 
+                                "3º Tempo (Vespertino)", "4º Tempo (Vespertino)"
+                            ]
+                        tempo_aula = st.selectbox("Tempo de Aula:", tempos_disponiveis, key="agend_tempo")
+                        
+                    with col2:
+                        # Data de Registro automática capturada do Relógio do Sistema Operacional
+                        data_registro = datetime.now(fuso_roraima).strftime("%d/%m/%Y")
+                        st.text_input("Data de Registro (Hoje):", value=data_registro, disabled=True, key="agend_reg")
+                        
+                        # Data de Uso usando o seletor de calendário nativo do Streamlit
+                        data_uso = st.date_input("Data de Uso do Equipamento:", value=data_atual, format="DD/MM/YYYY", key="agend_uso")
+                        data_uso_formatada = data_uso.strftime("%d/%m/%Y")
+
+                    # Novo campo para o professor digitar o objetivo ou observações
+                    observacoes = st.text_area("Objetivo / Observações sobre o agendamento", placeholder="Ex: Aula prática sobre o conteúdo X / Uso dos tablets para pesquisa em grupo...")
+
+                    st.markdown("---")
+                    
+                    # Botão para processar e salvar no banco de dados do Sheets
+                    if st.button("💾 Confirmar Agendamento do Equipamento", use_container_width=True, key="btn_confirmar_agendamento"):
+                        try:
+                            sh = conectar_google_sheets()
+                            
+                            # Tenta acessar ou cria a aba de agendamentos caso ela não exista na planilha
+                            try:
+                                wks_a = sh.worksheet("Config_Agendamentos")
+                            except:
+                                wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7") # Changed cols to 7
+                                wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo", "Observacoes"]) # Added "Observacoes"
+                            
+                            # Verifica duplicidade (Evita conflito de agendamento do mesmo equipamento no mesmo dia/tempo)
+                            dados_agendados = wks_a.get_all_records()
+                            conflito = False
+                            
+                            if dados_agendados:
+                                df_agendados = pd.DataFrame(dados_agendados)
+                                # Verifica se o mesmo equipamento já está reservado no mesmo dia e tempo
+                                filtro_conflito = df_agendados[
+                                    (df_agendados["Equipamento"] == equipamento) & 
+                                    (df_agendados["Data Uso"] == data_uso_formatada) & 
+                                    (df_agendados["Tempo"] == tempo_aula)
+                                ]
+                                if not filtro_conflito.empty:
+                                    conflito = True
+                            
+                            if conflito:
+                                st.error(f"❌ Não é possível agendar! O equipamento '{equipamento}' já está reservado para o dia {data_uso_formatada} no {tempo_aula}.")
+                            else:
+                                # Registra a nova linha se estiver livre
                                 wks_a.append_row([
-                                    str(data_registro),
-                                    str(equipamento),
                                     str(nome_professor_logado),
+                                    str(turma_selecionada),
+                                    str(equipamento),
+                                    str(data_registro),
                                     str(data_uso_formatada),
-                                    str(periodo_selecionado),
-                                    str(tempo),
+                                    str(tempo_aula),
                                     str(observacoes)
                                 ])
-                            st.success(f"✅ Agendamento de {equipamento} realizado com sucesso para o(s) tempo(s): {', '.join(tempo_aula)}!")
-                            st.cache_data.clear()
-                            time.sleep(1.5)
-                            st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao salvar os dados na planilha: {e}")
+                                st.success(f"✅ Agendamento de {equipamento} realizado com sucesso!")
+                                st.cache_data.clear()
+                                time.sleep(1.5)
+                                st.rerun()
+                                
+                        except Exception as e:
+                            st.error(f"Erro ao salvar os dados na planilha: {e}")
 
         # ---------------------------------------------------------------------
         # ABA 2: TABELA DE VISUALIZAÇÃO E GERENCIAMENTO (ADM)
@@ -1647,17 +1690,18 @@ else:
             st.write("Consulte e gerencie abaixo a lista completa de agendamentos realizados:")
             
             try:
-                # Usa a função carregar_agendamentos para obter o DataFrame e a worksheet
-                df_tabela, wks_a = carregar_agendamentos()
+                sh = conectar_google_sheets()
+                wks_a = sh.worksheet("Config_Agendamentos")
+                dados_tabela = wks_a.get_all_records()
 
-                if not df_tabela.empty:
+                if dados_tabela:
+                    df_tabela = pd.DataFrame(dados_tabela)
                     
                     # Cria um índice temporário para sabermos exatamente qual linha alterar/deletar no Sheets
                     # No gspread, a primeira linha de dados após o cabeçalho é a linha 2
                     df_tabela["linha_sheets"] = range(2, len(df_tabela) + 2)
                     
-                    # Garante que os nomes das colunas correspondem aos cabeçalhos reais da planilha
-                    colunas_ordenadas = ["Data_Uso", "Turno", "Horario", "Equipamento", "Professor", "Data_Registro", "Observacao", "linha_sheets"] 
+                    colunas_ordenadas = ["Data Uso", "Tempo", "Equipamento", "Turma", "Professor", "Data Registro", "Observacoes", "linha_sheets"] # Added "Observacoes"
                     if all(col in df_tabela.columns for col in colunas_ordenadas):
                         df_exibicao = df_tabela[colunas_ordenadas]
                     else:
@@ -1678,6 +1722,7 @@ else:
                     st.markdown("---")
                     
                     # --- ÁREA EXCLUSIVA DE GERENCIAMENTO / ADM ---
+                    # Changed: Use is_master_admin for admin check
                     is_admin = st.session_state.get('is_master_admin', False)
 
                     if is_admin:
@@ -1686,16 +1731,16 @@ else:
                         # Criamos uma lista de opções legíveis para selecionar qual agendamento manipular
                         opcoes_selecao = []
                         for idx, row in df_exibicao.iterrows():
-                            # Incorpora linha_sheets diretamente na string da opção
-                            opcoes_selecao.append(f"{row['linha_sheets']} - {row['Equipamento']} - {row['Professor']} ({row['Data_Uso']} no {row['Horario']})")
+                            # Embed linha_sheets directly into the option string
+                            opcoes_selecao.append(f"{row['linha_sheets']} - {row['Equipamento']} - {row['Turma']} ({row['Data Uso']} no {row['Tempo']})")
                         
-                        if opcoes_selecao: # Só mostra o selectbox se houver opções
+                        if opcoes_selecao: # Only show selectbox if there are options
                             agend_selecionado_texto = st.selectbox("Selecione um agendamento para Modificar ou Excluir:", opcoes_selecao)
                             
-                            # Extrai linha_sheets_alvo diretamente da string selecionada
+                            # Extract linha_sheets_alvo directly from the selected string
                             linha_sheets_alvo = int(agend_selecionado_texto.split(' - ')[0])
                             
-                            # Encontra a linha correspondente em df_exibicao usando linha_sheets
+                            # Find the corresponding row in df_exibicao using linha_sheets
                             selected_row_data = df_exibicao[df_exibicao['linha_sheets'] == linha_sheets_alvo].iloc[0]
                             
                             col_adm1, col_adm2, col_adm3 = st.columns(3)
@@ -1717,22 +1762,22 @@ else:
                             with col_adm2:
                                 expander_editar = st.expander("📝 Editar Selecionado")
                                 with expander_editar:
-                                    dado_antigo = selected_row_data # Usa selected_row_data
+                                    dado_antigo = selected_row_data # Use selected_row_data
                                     
-                                    # Opções atualizadas para edição de equipamento
+                                    # Updated options for editing equipment
                                     equipamentos_edit_opcoes = ["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"]
                                     
-                                    # Determina o índice inicial para o selectbox
+                                    # Determine initial index for selectbox
                                     try:
                                         initial_equip_index = next(i for i, opt in enumerate(equipamentos_edit_opcoes) if opt in dado_antigo["Equipamento"])
                                     except StopIteration:
-                                        initial_equip_index = 0 # Padrão para a primeira opção se não for encontrada
+                                        initial_equip_index = 0 # Default to first option if not found
                                         
                                     novo_equip_raw = st.selectbox("Novo Equipamento:", equipamentos_edit_opcoes, index=initial_equip_index, key="ed_eq")
                                     
                                     novo_equip_final = novo_equip_raw
                                     if "Tablets" in novo_equip_raw:
-                                        # Extrai a quantidade atual se existir na string, caso contrário, padrão para 1
+                                        # Extract current quantity if it exists in the string, otherwise default to 1
                                         import re
                                         match = re.search(r'\((\d+)\sunidades\)', dado_antigo["Equipamento"])
                                         current_qty = int(match.group(1)) if match else 1
@@ -1747,21 +1792,15 @@ else:
                                         )
                                         novo_equip_final = f"Tablets (Maleta) ({edit_quantidade_tablets} unidades)"
                                     
-                                    # Garante que a lista de tempos esteja correta para edição
-                                    all_tempos_disponiveis_edit = [
-                                        "1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", 
-                                        "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)"
-                                    ]
-                                    novo_tempo = st.selectbox("Novo Horário:", all_tempos_disponiveis_edit, index=all_tempos_disponiveis_edit.index(dado_antigo["Horario"]), key="ed_tp")
-                                    nova_observacao = st.text_area("Novas Observações:", value=dado_antigo["Observacao"], key="ed_obs") # Coluna Observacao
+                                    novo_tempo = st.selectbox("Novo Tempo:", ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"], index=["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"].index(dado_antigo["Tempo"]), key="ed_tp")
+                                    nova_observacao = st.text_area("Novas Observações:", value=dado_antigo["Observacoes"], key="ed_obs") # Added new text_area for editing
                                     
                                     if st.button("💾 Salvar Alterações", use_container_width=True):
                                         try:
-                                            # Atualiza as células correspondentes (Colunas: 2=Equipamento, 6=Horario, 7=Observacao)
-                                            # Nota: Os índices das colunas são baseados em 1 no gspread
-                                            wks_a.update_cell(linha_sheets_alvo, 2, str(novo_equip_final)) # Equipamento é a coluna 2
-                                            wks_a.update_cell(linha_sheets_alvo, 6, str(novo_tempo)) # Horario é a coluna 6
-                                            wks_a.update_cell(linha_sheets_alvo, 7, str(nova_observacao)) # Observacao é a coluna 7
+                                            # Atualiza as células correspondentes (Colunas: 3=Equipamento, 6=Tempo, 7=Observacoes)
+                                            wks_a.update_cell(linha_sheets_alvo, 3, str(novo_equip_final))
+                                            wks_a.update_cell(linha_sheets_alvo, 6, str(novo_tempo))
+                                            wks_a.update_cell(linha_sheets_alvo, 7, str(nova_observacao)) # Updated Observacoes
                                             st.success("✅ Agendamento atualizado!")
                                             st.cache_data.clear()
                                             time.sleep(1.5)
@@ -1798,3 +1837,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
