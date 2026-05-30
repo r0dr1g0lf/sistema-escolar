@@ -1604,11 +1604,10 @@ else:
                     try:
                         sh = conectar_google_sheets()
                         try:
-                            # CORREÇÃO: Voltando para o nome correto da aba do banco de dados
-                            wks_a = sh.worksheet("Config_Agendamentos")
+                            wks_a = sh.worksheet("Agendamentos_Equipamentos")
                         except:
-                            wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7")
-                            wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo", "Observacoes"])
+                            wks_a = sh.add_worksheet(title="Agendamentos_Equipamentos", rows="1000", cols="7")
+                            wks_a.append_row(["Data_Registro", "Equipamento", "Professor", "Data_Uso", "Turno", "Horario", "Observacao"])
                         
                         houve_conflito = False
                         tempos_com_conflito = []
@@ -1619,20 +1618,19 @@ else:
                         
                         if houve_conflito:
                             conflitos_str = ", ".join(tempos_com_conflito)
-                            st.error(f"❌ Não foi possível agendar! O equipamento 'Tablets' já está reservado no dia {data_uso_formatada} para o(s) tempo(s): {conflitos_str}.")
+                            st.error(f"❌ Não foi possível agendar! O equipamento já está reservado no dia {data_uso_formatada} para o(s) tempo(s): {conflitos_str}.")
                         else:
-                            # CORREÇÃO: Salvando exatamente na ordem estrutural esperada pela planilha original
                             for tempo in tempo_aula:
                                 wks_a.append_row([
-                                    str(nome_professor_logado),
-                                    str(turma_selecionada),
-                                    str(equipamento),
                                     str(data_registro),
+                                    str(equipamento),
+                                    str(nome_professor_logado),
                                     str(data_uso_formatada),
+                                    str(periodo_selecionado),
                                     str(tempo),
                                     str(observacoes)
                                 ])
-                            st.success(f"✅ Agendamento de Tablets realizado com sucesso para os tempos: {', '.join(tempo_aula)}!")
+                            st.success(f"✅ Agendamento realizado com sucesso para os tempos: {', '.join(tempo_aula)}!")
                             st.cache_data.clear()
                             time.sleep(1.5)
                             st.rerun()
@@ -1660,9 +1658,11 @@ else:
                     if filtro_equip != "Todos":
                         df_ag_filtrado = df_ag_filtrado[df_ag_filtrado['Equipamento'].astype(str) == filtro_equip]
                     
-                    df_ag_filtrado = df_ag_filtrado.sort_values(by=["Data Uso", "Tempo"])
+                    # CORREÇÃO: Usando 'Data_Uso' e 'Horario' em vez de 'Data Uso' e 'Tempo'
+                    if 'Data_Uso' in df_ag_filtrado.columns and 'Horario' in df_ag_filtrado.columns:
+                        df_ag_filtrado = df_ag_filtrado.sort_values(by=["Data_Uso", "Horario"])
                     
-                    ordem_colunas_ag = ["Data Uso", "Tempo", "Equipamento", "Professor", "Turma", "Observacoes"]
+                    ordem_colunas_ag = ["Data_Uso", "Horario", "Turno", "Equipamento", "Professor", "Observacao"]
                     df_exibir_ag = df_ag_filtrado[[c for c in ordem_colunas_ag if c in df_ag_filtrado.columns]]
                     
                     st.dataframe(df_exibir_ag, use_container_width=True, hide_index=True)
@@ -1672,7 +1672,7 @@ else:
                         st.subheader("🛠️ Painel de Controle de Agendamentos")
                         
                         opcoes_cancelar = {
-                            f"{row['Data Uso']} - {row['Tempo']} - {row['Equipamento']} ({row['Professor']})": row['ID_Original'] 
+                            f"{row.get('Data_Uso', '')} - {row.get('Horario', '')} - {row.get('Equipamento', '')} ({row.get('Professor', '')})": row['ID_Original'] 
                             for _, row in df_ag_filtrado.iterrows()
                         }
                         selecionado_gerenciar = st.selectbox("Selecione um agendamento para Modificar ou Remover:", [""] + list(opcoes_cancelar.keys()), key="selecao_gerenciar_equip")
@@ -1712,8 +1712,8 @@ else:
                                     
                                     if st.button("💾 Salvar Alterações", use_container_width=True):
                                         try:
-                                            wks_a.update_cell(idx_linha, 3, str(novo_equip))
-                                            wks_a.update_cell(idx_linha, 5, str(nova_data_uso_edit.strftime("%d/%m/%Y")))
+                                            wks_a.update_cell(idx_linha, 2, str(novo_equip))
+                                            wks_a.update_cell(idx_linha, 4, str(nova_data_uso_edit.strftime("%d/%m/%Y")))
                                             wks_a.update_cell(idx_linha, 6, str(novo_tempo))
                                             wks_a.update_cell(idx_linha, 7, str(novas_obs))
                                             st.success("✅ Alterações salvas com sucesso!")
@@ -1721,7 +1721,7 @@ else:
                                             time.sleep(1.5)
                                             st.rerun()
                                         except Exception as e:
-                                            st.error(f"Erro ao salvar atualizações: {e}")
+                                            st.error(f"Erro ao salvar updates: {e}")
                                             
                         st.markdown("<br><br>", unsafe_allow_html=True)
                         with st.expander("🚨 ÁREA CRÍTICA: ZERAR BANCO DE AGENDAMENTOS"):
@@ -1744,6 +1744,3 @@ else:
                 st.error(f"Erro ao carregar o painel de gerenciamento: {e}")
 
     elif pagina_atual == "Cadastro":
-        st.error("Acesso restrito.")
-        st.session_state.pagina = "Registro"
-        st.rerun()
