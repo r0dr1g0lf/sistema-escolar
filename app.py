@@ -184,7 +184,11 @@ else:
         st.image("logo.png", width=80)
         
     prof_nome = st.session_state.user_data['Professor']
+    usuario_ativo = st.session_state.user_data['Usuario']
     st.sidebar.markdown(f"<div style='text-align: center'>Professor: <b>{prof_nome}</b></div>", unsafe_allow_html=True)
+    
+    # Atualiza silenciosamente a presença do usuário atual a cada clique para mantê-lo ativo
+    atualizar_presenca(usuario_ativo, "login")
     
     try:
         sh_on = conectar_google_sheets()
@@ -193,10 +197,24 @@ else:
         if users_on:
             st.sidebar.markdown("---")
             st.sidebar.markdown("🟢 **Usuários Online**")
-            hoje_data = datetime.now(fuso_roraima).strftime("%d/%m/%Y")
+            
+            agora = datetime.now(fuso_roraima)
+            
             for u in users_on:
-                if u['Ultimo_Acesso'].startswith(hoje_data):
-                    st.sidebar.caption(f"👤 {u['Usuario']}")
+                try:
+                    # Converte o carimbo salvo de volta em objeto datetime para cálculo real
+                    ultimo_acesso_dt = datetime.strptime(u['Ultimo_Acesso'], "%d/%m/%Y %H:%M:%S")
+                    ultimo_acesso_dt = fuso_roraima.localize(ultimo_acesso_dt) if ultimo_acesso_dt.tzinfo is None else ultimo_acesso_dt
+                    
+                    # Calcula a diferença em minutos desde a última atividade
+                    diferenca_minutos = (agora - ultimo_acesso_dt).total_seconds() / 60
+                    
+                    # Se o usuário interagiu nos últimos 3 minutos, ele é exibido como Online
+                    if diferenca_minutos <= 3:
+                        st.sidebar.caption(f"👤 {u['Usuario']}")
+                except:
+                    # Fallback preventivo caso haja erro de formato de data na planilha
+                    pass
     except:
         pass
 
