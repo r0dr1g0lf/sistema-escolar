@@ -650,7 +650,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrencias":
+    elif pagina_atual == "Ocorrências":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -1604,10 +1604,11 @@ else:
                     try:
                         sh = conectar_google_sheets()
                         try:
-                            wks_a = sh.worksheet("Agendamentos_Equipamentos")
+                            # CORREÇÃO: Voltando para o nome correto da aba do banco de dados
+                            wks_a = sh.worksheet("Config_Agendamentos")
                         except:
-                            wks_a = sh.add_worksheet(title="Agendamentos_Equipamentos", rows="1000", cols="7")
-                            wks_a.append_row(["Data_Registro", "Equipamento", "Professor", "Data_Uso", "Turno", "Horario", "Observacao"])
+                            wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7")
+                            wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo", "Observacoes"])
                         
                         houve_conflito = False
                         tempos_com_conflito = []
@@ -1618,19 +1619,20 @@ else:
                         
                         if houve_conflito:
                             conflitos_str = ", ".join(tempos_com_conflito)
-                            st.error(f"❌ Não foi possível agendar! O equipamento '{equipamento_selecionado}' já está reservado no dia {data_uso_formatada} para o(s) tempo(s): {conflitos_str}.")
+                            st.error(f"❌ Não foi possível agendar! O equipamento 'Tablets' já está reservado no dia {data_uso_formatada} para o(s) tempo(s): {conflitos_str}.")
                         else:
+                            # CORREÇÃO: Salvando exatamente na ordem estrutural esperada pela planilha original
                             for tempo in tempo_aula:
                                 wks_a.append_row([
-                                    str(data_registro),
-                                    str(equipamento),
                                     str(nome_professor_logado),
+                                    str(turma_selecionada),
+                                    str(equipamento),
+                                    str(data_registro),
                                     str(data_uso_formatada),
-                                    str(periodo_selecionado),
                                     str(tempo),
                                     str(observacoes)
                                 ])
-                            st.success(f"✅ Agendamento de {equipamento_selecionado} realizado com sucesso para os tempos: {', '.join(tempo_aula)}!")
+                            st.success(f"✅ Agendamento de Tablets realizado com sucesso para os tempos: {', '.join(tempo_aula)}!")
                             st.cache_data.clear()
                             time.sleep(1.5)
                             st.rerun()
@@ -1647,7 +1649,6 @@ else:
                 if not df_ag_view.empty:
                     df_ag_view['ID_Original'] = range(2, len(df_ag_view) + 2)
                     
-                    # Máscara visual: limpa "Tablets (Maleta) (...)" para "Tablets" antes de aplicar filtros e exibição
                     df_ag_view['Equipamento'] = df_ag_view['Equipamento'].astype(str).apply(
                         lambda x: "Tablets" if "Tablets" in x else x
                     )
@@ -1659,9 +1660,9 @@ else:
                     if filtro_equip != "Todos":
                         df_ag_filtrado = df_ag_filtrado[df_ag_filtrado['Equipamento'].astype(str) == filtro_equip]
                     
-                    df_ag_filtrado = df_ag_filtrado.sort_values(by=["Data_Uso", "Turno", "Horario"])
+                    df_ag_filtrado = df_ag_filtrado.sort_values(by=["Data Uso", "Tempo"])
                     
-                    ordem_colunas_ag = ["Data_Uso", "Turno", "Horario", "Equipamento", "Professor", "Turma", "Observacao"]
+                    ordem_colunas_ag = ["Data Uso", "Tempo", "Equipamento", "Professor", "Turma", "Observacoes"]
                     df_exibir_ag = df_ag_filtrado[[c for c in ordem_colunas_ag if c in df_ag_filtrado.columns]]
                     
                     st.dataframe(df_exibir_ag, use_container_width=True, hide_index=True)
@@ -1671,7 +1672,7 @@ else:
                         st.subheader("🛠️ Painel de Controle de Agendamentos")
                         
                         opcoes_cancelar = {
-                            f"{row['Data_Uso']} - {row['Horario']} - {row['Equipamento']} ({row['Professor']})": row['ID_Original'] 
+                            f"{row['Data Uso']} - {row['Tempo']} - {row['Equipamento']} ({row['Professor']})": row['ID_Original'] 
                             for _, row in df_ag_filtrado.iterrows()
                         }
                         selecionado_gerenciar = st.selectbox("Selecione um agendamento para Modificar ou Remover:", [""] + list(opcoes_cancelar.keys()), key="selecao_gerenciar_equip")
@@ -1696,7 +1697,6 @@ else:
                                 expander_editar = st.expander("📝 Editar Selecionado")
                                 with expander_editar:
                                     equipamentos_edit_opcoes = ["Tablets", "TV", "Datashow", "Notebook", "Caixa de som"]
-                                    
                                     novo_equip_raw = st.selectbox("Novo Equipamento:", equipamentos_edit_opcoes, key="edit_equip_item")
                                     
                                     if novo_equip_raw == "Tablets":
@@ -1712,9 +1712,8 @@ else:
                                     
                                     if st.button("💾 Salvar Alterações", use_container_width=True):
                                         try:
-                                            # Atualiza as células no Sheets usando o formato esperado pelo banco
-                                            wks_a.update_cell(idx_linha, 2, str(novo_equip))
-                                            wks_a.update_cell(idx_linha, 4, str(nova_data_uso_edit.strftime("%d/%m/%Y")))
+                                            wks_a.update_cell(idx_linha, 3, str(novo_equip))
+                                            wks_a.update_cell(idx_linha, 5, str(nova_data_uso_edit.strftime("%d/%m/%Y")))
                                             wks_a.update_cell(idx_linha, 6, str(novo_tempo))
                                             wks_a.update_cell(idx_linha, 7, str(novas_obs))
                                             st.success("✅ Alterações salvas com sucesso!")
