@@ -1583,7 +1583,6 @@ else:
                         "3º Tempo (Vespertino)", "4º Tempo (Vespertino)"
                     ]
                 
-                # Permite a escolha de múltiplos tempos ao mesmo tempo
                 tempo_aula = st.multiselect("Tempo(s) de Aula:", tempos_disponiveis, key="agend_tempo")
                 
             with col2:
@@ -1619,7 +1618,7 @@ else:
                         
                         if houve_conflito:
                             conflitos_str = ", ".join(tempos_com_conflito)
-                            st.error(f"❌ Não foi possível agendar! O equipamento '{equipamento}' já está reservado no dia {data_uso_formatada} para o(s) tempo(s): {conflitos_str}.")
+                            st.error(f"❌ Não foi possível agendar! O equipamento '{equipamento_selecionado}' já está reservado no dia {data_uso_formatada} para o(s) tempo(s): {conflitos_str}.")
                         else:
                             for tempo in tempo_aula:
                                 wks_a.append_row([
@@ -1631,7 +1630,7 @@ else:
                                     str(tempo),
                                     str(observacoes)
                                 ])
-                            st.success(f"✅ Agendamento de {equipamento} realizado com sucesso para os tempos: {', '.join(tempo_aula)}!")
+                            st.success(f"✅ Agendamento de {equipamento_selecionado} realizado com sucesso para os tempos: {', '.join(tempo_aula)}!")
                             st.cache_data.clear()
                             time.sleep(1.5)
                             st.rerun()
@@ -1639,7 +1638,7 @@ else:
                         st.error(f"Erro ao salvar os dados na planilha: {e}")
 
         # ---------------------------------------------------------------------
-        # ABA 2: VISUALIZAÇÃO E GERENCIAMENTO
+        # ABA 2: VISUALIZAÇÃO E GERENCIAMENTO (ADM)
         # ---------------------------------------------------------------------
         with aba_visualizar:
             st.markdown("### 📋 Reservas Efetuadas")
@@ -1648,7 +1647,12 @@ else:
                 if not df_ag_view.empty:
                     df_ag_view['ID_Original'] = range(2, len(df_ag_view) + 2)
                     
-                    lista_equip_filtro = ["Todos"] + sorted(df_ag_view['Equipamento'].unique().astype(str).tolist())
+                    # Máscara visual: limpa "Tablets (Maleta) (...)" para "Tablets" antes de aplicar filtros e exibição
+                    df_ag_view['Equipamento'] = df_ag_view['Equipamento'].astype(str).apply(
+                        lambda x: "Tablets" if "Tablets" in x else x
+                    )
+                    
+                    lista_equip_filtro = ["Todos", "Tablets", "TV", "Datashow", "Notebook", "Caixa de som"]
                     filtro_equip = st.selectbox("Filtrar por Equipamento:", lista_equip_filtro, key="filtro_view_equip")
                     
                     df_ag_filtrado = df_ag_view.copy()
@@ -1664,22 +1668,62 @@ else:
                     
                     st.divider()
                     if st.session_state.get('is_master_admin', False):
-                        st.subheader("🗑️ Cancelar Reserva (Painel Admin)")
-                        opcoes_cancelar = {f"{row['Data_Uso']} - {row['Horario']} - {row['Equipamento']} ({row['Professor']})": row['ID_Original'] for _, row in df_ag_filtrado.iterrows()}
-                        selecionado_cancelar = st.selectbox("Selecione um agendamento para remover:", [""] + list(opcoes_cancelar.keys()))
+                        st.subheader("🛠️ Painel de Controle de Agendamentos")
                         
-                        if microfilm_btn := st.button("❌ EXCLUIR AGENDAMENTO SELECIONADO", use_container_width=True):
-                            if microfilm_btn and selecionado_cancelar:
-                                try:
-                                    idx_linha = opcoes_cancelar[selecionado_cancelar]
-                                    wks_a.delete_rows(idx_linha)
-                                    st.success("Reserva cancelada com sucesso!")
-                                    st.cache_data.clear()
-                                    time.sleep(1.5)
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Erro ao deletar linha: {e}")
+                        opcoes_cancelar = {
+                            f"{row['Data_Uso']} - {row['Horario']} - {row['Equipamento']} ({row['Professor']})": row['ID_Original'] 
+                            for _, row in df_ag_filtrado.iterrows()
+                        }
+                        selecionado_gerenciar = st.selectbox("Selecione um agendamento para Modificar ou Remover:", [""] + list(opcoes_cancelar.keys()), key="selecao_gerenciar_equip")
+                        
+                        if selecionado_gerenciar:
+                            idx_linha = opcoes_cancelar[selecionado_gerenciar]
+                            
+                            col_adm1, col_adm2 = st.columns(2)
+                            
+                            with col_adm1:
+                                if st.button("🗑️ Excluir Agendamento Selecionado", type="primary", use_container_width=True):
+                                    try:
+                                        wks_a.delete_rows(idx_linha)
+                                        st.success("💥 Agendamento removido com sucesso!")
+                                        st.cache_data.clear()
+                                        time.sleep(1.5)
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Erro ao excluir linha: {e}")
+                                        
+                            with col_adm2:
+                                expander_editar = st.expander("📝 Editar Selecionado")
+                                with expander_editar:
+                                    equipamentos_edit_opcoes = ["Tablets", "TV", "Datashow", "Notebook", "Caixa de som"]
                                     
+                                    novo_equip_raw = st.selectbox("Novo Equipamento:", equipamentos_edit_opcoes, key="edit_equip_item")
+                                    
+                                    if novo_equip_raw == "Tablets":
+                                        opcoes_quantidade_edit = list(range(1, 31))
+                                        quantidade_tablets_edit = st.selectbox("Selecione a quantidade de Tablets (1 a 30):", options=opcoes_quantidade_edit, index=0, key="edit_qtd_tablets")
+                                        novo_equip = f"Tablets (Maleta) ({quantidade_tablets_edit} unidades)"
+                                    else:
+                                        novo_equip = novo_equip_raw
+                                        
+                                    nova_data_uso_edit = st.date_input("Nova Data de Uso:", format="DD/MM/YYYY", key="edit_data_uso")
+                                    novo_tempo = st.selectbox("Novo Tempo:", ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)"], index=0, key="edit_tempo_item")
+                                    novas_obs = st.text_area("Alterar Observações:", key="edit_obs_item")
+                                    
+                                    if st.button("💾 Salvar Alterações", use_container_width=True):
+                                        try:
+                                            # Atualiza as células no Sheets usando o formato esperado pelo banco
+                                            wks_a.update_cell(idx_linha, 2, str(novo_equip))
+                                            wks_a.update_cell(idx_linha, 4, str(nova_data_uso_edit.strftime("%d/%m/%Y")))
+                                            wks_a.update_cell(idx_linha, 6, str(novo_tempo))
+                                            wks_a.update_cell(idx_linha, 7, str(novas_obs))
+                                            st.success("✅ Alterações salvas com sucesso!")
+                                            st.cache_data.clear()
+                                            time.sleep(1.5)
+                                            st.rerun()
+                                        except Exception as e:
+                                            st.error(f"Erro ao salvar atualizações: {e}")
+                                            
                         st.markdown("<br><br>", unsafe_allow_html=True)
                         with st.expander("🚨 ÁREA CRÍTICA: ZERAR BANCO DE AGENDAMENTOS"):
                             st.error("Atenção! Esta ação removerá permanentemente todos os agendamentos salvos.")
