@@ -1604,10 +1604,10 @@ else:
                     try:
                         sh = conectar_google_sheets()
                         try:
-                            wks_a = sh.worksheet("Agendamentos_Equipamentos")
+                            wks_a = sh.worksheet("Config_Agendamentos")
                         except:
-                            wks_a = sh.add_worksheet(title="Agendamentos_Equipamentos", rows="1000", cols="7")
-                            wks_a.append_row(["Data_Registro", "Equipamento", "Professor", "Data_Uso", "Turno", "Horario", "Observacao"])
+                            wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7")
+                            wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo", "Observacoes"])
                         
                         houve_conflito = False
                         tempos_com_conflito = []
@@ -1622,11 +1622,11 @@ else:
                         else:
                             for tempo in tempo_aula:
                                 wks_a.append_row([
-                                    str(data_registro),
-                                    str(equipamento),
                                     str(nome_professor_logado),
+                                    str(turma_selecionada),
+                                    str(equipamento),
+                                    str(data_registro),
                                     str(data_uso_formatada),
-                                    str(periodo_selecionado),
                                     str(tempo),
                                     str(observacoes)
                                 ])
@@ -1658,12 +1658,18 @@ else:
                     if filtro_equip != "Todos":
                         df_ag_filtrado = df_ag_filtrado[df_ag_filtrado['Equipamento'].astype(str) == filtro_equip]
                     
-                    # CORREÇÃO: Usando 'Data_Uso' e 'Horario' em vez de 'Data Uso' e 'Tempo'
-                    if 'Data_Uso' in df_ag_filtrado.columns and 'Horario' in df_ag_filtrado.columns:
+                    if 'Data Uso' in df_ag_filtrado.columns and 'Tempo' in df_ag_filtrado.columns:
+                        df_ag_filtrado = df_ag_filtrado.sort_values(by=["Data Uso", "Tempo"])
+                    elif 'Data_Uso' in df_ag_filtrado.columns and 'Horario' in df_ag_filtrado.columns:
                         df_ag_filtrado = df_ag_filtrado.sort_values(by=["Data_Uso", "Horario"])
                     
-                    ordem_colunas_ag = ["Data_Uso", "Horario", "Turno", "Equipamento", "Professor", "Observacao"]
-                    df_exibir_ag = df_ag_filtrado[[c for c in ordem_colunas_ag if c in df_ag_filtrado.columns]]
+                    ordem_colunas_ag = ["Data Uso", "Tempo", "Equipamento", "Professor", "Turma", "Observacoes"]
+                    ordem_colunas_fallback = ["Data_Uso", "Horario", "Turno", "Equipamento", "Professor", "Observacao"]
+                    
+                    if all(c in df_ag_filtrado.columns for c in ordem_colunas_ag):
+                        df_exibir_ag = df_ag_filtrado[ordem_colunas_ag]
+                    else:
+                        df_exibir_ag = df_ag_filtrado[[c for c in ordem_colunas_fallback if c in df_ag_filtrado.columns]]
                     
                     st.dataframe(df_exibir_ag, use_container_width=True, hide_index=True)
                     
@@ -1671,15 +1677,17 @@ else:
                     if st.session_state.get('is_master_admin', False):
                         st.subheader("🛠️ Painel de Controle de Agendamentos")
                         
+                        coluna_data_ref = 'Data Uso' if 'Data Uso' in df_ag_filtrado.columns else 'Data_Uso'
+                        coluna_tempo_ref = 'Tempo' if 'Tempo' in df_ag_filtrado.columns else 'Horario'
+                        
                         opcoes_cancelar = {
-                            f"{row.get('Data_Uso', '')} - {row.get('Horario', '')} - {row.get('Equipamento', '')} ({row.get('Professor', '')})": row['ID_Original'] 
+                            f"{row.get(coluna_data_ref, '')} - {row.get(coluna_tempo_ref, '')} - {row.get('Equipamento', '')} ({row.get('Professor', '')})": row['ID_Original'] 
                             for _, row in df_ag_filtrado.iterrows()
                         }
                         selecionado_gerenciar = st.selectbox("Selecione um agendamento para Modificar ou Remover:", [""] + list(opcoes_cancelar.keys()), key="selecao_gerenciar_equip")
                         
                         if selecionado_gerenciar:
                             idx_linha = opcoes_cancelar[selecionado_gerenciar]
-                            
                             col_adm1, col_adm2 = st.columns(2)
                             
                             with col_adm1:
@@ -1712,10 +1720,15 @@ else:
                                     
                                     if st.button("💾 Salvar Alterações", use_container_width=True):
                                         try:
-                                            wks_a.update_cell(idx_linha, 2, str(novo_equip))
-                                            wks_a.update_cell(idx_linha, 4, str(nova_data_uso_edit.strftime("%d/%m/%Y")))
-                                            wks_a.update_cell(idx_linha, 6, str(novo_tempo))
-                                            wks_a.update_cell(idx_linha, 7, str(novas_obs))
+                                            col_equip_num = 3 if 'Data Uso' in df_ag_filtrado.columns else 2
+                                            col_data_num = 5 if 'Data Uso' in df_ag_filtrado.columns else 4
+                                            col_tempo_num = 6
+                                            col_obs_num = 7
+                                            
+                                            wks_a.update_cell(idx_linha, col_equip_num, str(novo_equip))
+                                            wks_a.update_cell(idx_linha, col_data_num, str(nova_data_uso_edit.strftime("%d/%m/%Y")))
+                                            wks_a.update_cell(idx_linha, col_tempo_num, str(novo_tempo))
+                                            wks_a.update_cell(idx_linha, col_obs_num, str(novas_obs))
                                             st.success("✅ Alterações salvas com sucesso!")
                                             st.cache_data.clear()
                                             time.sleep(1.5)
