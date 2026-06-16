@@ -607,6 +607,7 @@ else:
                                                 wks_reg.delete_rows(idx)
                                             st.success(f"Foram excluídos {len(indices_massa)} registros.")
                                             st.cache_data.clear()
+                                            time.sleep(1.5)
                                             st.rerun()
                                     
                                     st.divider()
@@ -619,6 +620,7 @@ else:
                                                 wks_reg.delete_rows(idx)
                                             st.success(f"Foram excluídos {len(indices_bim)} registros do {bim_filtro}.")
                                             st.cache_data.clear()
+                                            time.sleep(1.5)
                                             st.rerun()
                                         else:
                                             st.info("Não há registros para este bimestre.")
@@ -636,8 +638,13 @@ else:
         st.title("📝 Registro de Ocorrências Escolares")
         
         try:
-            # Carrega os dados de professores e alunos cadastrados para alimentar o formulário
-            df_p, df_a, _, _ = carregar_dados()
+            # Abre a conexão direta com a planilha mãe e seleciona as abas necessárias
+            sh = conectar_google_sheets()
+            wks_o = sh.worksheet("Ocorrencias")
+            
+            # Carrega dados de professores e alunos para preencher o formulário de cadastro
+            df_p = pd.DataFrame(sh.worksheet("Config_Professores").get_all_records())
+            df_a = pd.DataFrame(sh.worksheet("Config_Alunos").get_all_records())
             
             aba_oc = st.radio(
                 "Selecione a ação:", 
@@ -654,7 +661,7 @@ else:
                     col_oc1, col_oc2 = st.columns(2)
                     
                     with col_oc1:
-                        # Lista de turmas com base nos alunos ativos na planilha de configuração
+                        # Lista de turmas com base nos alunos cadastrados
                         lista_turmas = sorted(df_a['Turma'].unique().tolist()) if not df_a.empty else []
                         turma_sel = st.selectbox("Selecione a Turma:", lista_turmas)
                         
@@ -677,18 +684,11 @@ else:
                             st.error("🚨 Selecione um aluno válido antes de salvar.")
                         else:
                             try:
-                                sh = conectar_google_sheets()
-                                try:
-                                    wks_o = sh.worksheet("Ocorrencias")
-                                except gspread.exceptions.WorksheetNotFound:
-                                    wks_o = sh.add_worksheet(title="Ocorrencias", rows="1000", cols="6")
-                                    wks_o.append_row(["Data_Registro", "Turma", "Aluno", "Professor", "Motivo", "Detalhes"])
-                                
                                 nova_oc = [
-                                    datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"), # Data e hora local de Boa Vista
+                                    datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"), # Data/Hora Boa Vista
                                     turma_sel,
                                     aluno_sel,
-                                    prof_nome, # Nome do professor logado no sistema
+                                    prof_nome, # Utiliza o nome do professor logado no sistema
                                     motivo,
                                     detalhes
                                 ]
@@ -705,13 +705,8 @@ else:
                 st.subheader("📊 Histórico de Ocorrências Registradas")
                 
                 try:
-                    sh = conectar_google_sheets()
-                    try:
-                        wks_o = sh.worksheet("Ocorrencias")
-                        df_oc = pd.DataFrame(wks_o.get_all_records())
-                    except gspread.exceptions.WorksheetNotFound:
-                        st.info("ℹ️ A planilha de ocorrências ainda não existe ou está vazia.")
-                        df_oc = pd.DataFrame() # Cria um DataFrame vazio para evitar erros
+                    # Puxa todas as ocorrências diretamente da aba do Google Sheets
+                    df_oc = pd.DataFrame(wks_o.get_all_records())
                     
                     if not df_oc.empty:
                         col_f1, col_f2 = st.columns(2)
@@ -720,26 +715,26 @@ else:
                         with col_f2:
                             m_filtro = st.selectbox("Filtrar por Motivo:", ["Todos"] + sorted(df_oc['Motivo'].unique().tolist()))
                         
-                        # Filtra os dados com base nas escolhas do usuário
+                        # Aplica os filtros selecionados pelo usuário
                         df_filtrado = df_oc.copy()
                         if t_filtro != "Todas":
                             df_filtrado = df_filtrado[df_filtrado['Turma'] == t_filtro]
                         if m_filtro != "Todos":
                             df_filtrado = df_filtrado[df_filtrado['Motivo'] == m_filtro]
                         
-                        # Exibe contador de ocorrências encontradas
+                        # Exibe o painel de métricas (Contador global)
                         st.metric("Total de Ocorrências", len(df_filtrado))
                         
-                        # Exibe a tabela invertida (mais recentes no topo)
+                        # Inverte o índice para mostrar os registros mais recentes no topo do DataFrame
                         df_filtrado = df_filtrado.sort_index(ascending=False)
                         st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
                     else:
-                        st.info("ℹ️ Nenhuma ocorrência registrada até o momento.")
+                        st.info("ℹ️ Nenhuma ocorrência registrada na planilha até o momento.")
                 except Exception as e:
-                    st.error(f"Erro ao carregar histórico de ocorrências: {e}")
+                    st.error(f"Erro ao ler histórico de ocorrências: {e}")
                     
         except Exception as e:
-            st.error(f"Erro crítico ao carregar o módulo de Ocorrências: {e}")
+            st.error(f"Erro crítico ao conectar com o banco de Ocorrências: {e}")
 
     elif st.session_state.pagina == "Segurança":
         st.title("🔒 Segurança")
