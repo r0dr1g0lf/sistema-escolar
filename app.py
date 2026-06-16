@@ -632,7 +632,13 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-elif pagina_atual == "Ocorrencias":
+    elif pagina_atual == "Agendamento de Equipamentos":
+        st.title("📅 Agendamento de Equipamentos")
+        st.markdown("---")
+        # Bloco limpo, seguro e pronto para receber a nova estrutura na aba isolada
+        st.info("🔄 Este módulo de agendamento está pronto para ser reestruturado de forma totalmente isolada. Aguardando a definição do novo layout.")
+
+    elif pagina_atual == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -769,13 +775,6 @@ elif pagina_atual == "Ocorrencias":
             except Exception as e:
                 st.error(f"Erro ao carregar painel de ocorrências: {e}")
 
-    elif pagina_atual == "Agendamento de Equipamentos":
-        st.title("📅 Agendamento de Equipamentos")
-        st.markdown("---")
-        
-        # Bloco limpo, seguro e pronto para receber a nova estrutura na aba isolada
-        st.info("🔄 Este módulo de agendamento está pronto para ser reestruturado de forma totalmente isolada. Aguardando a definição do novo layout.")
-
     elif pagina_atual == "Cadastro":
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
@@ -802,7 +801,7 @@ elif pagina_atual == "Ocorrencias":
                     wks_p = sh.worksheet("Config_Professores")
                     celula = wks_p.find(str(st.session_state.user_data['Usuario']))
                     wks_p.update_cell(celula.row, 3, str(nova_senha).strip())
-                    st.success("Senha atualizada com sucesso! Por segurança, faça login novamente.")
+                    st.success("Senha updated com sucesso! Por segurança, faça login novamente.")
                     st.session_state.user_data['Senha'] = str(nova_senha).strip()
                     st.cache_data.clear()
                     time.sleep(2)
