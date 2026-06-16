@@ -794,11 +794,149 @@ def desenhar_tela_agendamentos():
 # EXECUÇÃO DO MENU PRINCIPAL (CHAMADAS DAS FUNÇÕES)
 # =============================================================================
 
-    elif pagina_atual == "Ocorrencias":
-        desenhar_tela_ocorrencias(prof_nome, is_soe, df_periodos, df_alunos, data_atual, fuso_roraima)
-
     elif pagina_atual == "Agendamento de Equipamentos":
-        desenhar_tela_agendamentos()
+        st.title("📅 Agendamento de Equipamentos")
+        st.markdown("---")
+        # Bloco completamente independente, limpo e zerado.
+        # Nenhuma alteração feita aqui afetará a página de Ocorrências abaixo.
+        st.info("🔄 Este módulo de agendamento está pronto para ser reestruturado do absoluto zero. Aguardando a definição do novo layout e dos campos.")
+
+    elif pagina_atual == "Ocorrencias":
+        st.title("🚨 Registro de Ocorrências")
+        tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
+        
+        with tab_oc1:
+            if is_soe:
+                st.info("Você está logado como SOE. Este módulo é apenas para visualização.")
+            
+            hoje = data_atual
+            bimestres_disponiveis = []
+            if not df_periodos.empty:
+                for _, row in df_periodos.iterrows():
+                    try:
+                        inicio = datetime.strptime(str(row['Inicio']), "%d/%m/%Y").date()
+                        fim = datetime.strptime(str(row['Fim']), "%d/%m/%Y").date()
+                        if inicio <= hoje <= fim:
+                            bimestres_disponiveis.append(row['Bimestre'])
+                    except:
+                        continue
+            
+            if not bimestres_disponiveis:
+                st.warning("🏮 O período de lançamentos está fechado ou não configurado.")
+                bimestre_ativo = "Bloqueado"
+            else:
+                if len(bimestres_disponiveis) > 1:
+                    bimestre_ativo = st.selectbox("📅 Selecione o Bimestre Vigente:", bimestres_disponiveis, key="bim_oc")
+                else:
+                    bimestre_ativo = bimestres_disponiveis[0]
+                    st.info(f"📅 Período de lançamento aberto: **{bimestre_ativo}**")
+            
+            if st.session_state.get('is_master_admin', False) or is_soe:
+                todas_turmas = sorted(df_alunos['Turma'].unique().astype(str))
+            else:
+                turmas_vinc = str(st.session_state.user_data.get('Turmas', "")).split(", ")
+                todas_turmas = sorted([t.strip() for t in turmas_vinc if t.strip()])
+                
+            col_oc1, col_oc2 = st.columns([1, 4])
+            with col_oc1:
+                turma_sel_oc = st.selectbox("1. Selecione a Turma", todas_turmas, key="turma_oc")
+            with col_oc2:
+                alunos_da_turma_oc = df_alunos[df_alunos['Turma'].astype(str) == turma_sel_oc]['Nome_Aluno'].tolist()
+                aluno_sel_oc = st.selectbox("2. Selecione o Aluno", sorted(alunos_da_turma_oc), key="aluno_oc")
+                
+            with st.form("form_ocorrencia", clear_on_submit=True):
+                opcoes_motivos = [
+                    "Agressão Física", "Agressão Verbal / Ofensa", "Uso de Celular em Sala",
+                    "Indisciplina Grave", "Desrespeito ao Professor/Funcionário", "Vandalismo / Dano ao Patrimônio",
+                    "Falta de Material Recorrente", "Recusa a Realizar Atividades", "Outros (Especificar nas observações)"
+                ]
+                motivos_selecionados = st.multiselect("Motivos da Ocorrência", options=opcoes_motivos)
+                obs_oc = st.text_area("Detalhamento da Ocorrência (Obrigatório)")
+                
+                col_salvar_oc, col_mensagem_oc = st.columns([1, 2])
+                with col_salvar_oc:
+                    btn_salvar_oc = st.form_submit_button("REGISTRAR OCORRÊNCIA", disabled=(bimestre_ativo == "Bloqueado" or is_soe))
+                    
+            if btn_salvar_oc:
+                if is_soe:
+                    st.error("Usuários SOE não possuem permissão para realizar registros.")
+                elif not motivos_selecionados:
+                    with col_mensagem_oc:
+                        st.error("Por favor, selecione pelo menos um motivo para a ocorrência.")
+                elif not obs_oc.strip():
+                    with col_mensagem_oc:
+                        st.error("Por favor, faça o detalhamento obrigatório da ocorrência.")
+                else:
+                    try:
+                        sh = conectar_google_sheets()
+                        wks = sh.worksheet("Registros_Ocorrencias")
+                        
+                        motivos_formatados = "OCORRÊNCIA: " + ", ".join(motivos_selecionados)
+                        
+                        nova_linha_oc = [
+                            datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
+                            prof_nome,
+                            turma_sel_oc,
+                            aluno_sel_oc,
+                            "Ocorrência Disciplinar",
+                            bimestre_ativo,
+                            motivos_formatados,
+                            obs_oc
+                        ]
+                        
+                        wks.append_row(nova_linha_oc)
+                        with col_mensagem_oc:
+                            st.success("✅ Ocorrência registrada com sucesso!")
+                            time.sleep(1.5)
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao salvar ocorrência: {e}")
+                        
+        with tab_oc2:
+            st.subheader("📋 Painel de Consulta de Ocorrências")
+            try:
+                sh = conectar_google_sheets()
+                wks_reg = sh.worksheet("Registros_Ocorrencias")
+                dados_brutos = wks_reg.get_all_values()
+                
+                if len(dados_brutos) > 1:
+                    df_all = pd.DataFrame(dados_brutos[1:], columns=dados_brutos[0])
+                    df_oc = df_all[df_all[df_all.columns[6]].astype(str).str.contains("OCORRÊNCIA:", na=False)].copy()
+                    
+                    if not df_oc.empty:
+                        colunas_oc = df_oc.columns.tolist()
+                        
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            lista_turmas_oc = ["Todas"] + sorted(df_oc[colunas_oc[2]].unique().astype(str).tolist())
+                            t_filtro_oc = st.selectbox("Filtrar por Turma", lista_turmas_oc, key="f_t_oc")
+                        with c2:
+                            lista_alunos_oc = ["Todos"] + sorted(df_oc[df_oc[colunas_oc[2]].astype(str) == t_filtro_oc][colunas_oc[3]].unique().astype(str).tolist()) if t_filtro_oc != "Todas" else ["Todos"] + sorted(df_oc[colunas_oc[3]].unique().astype(str).tolist())
+                            a_filtro_oc = st.selectbox("Filtrar por Aluno", lista_alunos_oc, key="f_a_oc")
+                            
+                        df_oc_filtrado = df_oc.copy()
+                        if t_filtro_oc != "Todas":
+                            df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[colunas_oc[2]].astype(str) == t_filtro_oc]
+                        if a_filtro_oc != "Todos":
+                            df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[colunas_oc[3]].astype(str) == a_filtro_oc]
+                            
+                        df_oc_exibicao = df_oc_filtrado.rename(columns={
+                            colunas_oc[0]: "Data/Hora",
+                            colunas_oc[1]: "Professor",
+                            colunas_oc[2]: "Turma",
+                            colunas_oc[3]: "Aluno",
+                            colunas_oc[5]: "Bimestre",
+                            colunas_oc[6]: "Motivos",
+                            colunas_oc[7]: "Detalhamento"
+                        })
+                        
+                        st.dataframe(df_oc_exibicao[["Data/Hora", "Turma", "Aluno", "Professor", "Bimestre", "Motivos", "Detalhamento"]], use_container_width=True, hide_index=True)
+                    else:
+                        st.info("ℹ️ Nenhuma ocorrência registrada até o momento.")
+                else:
+                    st.info("ℹ️ Nenhuma ocorrência encontrada na planilha.")
+            except Exception as e:
+                st.error(f"Erro ao carregar painel de ocorrências: {e}")
 
     elif pagina_atual == "Cadastro":
         st.error("Acesso restrito.")
@@ -822,11 +960,7 @@ def desenhar_tela_agendamentos():
                 st.error("A senha atual informada está incorreta.")
             else:
                 try:
-                    scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-                    creds_dict = st.secrets["gcp_service_account"]
-                    credentials = Credentials.from_service_account_info(creds_dict, scopes=scope)
-                    client = gspread.authorize(credentials)
-                    sh = client.open_by_key("153ohv6YsmfOZHjoLpb8He2VM2P-DYTVGh9zDVNRBdS0")
+                    sh = conectar_google_sheets()
                     wks_p = sh.worksheet("Config_Professores")
                     celula = wks_p.find(str(st.session_state.user_data['Usuario']))
                     wks_p.update_cell(celula.row, 3, str(nova_senha).strip())
