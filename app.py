@@ -632,7 +632,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrências":
+    elif pagina_atual == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -1521,119 +1521,10 @@ else:
 
     elif pagina_atual == "Agendamento de Equipamentos":
         st.title("📅 Agendamento de Equipamentos")
-        
-        aba_agendamento = st.radio(
-            "Selecione a ação:",
-            ["Novo Agendamento", "Visualizar e Gerenciar Agendamentos"],
-            horizontal=True
-        )
-        
         st.markdown("---")
         
-        if aba_agendamento == "Novo Agendamento":
-            st.subheader("📝 Solicitar Reserva de Equipamento")
-            
-            with st.form("form_agendamento_equip", clear_on_submit=True):
-                col_ag1, col_ag2 = st.columns(2)
-                
-                with col_ag1:
-                    data_uso_equip = st.date_input("Data de Uso", value=data_atual, min_value=data_atual)
-                    turno_equip = st.selectbox("Turno", ["Matutino", "Vespertino", "Noturno"])
-                    
-                with col_ag2:
-                    # Exibe "Tablets" visualmente para o professor na tela
-                    equip_exibicao = st.selectbox("Equipamento", ["Tablets", "Datashow", "Caixa de Som", "Notebook", "Televisão"])
-                    horario_equip = st.selectbox("Horário / Aula", ["1º Tempo", "2º Tempo", "3º Tempo", "4º Tempo", "5º Tempo", "Integral"])
-                
-                obs_equip = st.text_area("Observações (Opcional)")
-                btn_agendar = st.form_submit_button("CONCLUIR AGENDAMENTO")
-                
-                if btn_agendar:
-                    # Converte o nome visual para o nome interno original do banco/planilha
-                    equip_real = "tablet (maleta)" if equip_exibicao == "Tablets" else equip_exibicao
-                    
-                    if verificar_conflito(equip_real, data_uso_equip.strftime("%d/%m/%Y"), turno_equip, horario_equip):
-                        st.error(f"🚨 Conflito! O recurso '{equip_exibicao}' já está agendado para o dia {data_uso_equip.strftime('%d/%m/%Y')} no turno {turno_equip} ({horario_equip}).")
-                    else:
-                        try:
-                            _, wks_a = carregar_agendamentos()
-                            nova_reserva = [
-                                datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
-                                equip_real, # Grava o nome original para não quebrar a lógica do sistema
-                                prof_nome,
-                                data_uso_equip.strftime("%d/%m/%Y"),
-                                turno_equip,
-                                horario_equip,
-                                obs_equip
-                            ]
-                            wks_a.append_row(nova_reserva)
-                            st.success(f"✅ Agendamento de '{equip_exibicao}' realizado com sucesso para o dia {data_uso_equip.strftime('%d/%m/%Y')}!")
-                            st.cache_data.clear()
-                            time.sleep(1.5)
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao salvar agendamento: {e}")
-                            
-        elif aba_agendamento == "Visualizar e Gerenciar Agendamentos":
-            st.subheader("📋 Lista de Reservas Cadastradas")
-            try:
-                df_ag, wks_a = carregar_agendamentos()
-                if not df_ag.empty:
-                    # Cria uma cópia apenas para exibição em tela sem mexer nos dados originais
-                    df_visualizacao = df_ag.copy()
-                    if 'Equipamento' in df_visualizacao.columns:
-                        df_visualizacao['Equipamento'] = df_visualizacao['Equipamento'].astype(str).replace("tablet (maleta)", "Tablets")
-                    
-                    df_visualizacao = df_visualizacao.sort_values(by="Data_Uso", ascending=False)
-                    st.dataframe(df_visualizacao, use_container_width=True, hide_index=True)
-                    
-                    if st.session_state.get('is_master_admin', False):
-                        st.markdown("---")
-                        st.subheader("⚙️ Painel do Administrator: Remover Agendamentos")
-                        
-                        opcoes_remocao = {
-                            f"{row['Data_Uso']} - {str(row['Equipamento']).replace('tablet (maleta)', 'Tablets')} ({row['Professor']})": idx + 2
-                            for idx, row in df_ag.iterrows()
-                        }
-                        
-                        reserva_para_excluir = st.selectbox("Selecione um agendamento para remover permanentemente:", [""] + list(opcoes_remocao.keys()))
-                        
-                        if reserva_para_excluir != "":
-                            linha_index_sheets = opcoes_remocao[reserva_para_excluir]
-                            if st.button("🗑️ EXCLUIR AGENDAMENTO DEFINITIVAMENTE", type="primary"):
-                                try:
-                                    wks_a.delete_rows(linha_index_sheets)
-                                    st.success("Agendamento removido com sucesso!")
-                                    st.cache_data.clear()
-                                    time.sleep(1.5)
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Erro ao deletar linha: {e}")
-                                    
-                            st.divider()
-                            with st.expander("🚨 ZONA DE PERIGO: LIMPAR TODOS OS AGENDAMENTOS"):
-                                st.write("Esta ação apagará permanentemente todos os registros de agendamento de equipamentos do sistema.")
-                                confirmar_limpeza_total = st.text_input("Para confirmar, digite exatamente 'LIMPAR TUDO':")
-                                if confirmar_limpeza_total == "LIMPAR TUDO":
-                                    if st.button("💥 APAGAR DEFINITIVAMENTE TODOS OS AGENDAMENTOS", use_container_width=True, type="primary"):
-                                        try:
-                                            wks_a.resize(rows=1)
-                                            wks_a.resize(rows=1000)
-                                            st.success("💥 Todos os agendamentos foram limpos do banco dados!")
-                                            st.cache_data.clear()
-                                            time.sleep(1.5)
-                                            st.rerun()
-                                        except Exception as e:
-                                            st.error(f"Erro ao limpar tabela: {e}")
-                        else:
-                            st.info("Nenhum agendamento corresponde ao filtro aplicado ou não há agendamentos para gerenciar.")
-                    else:
-                        st.caption("ℹ️ Recursos de edição e exclusão de reservas estão disponíveis apenas para administradores.")
-                else:
-                    st.info("ℹ️ Nenhum agendamento foi registrado até o momento.")
-                    
-            except Exception as e:
-                st.error(f"Erro ao carregar o painel de gerenciamento: {e}")
+        # Bloco limpo e zerado, pronto para começarmos a nova estruturação do zero
+        st.info("🔄 Este módulo de agendamento está pronto para ser reestruturado. Aguardando novas definições de campos e regras.")
 
     elif pagina_atual == "Cadastro":
         st.error("Acesso restrito.")
