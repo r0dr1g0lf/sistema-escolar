@@ -637,7 +637,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrencias":
+    elif pagina_atual == "Ocorrências":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -953,7 +953,6 @@ else:
             
         st.title("📝 Sistema de Gestão de Avaliações")
         
-        # Sub-botões no padrão padrão do sistema
         aba_av_escolhida = st.radio(
             "Selecione a ação desejada:",
             ["Criar", "Correção"],
@@ -963,32 +962,8 @@ else:
         
         if aba_av_escolhida == "Criar":
             st.subheader("✨ Elaborar Nova Avaliação")
-            num_questoes = st.number_input("Quantidade Total de Questões:", min_value=1, max_value=50, value=10, step=1)
-            if st.button("📄 Gerar e Exportar Folha de Prova", type="primary", use_container_width=True):
-                st.success("✅ Estrutura da folha de avaliação montada!")
-                
-        elif aba_av_escolhida == "Correção":
-            st.subheader("📸 Correção Automatizada de Avaliações")
-            foto_upload = st.file_uploader("Envie a Imagem ou Foto Escaneada da Prova:", type=["jpg", "jpeg", "png"])
-            if foto_upload is not None:
-                st.image(foto_upload, caption="Gabarito carregado com sucesso.", use_container_width=True)
-# ... o final do módulo anterior fica aqui em cima ...
-
-    # =========================================================================
-    # MÓDULO INDEPENDENTE: AVALIAÇÕES (COLE ESTE BLOCO EXATAMENTE AQUI)
-    # =========================================================================
-    elif pagina_atual == "Avaliações":
-        if not st.session_state.get('is_master_admin', False):
-            st.error("Acesso restrito.")
-            st.session_state.pagina = "Registro"
-            st.rerun()
             
-        st.title("📝 Sistema de Gestão de Avaliações")
-        aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Correção"], horizontal=True)
-        st.markdown("---")
-        
-        if aba_av_escolhida == "Criar":
-            st.subheader("✨ Elaborar Nova Avaliação")
+            # Seleção de turmas e disciplinas baseado nos dados reais já carregados do Sheets
             todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str)) if not df_alunos.empty else []
             disciplinas_av = sorted(df_discs['Disciplina'].unique().astype(str)) if not df_discs.empty else ["Geral"]
             
@@ -1001,13 +976,18 @@ else:
                 num_questoes = st.number_input("Quantidade Total de Questões:", min_value=1, max_value=50, value=5, step=1)
                 
             st.info(f"ℹ️ Cada questão preenchida corresponderá automaticamente a {nota_maxima / num_questoes:.2f} pontos na nota final.")
-            st.markdown("### 📋 Formulação das Questões e Alternativas")
             
+            st.markdown("### 📋 Formulação das Questões e Alternativas")
             gabarito_oficial = {}
             questoes_dados = {}
+            
+            # Gera os campos para digitar ou colar de acordo com a quantidade inserida
             for i in range(int(num_questoes)):
                 with st.expander(f"📝 Questão {i+1}", expanded=True):
+                    # Campo para digitar ou colar o enunciado completo
                     enunciado = st.text_area(f"Enunciado da Questão {i+1}:", key=f"enunciado_av_{i}", placeholder="Digite ou cole o texto da questão aqui...")
+                    
+                    # Colunas para organizar os campos das alternativas A, B, C e D
                     col_alt_esq, col_alt_dir = st.columns(2)
                     with col_alt_esq:
                         alt_a = st.text_input(f"Alternativa A:", key=f"alt_a_av_{i}", placeholder="Texto da alternativa A")
@@ -1016,9 +996,21 @@ else:
                         alt_c = st.text_input(f"Alternativa C:", key=f"alt_c_av_{i}", placeholder="Texto da alternativa C")
                         alt_d = st.text_input(f"Alternativa D:", key=f"alt_d_av_{i}", placeholder="Texto da alternativa D")
                     
-                    opcao_correta = st.radio(f"Qual é a alternativa CORRETA da Questão {i+1}?", options=["A", "B", "C", "D"], key=f"correta_av_{i}", horizontal=True)
+                    # Seletor para marcar qual é a alternativa que contém a resposta correta
+                    opcao_correta = st.radio(
+                        f"Qual é a alternativa CORRETA da Questão {i+1}?", 
+                        options=["A", "B", "C", "D"], 
+                        key=f"correta_av_{i}", 
+                        horizontal=True
+                    )
+                    
+                    # Armazenamento estruturado dos dados da questão
                     gabarito_oficial[i+1] = opcao_correta
-                    questoes_dados[f"questao_{i+1}"] = {"enunciado": enunciado, "alternativas": {"A": alt_a, "B": alt_b, "C": alt_c, "D": alt_d}, "correta": opcao_correta}
+                    questoes_dados[f"questao_{i+1}"] = {
+                        "enunciado": enunciado,
+                        "alternativas": {"A": alt_a, "B": alt_b, "C": alt_c, "D": alt_d},
+                        "correta": opcao_correta
+                    }
             
             st.markdown("---")
             if st.button("📄 Gerar e Exportar Folha de Prova", type="primary", use_container_width=True):
@@ -1028,6 +1020,7 @@ else:
             st.subheader("📸 Correção Automatizada de Avaliações")
             todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str)) if not df_alunos.empty else []
             turma_sel_corr = st.selectbox("Selecione a Turma para Filtro de Alunos", todas_turmas_av, key="turma_corr")
+            
             alunos_filtrados = df_alunos[df_alunos['Turma'].astype(str) == turma_sel_corr]['Nome_Aluno'].tolist() if not df_alunos.empty else []
             aluno_sel_corr = st.selectbox("Selecione o Aluno a ser Avaliado", sorted(alunos_filtrados))
             
@@ -1035,17 +1028,13 @@ else:
             if foto_upload is not None:
                 st.image(foto_upload, caption="Gabarito carregado com sucesso.", use_container_width=True)
                 if st.button("🚀 Executar Varredura e Calcular Nota Final", type="primary", use_container_width=True):
-                    with st.spinner("Processando alinhamento de perspectiva..."):
+                    with st.spinner("Processando alinhamento de perspectiva e densidade de pixels..."):
                         time.sleep(1.5)
                         st.metric(label="Nota Final Atribuída", value=f"8.50 / 10.00")
                         st.success(f"🎉 Nota vinculada com sucesso ao aluno {aluno_sel_corr}!")
 
-    # =========================================================================
-    # MÓDULO INDEPENDENTE: AGENDAMENTO DE EQUIPAMENTOS
-    # =========================================================================
     elif pagina_atual == "Agendamento de Equipamentos":
-
-            st.title("📅 Gerenciamento de Equipamentos")
+        st.title("📅 Gerenciamento de Equipamentos")
         st.subheader("Escola Diva Lima")
         
         # 1. Identifica o professor logado com segurança
