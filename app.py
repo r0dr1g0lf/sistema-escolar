@@ -637,7 +637,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrencias":
+    elif pagina_atual == "Ocorrências":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -963,9 +963,40 @@ else:
         
         if aba_av_escolhida == "Criar":
             st.subheader("✨ Elaborar Nova Avaliação")
-            num_questoes = st.number_input("Quantidade Total de Questões:", min_value=1, max_value=50, value=10, step=1)
+            num_questoes = st.number_input("Quantidade Total de Questões:", min_value=1, max_value=50, value=5, step=1)
+            
+            st.markdown("#### 📝 Cadastro das Questões")
+            respostas_gabarito = {}
+            questoes_dados = {}
+            
+            # Gera dinamicamente os campos com base no número selecionado
+            for i in range(int(num_questoes)):
+                st.write(f"**Questão {i+1}**")
+                
+                # Campo para digitar o enunciado
+                enunciado = st.text_input(
+                    f"Digite o enunciado da Questão {i+1}:", 
+                    key=f"enunciado_{i}", 
+                    placeholder="Ex: Quanto é 2 + 2?"
+                )
+                
+                # Seletor da alternativa correta
+                resposta_certa = st.radio(
+                    f"Selecione a alternativa correta para a Questão {i+1}:",
+                    options=["A", "B", "C", "D"],
+                    horizontal=True,
+                    key=f"gabarito_{i}"
+                )
+                
+                # Armazena os dados preenchidos para uso futuro ou exportação
+                questoes_dados[f"questao_{i+1}"] = {
+                    "enunciado": enunciado,
+                    "resposta_correta": resposta_certa
+                }
+                st.markdown("---")
+                
             if st.button("📄 Gerar e Exportar Folha de Prova", type="primary", use_container_width=True):
-                st.success("✅ Estrutura da folha de avaliação montada!")
+                st.success(f"✅ Estrutura com {int(num_questoes)} questões e gabarito mapeada com sucesso!")
                 
         elif aba_av_escolhida == "Correção":
             st.subheader("📸 Correção Automatizada de Avaliações")
