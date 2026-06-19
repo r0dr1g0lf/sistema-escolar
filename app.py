@@ -210,6 +210,10 @@ else:
         st.session_state.pagina = "Ocorrencias"
         st.rerun()
 
+    if st.sidebar.button("Avaliações", key="btn_avaliacoes_nav", use_container_width=True):
+        st.session_state.pagina = "Avaliações"
+        st.rerun()
+
     # NOVO LOCAL: Botão posicionado logo abaixo de Ocorrências
     if st.sidebar.button('📅 Agendar Equipamentos', key="btn_agendar_equipamentos_nav", use_container_width=True):
         st.session_state.pagina = 'Agendamento de Equipamentos'
