@@ -1045,8 +1045,7 @@ else:
     # =========================================================================
     elif pagina_atual == "Agendamento de Equipamentos":
 
-    elif pagina_atual == "Agendamento de Equipamentos":
-        st.title("📅 Gerenciamento de Equipamentos")
+            st.title("📅 Gerenciamento de Equipamentos")
         st.subheader("Escola Diva Lima")
         
         # 1. Identifica o professor logado com segurança
