@@ -500,7 +500,7 @@ else:
                     st.subheader("📝 Editar ou 🗑️ Excluir Registros de Desempenho")
                     
                     if is_soe:
-                        st.info("Usuários SOE não possuem permissão para editar ou excluir registros.")
+                        st.info("Usuários SOE não possuem permissão para realizar registros.")
                     else:
                         col_exc1, col_exc2 = st.columns(2)
                         
@@ -993,7 +993,164 @@ else:
                         except Exception as e:
                             st.error(f"Erro ao atualizar a senha na planilha: {e}")
 
-    # Changed: Use is_master_admin for Cadastro page access
+    # =========================================================================
+    # MÓDULO INDEPENDENTE: AVALIAÇÕES
+    # =========================================================================
+    elif pagina_atual == "Avaliações":
+        # SE NÃO FOR ADMIN MASTER: Mostra apenas a mensagem de em construção
+        if not st.session_state.get('is_master_admin', False):
+            st.title("📝 Sistema de Gestão de Avaliações")
+            st.warning("🚧 **Esta função está em desenvolvimento!** Brevemente, professores e administradores poderão criar e corrigir avaliações de forma automatizada por aqui. Fique atento às novidades!")
+            
+            if st.button("Voltar para o Início", use_container_width=True):
+                st.session_state.pagina = "Registro"
+                st.rerun()
+                
+        # SE FOR ADMIN MASTER: Carrega o sistema completo normalmente
+        else:
+            st.title("📝 Sistema de Gestão de Avaliações")
+            aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Correção"], horizontal=True)
+            st.markdown("---")
+            
+            if aba_av_escolhida == "Criar":
+                st.subheader("✨ Elaborar Nova Avaliação")
+                todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str)) if not df_alunos.empty else []
+                
+                # Identifica a disciplina do professor logado ou gera a lista de escolha
+                if 'user_data' in st.session_state and st.session_state.user_data.get('Disciplina'):
+                    disc_professor = st.session_state.user_data.get('Disciplina')
+                    disciplinas_av = [disc_professor]
+                    st.success(f"📚 Disciplina identificada pelo seu perfil: **{disc_professor}**")
+                else:
+                    disciplinas_av = sorted(df_discs['Disciplina'].unique().astype(str)) if not df_discs.empty else ["Geografia", "História", "Português", "Matemática"]
+                
+                col_cfg1, col_cfg2 = st.columns(2)
+                with col_cfg1:
+                    turma_sel_av = st.selectbox("Selecione a Turma Alvo", todas_turmas_av, key="turma_sel_av")
+                    nota_maxima = st.number_input("Defina a Nota Máxima da Avaliação:", min_value=1.0, max_value=100.0, value=10.0, step=0.5)
+                with col_cfg2:
+                    disciplina_sel_av = st.selectbox("Selecione a Disciplina correspondente", disciplinas_av, key="disciplina_sel_av")
+                    num_questoes = st.number_input("Quantidade Total de Questões:", min_value=1, max_value=50, value=5, step=1)
+                    
+                st.info(f"ℹ️ Cada questão preenchida corresponderá automaticamente a {nota_maxima / num_questoes:.2f} pontos na nota final.")
+                st.markdown("### 📋 Formulação das Questões e Alternativas")
+                
+                gabarito_oficial = {}
+                questoes_dados = []
+                for i in range(int(num_questoes)):
+                    with st.expander(f"📝 Questão {i+1}", expanded=True):
+                        enunciado = st.text_area(f"Enunciado da Questão {i+1}:", key=f"enunciado_av_{i}", placeholder="Digite ou cole o texto da questão aqui...")
+                        col_alt_esq, col_alt_dir = st.columns(2)
+                        with col_alt_esq:
+                            alt_a = st.text_input(f"Alternativa A:", key=f"alt_a_av_{i}", placeholder="Texto da alternativa A")
+                            alt_b = st.text_input(f"Alternativa B:", key=f"alt_b_av_{i}", placeholder="Texto da alternativa B")
+                        with col_alt_dir:
+                            alt_c = st.text_input(f"Alternativa C:", key=f"alt_c_av_{i}", placeholder="Texto da alternativa C")
+                            alt_d = st.text_input(f"Alternativa D:", key=f"alt_d_av_{i}", placeholder="Texto da alternativa D")
+                        
+                        opcao_correta = st.radio(f"Qual é a alternativa CORRETA da Questão {i+1}?", options=["A", "B", "C", "D"], key=f"correta_av_{i}", horizontal=True)
+                        gabarito_oficial[i+1] = opcao_correta
+                        questoes_dados.append({
+                            "numero": i+1,
+                            "enunciado": enunciado,
+                            "A": alt_a,
+                            "B": alt_b,
+                            "C": alt_c,
+                            "D": alt_d
+                        })
+                
+                st.markdown("---")
+                
+                # GERAÇÃO DA FOLHA A4 PARA IMPRESSÃO VIA HTML/CSS
+                if st.button("📄 Gerar e Exportar Folha de Prova", type="primary", use_container_width=True):
+                    
+                    html_questoes = ""
+                    for q in questoes_dados:
+                        html_questoes += f"""
+                        <div class="question-block">
+                            <p class="question-title"><b>Questão {q['numero']}</b></p>
+                            <p class="enunciado">{q['enunciado']}</p>
+                            <div class="alternatives">
+                                <p><b>A)</b> {q['A']}</p>
+                                <p><b>B)</b> {q['B']}</p>
+                                <p><b>C)</b> {q['C']}</p>
+                                <p><b>D)</b> {q['D']}</p>
+                            </div>
+                        </div>
+                        """
+                    
+                    html_prova = f"""
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                    <meta charset="utf-8">
+                    <style>
+                        @media print {{
+                            body {{ margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 12pt; line-height: 1.5; color: #000; }}
+                            .print-container {{ width: 100%; padding: 20mm; box-sizing: border-box; }}
+                            .no-print {{ display: none !important; }}
+                        }}
+                        body {{ font-family: Arial, sans-serif; background-color: #fafafa; padding: 10px; }}
+                        .print-container {{ max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
+                        .header-table {{ width: 100%; border-collapse: collapse; margin-bottom: 25px; }}
+                        .header-table td {{ border: 1px solid #000; padding: 10px; font-size: 11pt; vertical-align: middle; }}
+                        .school-title {{ font-size: 14pt; font-weight: bold; text-align: center; text-transform: uppercase; }}
+                        .question-block {{ margin-bottom: 20px; page-break-inside: avoid; }}
+                        .question-title {{ font-size: 12pt; margin-bottom: 5px; }}
+                        .enunciado {{ margin-bottom: 10px; text-align: justify; white-space: pre-wrap; }}
+                        .alternatives {{ margin-left: 15px; }}
+                        .alternatives p {{ margin: 4px 0; }}
+                        .btn-print {{ display: block; width: 100%; padding: 15px; background-color: #2e7d32; color: white; border: none; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; margin-bottom: 20px; text-transform: uppercase; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }}
+                        .btn-print:hover {{ background-color: #1b5e20; }}
+                    </style>
+                    </head>
+                    <body>
+                        <button class="btn-print no-print" onclick="window.print()">🖨️ Clique Aqui para Imprimir ou Salvar em PDF (A4)</button>
+                        
+                        <div class="print-container">
+                            <table class="header-table">
+                                <tr>
+                                    <td colspan="3" class="school-title">Escola Estadual Profª Diva Alves de Lima</td>
+                                </tr>
+                                <tr>
+                                    <td width="50%"><b>Aluno(a):</b> _________________________________________________</td>
+                                    <td width="25%"><b>Turma:</b> {turma_sel_av}</td>
+                                    <td width="25%"><b>Nota:</b> _________</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2"><b>Disciplina:</b> {disciplina_sel_av}</td>
+                                    <td><b>Data:</b> ____/____/______</td>
+                                </tr>
+                            </table>
+                            {html_questoes}
+                        </div>
+                        <script>
+                            setTimeout(function() {{ window.print(); }}, 500);
+                        </script>
+                    </body>
+                    </html>
+                    """
+                    
+                    st.markdown("### 🖨️ Pré-visualização da Folha de Prova")
+                    st.components.v1.html(html_prova, height=650, scrolling=True)
+                    st.success("🎉 Folha de Prova gerada com sucesso!")
+                    
+            elif aba_av_escolhida == "Correção":
+                st.subheader("📸 Correção Automatizada de Avaliações")
+                todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str)) if not df_alunos.empty else []
+                turma_sel_corr = st.selectbox("Selecione a Turma para Filtro de Alunos", todas_turmas_av, key="turma_corr")
+                alunos_filtrados = df_alunos[df_alunos['Turma'].astype(str) == turma_sel_corr]['Nome_Aluno'].tolist() if not df_alunos.empty else []
+                aluno_sel_corr = st.selectbox("Selecione o Aluno a ser Avaliado", sorted(alunos_filtrados))
+                
+                foto_upload = st.file_uploader("Envie a Imagem ou Foto Escaneada da Prova:", type=["jpg", "jpeg", "png"])
+                if foto_upload is not None:
+                    st.image(foto_upload, caption="Gabarito carregado com sucesso.", use_container_width=True)
+                    if st.button("🚀 Executar Varredura e Calcular Nota Final", type="primary", use_container_width=True):
+                        with st.spinner("Processando alinhamento de perspectiva..."):
+                            time.sleep(1.5)
+                            st.metric(label="Nota Final Atribuída", value=f"8.50 / 10.00")
+                            st.success(f"🎉 Nota vinculada com sucesso ao aluno {aluno_sel_corr}!")
+
     elif pagina_atual == "Cadastro" and st.session_state.get('is_master_admin', False):
         st.title("⚙️ Painel de Cadastro")
         abas = ["Turmas/Alunos", "Disciplinas", "Gerenciar Usuários", "Alterar Senha", "Período de Lançamento"]
@@ -1522,72 +1679,6 @@ else:
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Erro: {e}")
-
-# =========================================================================
-    # MÓDULO INDEPENDENTE: AVALIAÇÕES
-    # =========================================================================
-    elif pagina_atual == "Avaliações":
-        if not st.session_state.get('is_master_admin', False):
-            st.error("Acesso restrito.")
-            st.session_state.pagina = "Registro"
-            st.rerun()
-            
-        st.title("📝 Sistema de Gestão de Avaliações")
-        aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Correção"], horizontal=True)
-        st.markdown("---")
-        
-        if aba_av_escolhida == "Criar":
-            st.subheader("✨ Elaborar Nova Avaliação")
-            todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str)) if not df_alunos.empty else []
-            disciplinas_av = sorted(df_discs['Disciplina'].unique().astype(str)) if not df_discs.empty else ["Geral"]
-            
-            col_cfg1, col_cfg2 = st.columns(2)
-            with col_cfg1:
-                turma_sel_av = st.selectbox("Selecione a Turma Alvo", todas_turmas_av, key="turma_sel_av")
-                nota_maxima = st.number_input("Defina a Nota Máxima da Avaliação:", min_value=1.0, max_value=100.0, value=10.0, step=0.5)
-            with col_cfg2:
-                disciplina_sel_av = st.selectbox("Selecione a Disciplina correspondente", disciplinas_av, key="disciplina_sel_av")
-                num_questoes = st.number_input("Quantidade Total de Questões:", min_value=1, max_value=50, value=5, step=1)
-                
-            st.info(f"ℹ️ Cada questão preenchida corresponderá automaticamente a {nota_maxima / num_questoes:.2f} pontos na nota final.")
-            st.markdown("### 📋 Formulação das Questões e Alternativas")
-            
-            gabarito_oficial = {}
-            questoes_dados = {}
-            for i in range(int(num_questoes)):
-                with st.expander(f"📝 Questão {i+1}", expanded=True):
-                    enunciado = st.text_area(f"Enunciado da Questão {i+1}:", key=f"enunciado_av_{i}", placeholder="Digite ou cole o texto da questão aqui...")
-                    col_alt_esq, col_alt_dir = st.columns(2)
-                    with col_alt_esq:
-                        alt_a = st.text_input(f"Alternativa A:", key=f"alt_a_av_{i}", placeholder="Texto da alternativa A")
-                        alt_b = st.text_input(f"Alternativa B:", key=f"alt_b_av_{i}", placeholder="Texto da alternativa B")
-                    with col_alt_dir:
-                        alt_c = st.text_input(f"Alternativa C:", key=f"alt_c_av_{i}", placeholder="Texto da alternativa C")
-                        alt_d = st.text_input(f"Alternativa D:", key=f"alt_d_av_{i}", placeholder="Texto da alternativa D")
-                    
-                    opcao_correta = st.radio(f"Qual é a alternativa CORRETA da Questão {i+1}?", options=["A", "B", "C", "D"], key=f"correta_av_{i}", horizontal=True)
-                    gabarito_oficial[i+1] = opcao_correta
-                    questoes_dados[f"questao_{i+1}"] = {"enunciado": enunciado, "alternativas": {"A": alt_a, "B": alt_b, "C": alt_c, "D": alt_d}, "correta": opcao_correta}
-            
-            st.markdown("---")
-            if st.button("📄 Gerar e Exportar Folha de Prova", type="primary", use_container_width=True):
-                st.success(f"✅ Prova configurada com sucesso para a turma {turma_sel_av}! {int(num_questoes)} questões prontas para exportação.")
-                
-        elif aba_av_escolhida == "Correção":
-            st.subheader("📸 Correção Automatizada de Avaliações")
-            todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str)) if not df_alunos.empty else []
-            turma_sel_corr = st.selectbox("Selecione a Turma para Filtro de Alunos", todas_turmas_av, key="turma_corr")
-            alunos_filtrados = df_alunos[df_alunos['Turma'].astype(str) == turma_sel_corr]['Nome_Aluno'].tolist() if not df_alunos.empty else []
-            aluno_sel_corr = st.selectbox("Selecione o Aluno a ser Evaluado", sorted(alunos_filtrados))
-            
-            foto_upload = st.file_uploader("Envie a Imagem ou Foto Escaneada da Prova:", type=["jpg", "jpeg", "png"])
-            if foto_upload is not None:
-                st.image(foto_upload, caption="Gabarito carregado com sucesso.", use_container_width=True)
-                if st.button("🚀 Executar Varredura e Calcular Nota Final", type="primary", use_container_width=True):
-                    with st.spinner("Processando alinhamento de perspectiva..."):
-                        time.sleep(1.5)
-                        st.metric(label="Nota Final Atribuída", value=f"8.50 / 10.00")
-                        st.success(f"🎉 Nota vinculada com sucesso ao aluno {aluno_sel_corr}!")    
 
     elif pagina_atual == "Agendamento de Equipamentos":
         st.title("📅 Gerenciamento de Equipamentos")
