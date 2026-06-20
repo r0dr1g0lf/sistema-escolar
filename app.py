@@ -636,7 +636,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrencias":
+    elif pagina_atual == "Ocorrências":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -1038,14 +1038,26 @@ else:
                     disciplina_sel_av = st.selectbox("Selecione a Disciplina correspondente", disciplinas_av, key="disciplina_sel_av")
                     num_questoes = st.number_input("Quantidade Total de Questões:", min_value=1, max_value=50, value=5, step=1)
                     
-                st.info(f"ℹ️ Cada questão preenchida corresponderá automaticamente a {nota_maxima / num_questoes:.2f} pontos na nota final.")
+                st.info(f"ℹ️ Preencha os enunciados, alternativas e determine o valor de cada questão abaixo. A soma dos valores deve totalizar exatamente **{nota_maxima:.2f}** pontos.")
                 st.markdown("### 📋 Formulação das Questões e Alternativas")
                 
                 gabarito_oficial = {}
                 questoes_dados = []
+                soma_valores_atual = 0.0
+                
+                # Distribui um valor sugerido inicial para facilitar o preenchimento do professor
+                valor_sugerido = round(nota_maxima / int(num_questoes), 2)
+                
                 for i in range(int(num_questoes)):
                     with st.expander(f"📝 Questão {i+1}", expanded=True):
-                        enunciado = st.text_area(f"Enunciado da Questão {i+1}:", key=f"enunciado_av_{i}", placeholder="Digite ou cole o texto da questão aqui...")
+                        col_enum, col_val = st.columns([4, 1])
+                        with col_enum:
+                            enunciado = st.text_area(f"Enunciado da Questão {i+1}:", key=f"enunciado_av_{i}", placeholder="Digite ou cole o texto da questão aqui...")
+                        with col_val:
+                            valor_questao = st.number_input(f"Valor (Pts):", min_value=0.0, max_value=float(nota_maxima), value=float(valor_sugerido), step=0.1, key=f"valor_av_{i}")
+                        
+                        soma_valores_atual += valor_questao
+                        
                         col_alt_esq, col_alt_dir = st.columns(2)
                         with col_alt_esq:
                             alt_a = st.text_input(f"Alternativa A:", key=f"alt_a_av_{i}", placeholder="Texto da alternativa A")
@@ -1059,6 +1071,7 @@ else:
                         questoes_dados.append({
                             "numero": i+1,
                             "enunciado": enunciado,
+                            "valor": valor_questao,
                             "A": alt_a,
                             "B": alt_b,
                             "C": alt_c,
@@ -1067,80 +1080,90 @@ else:
                 
                 st.markdown("---")
                 
+                # Exibe um painel de conferência de pontos em tempo real
+                if round(soma_valores_atual, 2) == round(nota_maxima, 2):
+                    st.success(f"✅ Balanço de Notas Correto: A soma das questões é igual a {soma_valores_atual:.2f} / {nota_maxima:.2f} pontos.")
+                else:
+                    st.warning(f"⚠️ Atenção ao somatório: O total das questões está dando **{soma_valores_atual:.2f}** pontos, mas o máximo configurado é **{nota_maxima:.2f}**.")
+                
                 # GERAÇÃO DA FOLHA A4 PARA IMPRESSÃO VIA HTML/CSS
                 if st.button("📄 Gerar e Exportar Folha de Prova", type="primary", use_container_width=True):
                     
-                    html_questoes = ""
-                    for q in questoes_dados:
-                        html_questoes += f"""
-                        <div class="question-block">
-                            <p class="question-title"><b>Questão {q['numero']}</b></p>
-                            <p class="enunciado">{q['enunciado']}</p>
-                            <div class="alternatives">
-                                <p><b>A)</b> {q['A']}</p>
-                                <p><b>B)</b> {q['B']}</p>
-                                <p><b>C)</b> {q['C']}</p>
-                                <p><b>D)</b> {q['D']}</p>
+                    # Validação rigorosa do teto e somatório de notas
+                    if round(soma_valores_atual, 2) != round(nota_maxima, 2):
+                        st.error(f"❌ Não é possível gerar a prova! A soma dos valores atribuídos às questões ({soma_valores_atual:.2f} pts) difere da Nota Máxima configurada ({nota_maxima:.2f} pts). Ajuste os valores antes de continuar.")
+                    else:
+                        html_questoes = ""
+                        for q in questoes_dados:
+                            html_questoes += f"""
+                            <div class="question-block">
+                                <p class="question-title"><b>Questão {q['numero']} ({q['valor']:.2f} pontos)</b></p>
+                                <p class="enunciado">{q['enunciado']}</p>
+                                <div class="alternatives">
+                                    <p><b>A)</b> {q['A']}</p>
+                                    <p><b>B)</b> {q['B']}</p>
+                                    <p><b>C)</b> {q['C']}</p>
+                                    <p><b>D)</b> {q['D']}</p>
+                                </div>
                             </div>
-                        </div>
-                        """
-                    
-                    html_prova = f"""
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                    <meta charset="utf-8">
-                    <style>
-                        @media print {{
-                            body {{ margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 12pt; line-height: 1.5; color: #000; }}
-                            .print-container {{ width: 100%; padding: 20mm; box-sizing: border-box; }}
-                            .no-print {{ display: none !important; }}
-                        }}
-                        body {{ font-family: Arial, sans-serif; background-color: #fafafa; padding: 10px; }}
-                        .print-container {{ max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
-                        .header-table {{ width: 100%; border-collapse: collapse; margin-bottom: 25px; }}
-                        .header-table td {{ border: 1px solid #000; padding: 10px; font-size: 11pt; vertical-align: middle; }}
-                        .school-title {{ font-size: 14pt; font-weight: bold; text-align: center; text-transform: uppercase; }}
-                        .question-block {{ margin-bottom: 20px; page-break-inside: avoid; }}
-                        .question-title {{ font-size: 12pt; margin-bottom: 5px; }}
-                        .enunciado {{ margin-bottom: 10px; text-align: justify; white-space: pre-wrap; }}
-                        .alternatives {{ margin-left: 15px; }}
-                        .alternatives p {{ margin: 4px 0; }}
-                        .btn-print {{ display: block; width: 100%; padding: 15px; background-color: #2e7d32; color: white; border: none; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; margin-bottom: 20px; text-transform: uppercase; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }}
-                        .btn-print:hover {{ background-color: #1b5e20; }}
-                    </style>
-                    </head>
-                    <body>
-                        <button class="btn-print no-print" onclick="window.print()">🖨️ Clique Aqui para Imprimir ou Salvar em PDF (A4)</button>
+                            """
                         
-                        <div class="print-container">
-                            <table class="header-table">
-                                <tr>
-                                    <td colspan="3" class="school-title">Escola Estadual Profª Diva Alves de Lima</td>
-                                </tr>
-                                <tr>
-                                    <td width="50%"><b>Aluno(a):</b> _________________________________________________</td>
-                                    <td width="25%"><b>Turma:</b> __________________</td>
-                                    <td width="25%"><b>Nota:</b> _________</td>
-                                </tr>
-                                <tr>
-                                    <td colspan="2"><b>Disciplina:</b> {disciplina_sel_av} <span style="font-size: 11pt; margin-left: 20px;">| <b>Professor:</b> {nome_professor_cabecalho}</span></td>
-                                    <td><b>Data:</b> ____/____/______</td>
-                                </tr>
-                            </table>
-                            {html_questoes}
-                        </div>
-                        <script>
-                            setTimeout(function() {{ window.print(); }}, 500);
-                        </script>
-                    </body>
-                    </html>
-                    """
-                    
-                    st.markdown("### 🖨️ Pré-visualização da Folha de Prova")
-                    st.components.v1.html(html_prova, height=650, scrolling=True)
-                    st.success("🎉 Folha de Prova gerada com sucesso!")
-                    
+                        html_prova = f"""
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                        <meta charset="utf-8">
+                        <style>
+                            @media print {{
+                                body {{ margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 12pt; line-height: 1.5; color: #000; }}
+                                .print-container {{ width: 100%; padding: 20mm; box-sizing: border-box; }}
+                                .no-print {{ display: none !important; }}
+                            }}
+                            body {{ font-family: Arial, sans-serif; background-color: #fafafa; padding: 10px; }}
+                            .print-container {{ max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
+                            .header-table {{ width: 100%; border-collapse: collapse; margin-bottom: 25px; }}
+                            .header-table td {{ border: 1px solid #000; padding: 10px; font-size: 11pt; vertical-align: middle; }}
+                            .school-title {{ font-size: 14pt; font-weight: bold; text-align: center; text-transform: uppercase; }}
+                            .question-block {{ margin-bottom: 20px; page-break-inside: avoid; }}
+                            .question-title {{ font-size: 12pt; margin-bottom: 5px; }}
+                            .enunciado {{ margin-bottom: 10px; text-align: justify; white-space: pre-wrap; }}
+                            .alternatives {{ margin-left: 15px; }}
+                            .alternatives p {{ margin: 4px 0; }}
+                            .btn-print {{ display: block; width: 100%; padding: 15px; background-color: #2e7d32; color: white; border: none; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; margin-bottom: 20px; text-transform: uppercase; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }}
+                            .btn-print:hover {{ background-color: #1b5e20; }}
+                        </style>
+                        </head>
+                        <body>
+                            <button class="btn-print no-print" onclick="window.print()">🖨️ Clique Aqui para Imprimir ou Salvar em PDF (A4)</button>
+                            
+                            <div class="print-container">
+                                <table class="header-table">
+                                    <tr>
+                                        <td colspan="3" class="school-title">Escola Estadual Profª Diva Alves de Lima</td>
+                                    </tr>
+                                    <tr>
+                                        <td width="50%"><b>Aluno(a):</b> _________________________________________________</td>
+                                        <td width="25%"><b>Turma:</b> __________________</td>
+                                        <td width="25%"><b>Nota:</b> _________</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="2"><b>Disciplina:</b> {disciplina_sel_av} <span style="font-size: 11pt; margin-left: 20px;">| <b>Professor:</b> {nome_professor_cabecalho}</span></td>
+                                        <td><b>Data:</b> ____/____/______</td>
+                                    </tr>
+                                </table>
+                                {html_questoes}
+                            </div>
+                            <script>
+                                setTimeout(function() {{ window.print(); }}, 500);
+                            </script>
+                        </body>
+                        </html>
+                        """
+                        
+                        st.markdown("### 🖨️ Pré-visualização da Folha de Prova")
+                        st.components.v1.html(html_prova, height=650, scrolling=True)
+                        st.success("🎉 Folha de Prova gerada com sucesso!")
+                        
             elif aba_av_escolhida == "Correção":
                 st.subheader("📸 Correção Automatizada de Avaliações")
                 todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str)) if not df_alunos.empty else []
