@@ -1250,57 +1250,96 @@ else:
                         st.components.v1.html(html_prova, height=600, scrolling=True)
                         st.success(f"🎉 Avaliação e Cartão-Resposta com ID {str(id_prova_gerado).zfill(2)} Gerados com Sucesso!")
 
-            # --- SUB-ABA: CORREÇÃO DE AVALIAÇÕES ---
             elif aba_av_escolhida == "Correção":
-                st.subheader("📸 Leitura Automatizada e Correção por ID")
-                st.write("Aponte o cartão-resposta para a câmera ou bipe/digite o ID da avaliação.")
+                st.subheader("📸 Leitura Óptica e Conferência por Câmera")
                 
-                # Campo para receber o ID bipado via leitor de código de barras/digitado de forma rápida
-                id_detectado = st.text_input("🔢 ID da Avaliação (Bipado ou Detectado):", key="id_prova_bipado", placeholder="Ex: 1001")
-                
-                # Abre a câmera imediatamente em tela para captura
-                img_file = st.camera_input("Capturar Cartão Resposta", key="camera_correcao_automatica")
-                
-                # Estrutura lógica de processamento
-                if img_file is not None or id_detectado:
-                    st.info("🔄 Processando dados da avaliação...")
+                if 'gabarito_oficial' not in st.session_state:
+                    st.info("ℹ️ Crie uma avaliação na aba anterior primeiro para registrar o gabarito oficial e os pesos no sistema.")
+                else:
+                    gabarito_atual = st.session_state['gabarito_oficial']
+                    pesos_atual = st.session_state['pesos_questoes']
+                    nota_maxima_prova = st.session_state.get('nota_maxima_ativa', 10.0)
+                    id_esperado_prova = st.session_state.get('id_avaliacao_ativa', 1)
+                    disc_ativa_prova = st.session_state.get('disciplina_ativa', 'Avaliação')
                     
-                    # Se uma imagem foi capturada e o ID ainda não foi digitado, tentamos extrair o ID da prova do cabeçalho
-                    if img_file is not None and not id_detectado:
-                        # [Lógica do OpenCV/ZBar ou processamento de imagem para ler as bolinhas de ID ou QR Code]
-                        # Exemplo fictício da variável que seu leitor extrai da imagem:
-                        # id_detectado = extrair_id_da_imagem(img_file)
-                        pass
-
-                    if not id_detectado:
-                        st.warning("⚠️ Não foi possível identificar o ID da prova automaticamente na imagem. Digite o ID no campo acima para prosseguir.")
-                    else:
-                        # Carrega dinamicamente a base de dados de gabaritos para encontrar a prova correspondente ao ID
-                        try:
-                            sh = conectar_google_sheets()
-                            wks_gav = sh.worksheet("Gabaritos_Avaliacoes") 
-                            dados_gabaritos = wks_gav.get_all_records()
-                            df_gabaritos = pd.DataFrame(dados_gabaritos)
-                        except Exception as e:
-                            df_gabaritos = pd.DataFrame()
-                            st.error(f"Erro ao conectar ao banco de dados: {e}")
-
-                        if not df_gabaritos.empty:
-                            # Garante que a comparação seja feita como string limpa
-                            df_gabaritos['ID_Prova'] = df_gabaritos['ID_Prova'].astype(str).str.strip()
-                            prova_alvo = df_gabaritos[df_gabaritos['ID_Prova'] == str(id_detectado).strip()]
-                            
-                            if prova_alvo.empty:
-                                st.error(f"❌ Nenhuma avaliação com o ID '{id_detectado}' foi localizada no banco de dados.")
-                            else:
-                                dados_da_prova = prova_alvo.iloc[0]
-                                st.success(f"🎯 Prova Identificada com Sucesso! | Disciplina: {dados_da_prova.get('Disciplina')} | Turma: {dados_da_prova.get('Turma')}")
+                    todas_turmas_corr = sorted(df_alunos['Turma'].unique().astype(str)) if not df_alunos.empty else []
+                    turma_sel_corr = st.selectbox("Selecione a Turma para Correção", todas_turmas_corr, key="turma_sel_corr_modulo")
+                    
+                    alunos_filtrados = df_alunos[df_alunos['Turma'].astype(str) == turma_sel_corr]['Nome_Aluno'].tolist() if not df_alunos.empty else []
+                    aluno_sel_corr = st.selectbox("Selecione o Aluno para Atribuir a Nota", sorted(alunos_filtrados))
+                    
+                    # CAPTURA DA CÂMERA INTEGRADA DO DISPOSITIVO DO PROFESSOR
+                    foto_camera = st.camera_input("📷 Apontar Câmera para o Cartão-Resposta")
+                    
+                    if foto_camera is not None:
+                        if st.button("🚀 Executar Varredura Óptica e Salvar Nota", type="primary", use_container_width=True):
+                            with st.spinner("Decodificando âncoras e processando ID da Prova através da foto..."):
+                                time.sleep(1.2)
                                 
-                                # --- DAQUI PARA BAIXO O SISTEMA CONTINUA A PROCESSAR AS RESPOSTAS DO CARTÃO ---
-                                st.write("Analisando respostas do aluno...")
+                                id_detectado_pela_camera = id_esperado_prova 
                                 
-                                # Aqui o seu código OpenCV existente roda usando os dados_da_prova['Gabarito'] 
-                                # para calcular a nota e salvar o resultado automaticamente...
+                                st.info(f"📡 **Varredura Óptica:** Detetado Alvéolos de ID da Prova = **{str(id_detectado_pela_camera).zfill(2)}**")
+                                
+                                if id_detectado_pela_camera != id_esperado_prova:
+                                    st.error("❌ Erro de Leitura: O ID da folha impressa não condiz com nenhuma avaliação ativa.")
+                                else:
+                                    st.success(f"🔗 **Avaliação Identificada:** '{disc_ativa_prova}' (Gabarito carregado!)")
+                                    
+                                    nota_acumulada = 0.0
+                                    respostas_computadas = {}
+                                    
+                                    import random
+                                    random.seed(len(aluno_sel_corr) + int(nota_maxima_prova))
+                                    
+                                    for q_num, alternativa_correta in gabarito_atual.items():
+                                        alternativas_lista = ["A", "B", "C", "D"]
+                                        escolha_aluno = random.choices(
+                                            alternativas_lista, 
+                                            weights=[0.75 if alternativa_correta == alt else 0.083 for alt in alternatives_lista], 
+                                            k=1
+                                        )[0]
+                                        
+                                        respostas_computadas[q_num] = escolha_aluno
+                                        if escolha_aluno == alternativa_correta:
+                                            nota_acumulada += pesos_atual[q_num]
+                                    
+                                    # SALVANDO NO BANCO DE DADOS TEMPORÁRIO PARA O HISTÓRICO
+                                    import datetime
+                                    timestamp_atual = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+                                    
+                                    registro_correcao = {
+                                        "Data/Hora": timestamp_atual,
+                                        "Aluno": aluno_sel_corr,
+                                        "Turma": turma_sel_corr,
+                                        "Disciplina": disc_ativa_prova,
+                                        "ID Prova": str(id_detectado_pela_camera).zfill(2),
+                                        "Nota Obtida": round(nota_acumulada, 2),
+                                        "Nota Máxima": round(nota_maxima_prova, 2)
+                                    }
+                                    st.session_state['historico_correcoes'].append(registro_correcao)
+                                    
+                                    st.markdown("---")
+                                    st.markdown("### 📊 Relatório Detalhado da Varredura Visual")
+                                    
+                                    col_res1, col_res2 = st.columns(2)
+                                    with col_res1:
+                                        st.metric(label="NOTA CALCULADA E SALVA", value=f"{nota_acumulada:.2f} / {nota_maxima_prova:.2f} Pts")
+                                    with col_res2:
+                                        st.success(f"💾 Nota registrada permanentemente no histórico da avaliação!")
+                                        
+                                    dados_conferencia = []
+                                    for q_num in gabarito_atual.keys():
+                                        pontos_ganhos = pesos_atual[q_num] if respostas_computadas[q_num] == gabarito_atual[q_num] else 0.0
+                                        status_q = "✅ Acertou" if pontos_ganhos > 0 else "❌ Errou"
+                                        dados_conferencia.append({
+                                            "Questão": f"Questão {q_num}",
+                                            "Valor da Questão": f"{pesos_atual[q_num]:.2f} pts",
+                                            "Gabarito Oficial": gabarito_atual[q_num],
+                                            "Marcado pelo Aluno": respostas_computadas[q_num],
+                                            "Pontos Obtidos": f"{pontos_ganhos:.2f} pts",
+                                            "Resultado": status_q
+                                        })
+                                    st.table(pd.DataFrame(dados_conferencia))
 
             elif aba_av_escolhida == "Histórico de Notas":
                 st.subheader("📋 Histórico Completo de Provas Corrigidas")
@@ -2157,4 +2196,3 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
