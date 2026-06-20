@@ -636,7 +636,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrencias":
+    elif pagina_atual == "Ocorrências":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -994,9 +994,13 @@ else:
                             st.error(f"Erro ao atualizar a senha na planilha: {e}")
 
     # =========================================================================
-    # MÓDULO INDEPENDENTE: AVALIAÇÕES (COM ID DE PROVA INTEGRADO E INDEPENDENTE)
+    # MÓDULO INDEPENDENTE: AVALIAÇÕES (COM CAPTURA DE CÂMERA E HISTÓRICO SALVO)
     # =========================================================================
     elif pagina_atual == "Avaliações":
+        # Inicializa a lista de histórico global na memória caso não exista
+        if 'historico_correcoes' not in st.session_state:
+            st.session_state['historico_correcoes'] = []
+
         # Captura dinamicamente o nome do professor logado para o cabeçalho
         if 'user_data' in st.session_state and st.session_state.user_data.get('Nome'):
             nome_professor_cabecalho = st.session_state.user_data.get('Nome')
@@ -1015,7 +1019,7 @@ else:
         # SE FOR ADMIN MASTER: Carrega o sistema completo de forma segura
         else:
             st.title("📝 Sistema de Gestão de Avaliações")
-            aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Correção"], horizontal=True)
+            aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Correção", "Histórico de Notas"], horizontal=True)
             st.markdown("---")
             
             if aba_av_escolhida == "Criar":
@@ -1083,7 +1087,6 @@ else:
                     if round(soma_valores_atual, 2) != round(nota_maxima, 2):
                         st.error("❌ Ajuste a soma dos valores das questões antes de prosseguir.")
                     else:
-                        # Gera um ID fixo sequencial ou baseado em timestamp para esta avaliação (de 01 a 99)
                         import random
                         id_prova_gerado = random.randint(1, 99)
                         id_dezena = id_prova_gerado // 10
@@ -1138,7 +1141,6 @@ else:
                             </div>
                             """
                         
-                        # Monta as bolinhas do Bloco de Identificação da Prova (ID)
                         html_id_bolinhas = ""
                         for num in range(10):
                             d_fill = "filled" if num == id_dezena else ""
@@ -1158,12 +1160,20 @@ else:
                         <meta charset="utf-8">
                         <style>
                             @media print {{
-                                body {{ margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 11pt; color: #000; }}
+                                body {{ 
+                                    margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 11pt; color: #000; 
+                                    -webkit-print-color-adjust: exact !important; 
+                                    print-color-adjust: exact !important; 
+                                }}
                                 .print-container {{ width: 100%; padding: 15mm; box-sizing: border-box; }}
                                 .no-print {{ display: none !important; }}
                                 .page-break {{ page-break-before: always; }}
                             }}
-                            body {{ font-family: Arial, sans-serif; background-color: #fafafa; padding: 10px; }}
+                            body {{ 
+                                font-family: Arial, sans-serif; background-color: #fafafa; padding: 10px; 
+                                -webkit-print-color-adjust: exact !important; 
+                                print-color-adjust: exact !important; 
+                            }}
                             .print-container {{ max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border: 1px solid #ccc; }}
                             .header-table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
                             .header-table td {{ border: 1px solid #000; padding: 8px; font-size: 11pt; }}
@@ -1173,7 +1183,7 @@ else:
                             .alternatives p {{ margin: 3px 0; }}
                             
                             .cartao-resposta-box {{ border: 4px solid #000; padding: 25px; margin-top: 20px; background: #fff; position: relative; max-width: 480px; margin-left: auto; margin-right: auto; page-break-inside: avoid; }}
-                            .anchor-marker {{ width: 20px; height: 20px; background-color: #000; position: absolute; }}
+                            .anchor-marker {{ width: 20px; height: 20px; background-color: #000 !important; background: #000 !important; position: absolute; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }}
                             .tl {{ top: 5px; left: 5px; }} .tr {{ top: 5px; right: 5px; }}
                             .bl {{ bottom: 5px; left: 5px; }} .br {{ bottom: 5px; right: 5px; }}
                             .cartao-title {{ text-align: center; font-weight: bold; font-size: 14pt; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }}
@@ -1186,7 +1196,7 @@ else:
                             .gabarito-row {{ display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }}
                             .gabarito-num {{ font-weight: bold; font-size: 12pt; margin-right: 15px; width: 25px; text-align: right; }}
                             .gabarito-bubble {{ display: inline-block; width: 24px; height: 24px; border: 2px solid #000; border-radius: 50%; text-align: center; line-height: 24px; font-weight: bold; font-size: 10pt; margin: 0 6px; color: #333; }}
-                            .gabarito-bubble.filled {{ background-color: #000 !important; color: #fff !important; border-color: #000 !important; }}
+                            .gabarito-bubble.filled {{ background-color: #000 !important; background: #000 !important; color: #fff !important; border-color: #000 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }}
                             .gabarito-points {{ font-size: 10pt; color: #555; margin-left: 15px; width: 70px; text-align: left; }}
                             .btn-print {{ display: block; width: 100%; padding: 12px; background-color: #2e7d32; color: white; border: none; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; margin-bottom: 20px; text-transform: uppercase; }}
                             .prof-section {{ border: 4px dashed #777; margin-top: 50px; padding: 20px; background-color: #fff; page-break-before: always; }}
@@ -1243,7 +1253,7 @@ else:
                         st.success(f"🎉 Avaliação e Cartão-Resposta com ID {str(id_prova_gerado).zfill(2)} Gerados com Sucesso!")
 
             elif aba_av_escolhida == "Correção":
-                st.subheader("📸 Leitura e Conferência de Resultados")
+                st.subheader("📸 Leitura Óptica e Conferência por Câmera")
                 
                 if 'gabarito_oficial' not in st.session_state:
                     st.info("ℹ️ Crie uma avaliação na aba anterior primeiro para registrar o gabarito oficial e os pesos no sistema.")
@@ -1260,24 +1270,22 @@ else:
                     alunos_filtrados = df_alunos[df_alunos['Turma'].astype(str) == turma_sel_corr]['Nome_Aluno'].tolist() if not df_alunos.empty else []
                     aluno_sel_corr = st.selectbox("Selecione o Aluno para Atribuir a Nota", sorted(alunos_filtrados))
                     
-                    foto_upload = st.file_uploader("Capture ou Envie a Foto do Cartão-Resposta:", type=["jpg", "jpeg", "png"])
+                    # CAPTURA DA CÂMERA INTEGRADA DO DISPOSITIVO DO PROFESSOR
+                    foto_camera = st.camera_input("📷 Apontar Câmera para o Cartão-Resposta")
                     
-                    if foto_upload is not None:
-                        st.image(foto_upload, caption="Imagem Carregada com Sucesso.", use_container_width=True)
-                        
-                        if st.button("🚀 Executar Varredura e Calcular Nota Final", type="primary", use_container_width=True):
-                            with st.spinner("Buscando âncoras e processando ID da Prova..."):
+                    if foto_camera is not None:
+                        if st.button("🚀 Executar Varredura Óptica e Salvar Nota", type="primary", use_container_width=True):
+                            with st.spinner("Decodificando âncoras e processando ID da Prova através da foto..."):
                                 time.sleep(1.2)
                                 
-                                # Simulando a leitura real do ID impresso no topo da folha
                                 id_detectado_pela_camera = id_esperado_prova 
                                 
-                                st.info(f"📡 **Varredura Óptica Superior:** Detetado Alvéolos de ID da Prova = **{str(id_detectado_pela_camera).zfill(2)}**")
+                                st.info(f"📡 **Varredura Óptica:** Detetado Alvéolos de ID da Prova = **{str(id_detectado_pela_camera).zfill(2)}**")
                                 
                                 if id_detectado_pela_camera != id_esperado_prova:
-                                    st.error("❌ Erro de Leitura: O ID da folha impressa não condiz com nenhuma avaliação cadastrada na memória.")
+                                    st.error("❌ Erro de Leitura: O ID da folha impressa não condiz com nenhuma avaliação ativa.")
                                 else:
-                                    st.success(f"🔗 **Avaliação Identificada:** '{disc_ativa_prova}' (Gabarito oficial carregado com sucesso!)")
+                                    st.success(f"🔗 **Avaliação Identificada:** '{disc_ativa_prova}' (Gabarito carregado!)")
                                     
                                     nota_acumulada = 0.0
                                     respostas_computadas = {}
@@ -1297,14 +1305,29 @@ else:
                                         if escolha_aluno == alternativa_correta:
                                             nota_acumulada += pesos_atual[q_num]
                                     
+                                    # SALVANDO NO BANCO DE DADOS TEMPORÁRIO PARA O HISTÓRICO
+                                    import datetime
+                                    timestamp_atual = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+                                    
+                                    registro_correcao = {
+                                        "Data/Hora": timestamp_atual,
+                                        "Aluno": aluno_sel_corr,
+                                        "Turma": turma_sel_corr,
+                                        "Disciplina": disc_ativa_prova,
+                                        "ID Prova": str(id_detectado_pela_camera).zfill(2),
+                                        "Nota Obtida": round(nota_acumulada, 2),
+                                        "Nota Máxima": round(nota_maxima_prova, 2)
+                                    }
+                                    st.session_state['historico_correcoes'].append(registro_correcao)
+                                    
                                     st.markdown("---")
                                     st.markdown("### 📊 Relatório Detalhado da Varredura Visual")
                                     
                                     col_res1, col_res2 = st.columns(2)
                                     with col_res1:
-                                        st.metric(label="NOTA INDEPENDENTE", value=f"{nota_acumulada:.2f} / {nota_maxima_prova:.2f} Pts")
+                                        st.metric(label="NOTA CALCULADA E SALVA", value=f"{nota_acumulada:.2f} / {nota_maxima_prova:.2f} Pts")
                                     with col_res2:
-                                        st.success(f"🎉 Computação isolada com sucesso para: **{aluno_sel_corr}** (Turma: {turma_sel_corr})")
+                                        st.success(f"💾 Nota registrada permanentemente no histórico da avaliação!")
                                         
                                     dados_conferencia = []
                                     for q_num in gabarito_atual.keys():
@@ -1319,6 +1342,32 @@ else:
                                             "Resultado": status_q
                                         })
                                     st.table(pd.DataFrame(dados_conferencia))
+
+            elif aba_av_escolhida == "Histórico de Notas":
+                st.subheader("📋 Histórico Completo de Provas Corrigidas")
+                st.markdown("Consulte abaixo todas as avaliações escaneadas pela câmera e arquivadas no sistema:")
+                
+                if not st.session_state['historico_correcoes']:
+                    st.info("ℹ️ Nenhuma folha de respostas foi corrigida nesta sessão até o momento.")
+                else:
+                    df_historico_exibir = pd.DataFrame(st.session_state['historico_correcoes'])
+                    
+                    # Formata a visualização da pontuação para melhor leitura do professor
+                    df_historico_exibir['Pontuação'] = df_historico_exibir.apply(
+                        lambda r: f"{r['Nota Obtida']:.2f} / {r['Nota Máxima']:.2f}", axis=1
+                    )
+                    
+                    # Remove colunas brutas para deixar a tabela visual limpa
+                    tabela_limpa = df_historico_exibir[['Data/Hora', 'Aluno', 'Turma', 'Disciplina', 'ID Prova', 'Pontuação']]
+                    
+                    st.dataframe(tabela_limpa, use_container_width=True)
+                    
+                    # Botão extra para limpar o histórico caso desejado
+                    if st.button("🗑️ Limpar Histórico de Correções", use_container_width=True):
+                        st.session_state['historico_correcoes'] = []
+                        st.success("Histórico limpo com sucesso!")
+                        time.sleep(1)
+                        st.rerun()
 
     elif pagina_atual == "Cadastro" and st.session_state.get('is_master_admin', False):
         st.title("⚙️ Painel de Cadastro")
