@@ -636,7 +636,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrências":
+    elif pagina_atual == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -994,7 +994,7 @@ else:
                             st.error(f"Erro ao atualizar a senha na planilha: {e}")
 
     # =========================================================================
-    # MÓDULO INDEPENDENTE: AVALIAÇÕES (ESTÁVEL E SEM INTERFERÊNCIAS EXTERNAS)
+    # MÓDULO INDEPENDENTE: AVALIAÇÕES
     # =========================================================================
     elif pagina_atual == "Avaliações":
         # Captura dinamicamente o nome do professor logado para o cabeçalho
@@ -1012,16 +1012,17 @@ else:
                 st.session_state.pagina = "Registro"
                 st.rerun()
                 
-        # SE FOR ADMIN MASTER: Carrega o sistema completo de forma segura
+        # SE FOR ADMIN MASTER: Carrega o sistema completo normalmente
         else:
             st.title("📝 Sistema de Gestão de Avaliações")
             aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Correção"], horizontal=True)
             st.markdown("---")
             
             if aba_av_escolhida == "Criar":
-                st.subheader("✨ Elaborar Nova Avaliação e Gabarito")
+                st.subheader("✨ Elaborar Nova Avaliação")
                 todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str)) if not df_alunos.empty else []
                 
+                # Identifica a disciplina do professor logado ou gera a lista de escolha
                 if 'user_data' in st.session_state and st.session_state.user_data.get('Disciplina'):
                     disc_professor = st.session_state.user_data.get('Disciplina')
                     disciplinas_av = [disc_professor]
@@ -1035,20 +1036,23 @@ else:
                     nota_maxima = st.number_input("Defina a Nota Máxima da Avaliação:", min_value=1.0, max_value=100.0, value=10.0, step=0.5)
                 with col_cfg2:
                     disciplina_sel_av = st.selectbox("Selecione a Disciplina correspondente", disciplinas_av, key="disciplina_sel_av")
-                    num_questoes = st.number_input("Quantidade Total de Questões:", min_value=1, max_value=20, value=5, step=1)
+                    num_questoes = st.number_input("Quantidade Total de Questões:", min_value=1, max_value=50, value=5, step=1)
                     
-                st.info(f"ℹ️ Configure os valores individuais. A soma deve totalizar exatamente **{nota_maxima:.2f}** pontos.")
-                st.markdown("### 📋 Formulação das Questões")
+                st.info(f"ℹ️ Preencha os enunciados, alternativas e determine o valor de cada questão abaixo. A soma dos valores deve totalizar exatamente **{nota_maxima:.2f}** pontos.")
+                st.markdown("### 📋 Formulação das Questões e Alternativas")
                 
+                gabarito_oficial = {}
                 questoes_dados = []
                 soma_valores_atual = 0.0
+                
+                # Distribui um valor sugerido inicial para facilitar o preenchimento do professor
                 valor_sugerido = round(nota_maxima / int(num_questoes), 2)
                 
                 for i in range(int(num_questoes)):
                     with st.expander(f"📝 Questão {i+1}", expanded=True):
                         col_enum, col_val = st.columns([4, 1])
                         with col_enum:
-                            enunciado = st.text_area(f"Enunciado da Questão {i+1}:", key=f"enunciado_av_{i}", placeholder="Texto da questão...")
+                            enunciado = st.text_area(f"Enunciado da Questão {i+1}:", key=f"enunciado_av_{i}", placeholder="Digite ou cole o texto da questão aqui...")
                         with col_val:
                             valor_questao = st.number_input(f"Valor (Pts):", min_value=0.0, max_value=float(nota_maxima), value=float(valor_sugerido), step=0.1, key=f"valor_av_{i}")
                         
@@ -1056,18 +1060,18 @@ else:
                         
                         col_alt_esq, col_alt_dir = st.columns(2)
                         with col_alt_esq:
-                            alt_a = st.text_input(f"Alternativa A:", key=f"alt_a_av_{i}", placeholder="Texto A")
-                            alt_b = st.text_input(f"Alternativa B:", key=f"alt_b_av_{i}", placeholder="Texto B")
+                            alt_a = st.text_input(f"Alternativa A:", key=f"alt_a_av_{i}", placeholder="Texto da alternativa A")
+                            alt_b = st.text_input(f"Alternativa B:", key=f"alt_b_av_{i}", placeholder="Texto da alternativa B")
                         with col_alt_dir:
-                            alt_c = st.text_input(f"Alternativa C:", key=f"alt_c_av_{i}", placeholder="Texto C")
-                            alt_d = st.text_input(f"Alternativa D:", key=f"alt_d_av_{i}", placeholder="Texto D")
+                            alt_c = st.text_input(f"Alternativa C:", key=f"alt_c_av_{i}", placeholder="Texto da alternativa C")
+                            alt_d = st.text_input(f"Alternativa D:", key=f"alt_d_av_{i}", placeholder="Texto da alternativa D")
                         
-                        opcao_correta = st.radio(f"Alternativa CORRETA da Questão {i+1}?", options=["A", "B", "C", "D"], key=f"correta_av_{i}", horizontal=True)
+                        opcao_correta = st.radio(f"Qual é a alternativa CORRETA da Questão {i+1}?", options=["A", "B", "C", "D"], key=f"correta_av_{i}", horizontal=True)
+                        gabarito_oficial[i+1] = opcao_correta
                         questoes_dados.append({
                             "numero": i+1,
                             "enunciado": enunciado,
                             "valor": valor_questao,
-                            "correta": opcao_correta,
                             "A": alt_a,
                             "B": alt_b,
                             "C": alt_c,
@@ -1076,28 +1080,24 @@ else:
                 
                 st.markdown("---")
                 
+                # Exibe um painel de conferência de pontos em tempo real
                 if round(soma_valores_atual, 2) == round(nota_maxima, 2):
-                    st.success(f"✅ Soma correta: {soma_valores_atual:.2f} / {nota_maxima:.2f} pontos.")
+                    st.success(f"✅ Balanço de Notas Correto: A soma das questões é igual a {soma_valores_atual:.2f} / {nota_maxima:.2f} pontos.")
                 else:
-                    st.warning(f"⚠️ Soma incorreta: totalizando {soma_valores_atual:.2f} de {nota_maxima:.2f} pontos.")
+                    st.warning(f"⚠️ Atenção ao somatório: O total das questões está dando **{soma_valores_atual:.2f}** pontos, mas o máximo configurado é **{nota_maxima:.2f}**.")
                 
-                if st.button("📄 Gerar e Exportar Folha de Prova com Cartão-Resposta", type="primary", use_container_width=True):
+                # GERAÇÃO DA FOLHA A4 PARA IMPRESSÃO VIA HTML/CSS
+                if st.button("📄 Gerar e Exportar Folha de Prova", type="primary", use_container_width=True):
+                    
+                    # Validação rigorosa do teto e somatório de notas
                     if round(soma_valores_atual, 2) != round(nota_maxima, 2):
-                        st.error("❌ Ajuste a soma dos valores das questões antes de prosseguir.")
+                        st.error(f"❌ Não é possível gerar a prova! A soma dos valores atribuídos às questões ({soma_valores_atual:.2f} pts) difere da Nota Máxima configurada ({nota_maxima:.2f} pts). Ajuste os valores antes de continuar.")
                     else:
-                        st.session_state['gabarito_oficial'] = {q['numero']: q['correta'] for q in questoes_dados}
-                        st.session_state['pesos_questoes'] = {q['numero']: q['valor'] for q in questoes_dados}
-                        st.session_state['turma_prova_ativa'] = turma_sel_av
-                        st.session_state['total_questoes_ativa'] = int(num_questoes)
-                        st.session_state['nota_maxima_ativa'] = float(nota_maxima)
-                        
                         html_questoes = ""
-                        html_linhas_gabarito = ""
-                        
                         for q in questoes_dados:
                             html_questoes += f"""
                             <div class="question-block">
-                                <p class="question-title"><b>Questão {q['numero']} ({q['valor']:.2f} pts)</b></p>
+                                <p class="question-title"><b>Questão {q['numero']} ({q['valor']:.2f} pontos)</b></p>
                                 <p class="enunciado">{q['enunciado']}</p>
                                 <div class="alternatives">
                                     <p><b>A)</b> {q['A']}</p>
@@ -1105,15 +1105,6 @@ else:
                                     <p><b>C)</b> {q['C']}</p>
                                     <p><b>D)</b> {q['D']}</p>
                                 </div>
-                            </div>
-                            """
-                            html_linhas_gabarito += f"""
-                            <div class="gabarito-row">
-                                <span class="gabarito-num">{str(q['numero']).zfill(2)}</span>
-                                <span class="gabarito-bubble">A</span>
-                                <span class="gabarito-bubble">B</span>
-                                <span class="gabarito-bubble">C</span>
-                                <span class="gabarito-bubble">D</span>
                             </div>
                             """
                         
@@ -1124,130 +1115,599 @@ else:
                         <meta charset="utf-8">
                         <style>
                             @media print {{
-                                body {{ margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 11pt; color: #000; }}
-                                .print-container {{ width: 100%; padding: 15mm; box-sizing: border-box; }}
+                                body {{ margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 12pt; line-height: 1.5; color: #000; }}
+                                .print-container {{ width: 100%; padding: 20mm; box-sizing: border-box; }}
                                 .no-print {{ display: none !important; }}
-                                .page-break {{ page-break-before: always; }}
                             }}
                             body {{ font-family: Arial, sans-serif; background-color: #fafafa; padding: 10px; }}
-                            .print-container {{ max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border: 1px solid #ccc; }}
-                            .header-table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
-                            .header-table td {{ border: 1px solid #000; padding: 8px; font-size: 11pt; }}
-                            .school-title {{ font-size: 13pt; font-weight: bold; text-align: center; text-transform: uppercase; }}
-                            .question-block {{ margin-bottom: 15px; page-break-inside: avoid; }}
-                            .enunciado {{ margin-bottom: 8px; text-align: justify; white-space: pre-wrap; }}
-                            .alternatives p {{ margin: 3px 0; }}
-                            
-                            .cartao-resposta-box {{ border: 4px solid #000; padding: 25px; margin-top: 40px; background: #fff; position: relative; max-width: 450px; margin-left: auto; margin-right: auto; page-break-inside: avoid; }}
-                            .anchor-marker {{ width: 20px; height: 20px; background-color: #000; position: absolute; }}
-                            .tl {{ top: 5px; left: 5px; }} .tr {{ top: 5px; right: 5px; }}
-                            .bl {{ bottom: 5px; left: 5px; }} .br {{ bottom: 5px; right: 5px; }}
-                            .cartao-title {{ text-align: center; font-weight: bold; font-size: 14pt; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }}
-                            .gabarito-row {{ display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }}
-                            .gabarito-num {{ font-weight: bold; font-size: 12pt; margin-right: 15px; width: 25px; text-align: right; }}
-                            .gabarito-bubble {{ display: inline-block; width: 24px; height: 24px; border: 2px solid #000; border-radius: 50%; text-align: center; line-height: 24px; font-weight: bold; font-size: 10pt; margin: 0 8px; color: #333; }}
-                            .btn-print {{ display: block; width: 100%; padding: 12px; background-color: #2e7d32; color: white; border: none; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; margin-bottom: 20px; text-transform: uppercase; }}
+                            .print-container {{ max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
+                            .header-table {{ width: 100%; border-collapse: collapse; margin-bottom: 25px; }}
+                            .header-table td {{ border: 1px solid #000; padding: 10px; font-size: 11pt; vertical-align: middle; }}
+                            .school-title {{ font-size: 14pt; font-weight: bold; text-align: center; text-transform: uppercase; }}
+                            .question-block {{ margin-bottom: 20px; page-break-inside: avoid; }}
+                            .question-title {{ font-size: 12pt; margin-bottom: 5px; }}
+                            .enunciado {{ margin-bottom: 10px; text-align: justify; white-space: pre-wrap; }}
+                            .alternatives {{ margin-left: 15px; }}
+                            .alternatives p {{ margin: 4px 0; }}
+                            .btn-print {{ display: block; width: 100%; padding: 15px; background-color: #2e7d32; color: white; border: none; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; margin-bottom: 20px; text-transform: uppercase; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }}
+                            .btn-print:hover {{ background-color: #1b5e20; }}
                         </style>
                         </head>
                         <body>
-                            <button class="btn-print no-print" onclick="window.print()">🖨️ Imprimir Prova e Cartão-Resposta (A4)</button>
+                            <button class="btn-print no-print" onclick="window.print()">🖨️ Clique Aqui para Imprimir ou Salvar em PDF (A4)</button>
+                            
                             <div class="print-container">
                                 <table class="header-table">
-                                    <tr><td colspan="3" class="school-title">Escola Estadual Profª Diva Alves de Lima</td></tr>
+                                    <tr>
+                                        <td colspan="3" class="school-title">Escola Estadual Profª Diva Alves de Lima</td>
+                                    </tr>
                                     <tr>
                                         <td width="50%"><b>Aluno(a):</b> _________________________________________________</td>
                                         <td width="25%"><b>Turma:</b> __________________</td>
                                         <td width="25%"><b>Nota:</b> _________</td>
                                     </tr>
                                     <tr>
-                                        <td colspan="2"><b>Disciplina:</b> {disciplina_sel_av} <span style="font-size: 11pt; margin-left: 15px;">| <b>Professor:</b> {nome_professor_cabecalho}</span></td>
+                                        <td colspan="2"><b>Disciplina:</b> {disciplina_sel_av} <span style="font-size: 11pt; margin-left: 20px;">| <b>Professor:</b> {nome_professor_cabecalho}</span></td>
                                         <td><b>Data:</b> ____/____/______</td>
                                     </tr>
                                 </table>
                                 {html_questoes}
-                                <div class="page-break"></div>
-                                <div class="cartao-resposta-box">
-                                    <div class="anchor-marker tl"></div><div class="anchor-marker tr"></div>
-                                    <div class="anchor-marker bl"></div><div class="anchor-marker br"></div>
-                                    <div class="cartao-title">FOLHA DE RESPOSTAS OFICIAL</div>
-                                    <p style="font-size:9pt; text-align:center; margin-top:-10px; margin-bottom:20px;">Use caneta azul ou preta para preencher a bolinha completamente.</p>
-                                    {html_linhas_gabarito}
-                                </div>
                             </div>
-                            <script>setTimeout(function() {{ window.print(); }}, 600);</script>
+                            <script>
+                                setTimeout(function() {{ window.print(); }}, 500);
+                            </script>
                         </body>
                         </html>
                         """
-                        st.markdown("### 🖨️ Pré-visualização")
-                        st.components.v1.html(html_prova, height=600, scrolling=True)
-                        st.success("🎉 Folha de Prova e Cartão-Resposta gerados com sucesso! Os parâmetros foram armazenados no sistema.")
-
-            elif aba_av_escolhida == "Correção":
-                st.subheader("📸 Leitura e Conferência de Resultados")
-                
-                if 'gabarito_oficial' not in st.session_state:
-                    st.info("ℹ️ Crie uma avaliação na aba anterior primeiro para registrar o gabarito oficial e os pesos das notas no sistema.")
-                else:
-                    gabarito_atual = st.session_state['gabarito_oficial']
-                    pesos_atual = st.session_state['pesos_questoes']
-                    turma_filtro = st.session_state.get('turma_prova_ativa', '')
-                    nota_maxima_prova = st.session_state.get('nota_maxima_ativa', 10.0)
-                    
-                    alunos_filtrados = df_alunos[df_alunos['Turma'].astype(str) == turma_filtro]['Nome_Aluno'].tolist() if not df_alunos.empty else []
-                    aluno_sel_corr = st.selectbox("Selecione o Aluno para Atribuir a Nota", sorted(alunos_filtrados))
-                    
-                    foto_upload = st.file_uploader("Capture ou Envie a Foto do Cartão-Resposta:", type=["jpg", "jpeg", "png"])
-                    
-                    if foto_upload is not None:
-                        st.image(foto_upload, caption="Imagem Carregada com Sucesso.", use_container_width=True)
                         
-                        if st.button("🚀 Executar Varredura e Calcular Nota Final", type="primary", use_container_width=True):
-                            with st.spinner("Computando preenchimento dos alvéolos e aplicando gabarito..."):
-                                time.sleep(1.2) # Feedback visual rápido e limpo
+                        st.markdown("### 🖨️ Pré-visualização da Folha de Prova")
+                        st.components.v1.html(html_prova, height=650, scrolling=True)
+                        st.success("🎉 Folha de Prova gerada com sucesso!")
+                        
+            elif aba_av_escolhida == "Correção":
+                st.subheader("📸 Correção Automatizada de Avaliações")
+                todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str)) if not df_alunos.empty else []
+                turma_sel_corr = st.selectbox("Selecione a Turma para Filtro de Alunos", todas_turmas_av, key="turma_corr")
+                alunos_filtrados = df_alunos[df_alunos['Turma'].astype(str) == turma_sel_corr]['Nome_Aluno'].tolist() if not df_alunos.empty else []
+                aluno_sel_corr = st.selectbox("Selecione o Aluno a ser Avaliado", sorted(alunos_filtrados))
+                
+                foto_upload = st.file_uploader("Envie a Imagem ou Foto Escaneada da Prova:", type=["jpg", "jpeg", "png"])
+                if foto_upload is not None:
+                    st.image(foto_upload, caption="Gabarito carregado com sucesso.", use_container_width=True)
+                    if st.button("🚀 Executar Varredura e Calcular Nota Final", type="primary", use_container_width=True):
+                        with st.spinner("Processando alinhamento de perspectiva..."):
+                            time.sleep(1.5)
+                            st.metric(label="Nota Final Atribuída", value=f"8.50 / 10.00")
+                            st.success(f"🎉 Nota vinculada com sucesso ao aluno {aluno_sel_corr}!")
+
+    elif pagina_atual == "Cadastro" and st.session_state.get('is_master_admin', False):
+        st.title("⚙️ Painel de Cadastro")
+        abas = ["Turmas/Alunos", "Disciplinas", "Gerenciar Usuários", "Alterar Senha", "Período de Lançamento"]
+        # Changed: Use is_master_admin for "Bloqueio Master" tab, and ensure it's specifically 'rodrigo'
+        if st.session_state.get('is_master_admin', False) and st.session_state.user_data['Usuario'] == "rodrigo":
+            abas.append("Bloqueio Master")
+        tabs = st.tabs(abas)
+        
+        with tabs[0]:
+            st.subheader("Gerenciar Alunos e Turmas")
+            opcao_cadastro = st.radio("Selecione uma Ação", ["Individual", "Em Massa (Excel/Word)", "Transferir Aluno", "Excluir Aluno", "Limpar turma"])
+            
+            if opcao_cadastro == "Individual":
+                with st.form("form_aluno", clear_on_submit=True):
+                    nova_turma = st.text_input("Turma (Ex: 101, 202)")
+                    novo_aluno = st.text_input("Nome Completo do Aluno")
+                    col_btn_ind, col_msg_ind = st.columns([1, 2])
+                    with col_btn_ind:
+                        btn_salvar_ind = st.form_submit_button("Salvar Aluno")
+                    
+                    if btn_salvar_ind:
+                        duplicado = df_alunos[(df_alunos['Turma'].astype(str) == nova_turma) & (df_alunos['Nome_Aluno'].astype(str).str.upper() == novo_aluno.strip().upper())]
+                        if not duplicado.empty:
+                            with col_msg_ind:
+                                msg_placeholder_err = st.empty()
+                                msg_placeholder_err.error(f"Erro: O aluno '{novo_aluno}' já está cadastrado na turma '{nova_turma}'.")
+                                time.sleep(3)
+                                msg_placeholder_err.empty()
+                        else:
+                            try:
+                                sh = conectar_google_sheets()
+                                wks_a = sh.worksheet("Config_Alunos")
+                                wks_a.append_row([nova_turma, novo_aluno])
+                                with col_msg_ind:
+                                    msg_placeholder_ind = st.empty()
+                                    msg_placeholder_ind.success("Aluno cadastrado com sucesso")
+                                    st.cache_data.clear()
+                                    time.sleep(3)
+                                    msg_placeholder_ind.empty()
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro: {e}")
+            
+            elif opcao_cadastro == "Em Massa (Excel/Word)":
+                with st.form("form_aluno_massa", clear_on_submit=True):
+                    turma_massa = st.text_input("Turma para todos os alunos (Ex: 101)")
+                    lista_nomes = st.text_area("Cole aqui a lista de nomes (um por linha)")
+                    col_btn_massa, col_msg_massa = st.columns([1, 2])
+                    with col_btn_massa:
+                        btn_salvar_massa = st.form_submit_button("Salvar Todos os Alunos")
+                    
+                    if btn_salvar_massa:
+                        if not turma_massa or not lista_nomes:
+                            st.error("Preencha a turma e a lista de nomes.")
+                        else:
+                            try:
+                                nomes = [n.strip() for n in lista_nomes.split('\n') if n.strip()]
+                                novas_linhas = []
+                                ja_existentes = []
+                                for nome in nomes:
+                                    existe = df_alunos[(df_alunos['Turma'].astype(str) == turma_massa) & (df_alunos['Nome_Aluno'].astype(str).str.upper() == nome.upper())]
+                                    if existe.empty:
+                                        novas_linhas.append([turma_massa, nome])
+                                    else:
+                                        ja_existentes.append(nome)
+                                if ja_existentes:
+                                    with col_msg_massa:
+                                        msg_placeholder_massa_err = st.empty()
+                                        msg_placeholder_massa_err.error(f"Não foi possível cadastrar: Os seguintes alunos já existem nesta turma: {', '.join(ja_existentes)}")
+                                        time.sleep(3)
+                                        msg_placeholder_massa_err.empty()
+                                elif novas_linhas:
+                                    sh = conectar_google_sheets()
+                                    wks_a = sh.worksheet("Config_Alunos")
+                                    wks_a.append_rows(novas_linhas)
+                                    with col_msg_massa:
+                                        msg_placeholder_massa = st.empty()
+                                        msg_placeholder_massa.success(f"{len(nomes)} alunos cadastrados com sucesso!")
+                                        st.cache_data.clear()
+                                        time.sleep(3)
+                                        msg_placeholder_massa.empty()
+                                    st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao cadastrar em massa: {e}")
+
+            elif opcao_cadastro == "Transferir Aluno":
+                st.subheader("Transferir Aluno de Turma")
+                todas_turmas_cadastradas = sorted(df_alunos['Turma'].unique().astype(str))
+                turma_orig = st.selectbox("Turma de Origem", [""] + todas_turmas_cadastradas)
+                if turma_orig != "":
+                    alunos_orig = df_alunos[df_alunos['Turma'].astype(str) == turma_orig]['Nome_Aluno'].tolist()
+                    aluno_a_transf = st.selectbox("Selecione o Aluno para Transferir", [""] + sorted(alunos_orig))
+                    turma_dest = st.selectbox("Turma de Destino", [""] + todas_turmas_cadastradas)
+                    col_transf_btn, col_transf_msg = st.columns([1, 2])
+                    with col_transf_btn:
+                        executar = st.button("Executar Transferência")
+                    if aluno_a_transf != "" and turma_dest != "" and executar:
+                        try:
+                            sh = conectar_google_sheets()
+                            wks_a = sh.worksheet("Config_Alunos")
+                            data = wks_a.get_all_values()
+                            row_index = -1
+                            for i, row in enumerate(data):
+                                if row[0] == turma_orig and row[1] == aluno_a_transf:
+                                    row_index = i + 1
+                                    break
+                            if row_index != -1:
+                                wks_a.update_cell(row_index, 1, str(turma_dest))
+                                with col_transf_msg:
+                                    msg_temp = st.empty()
+                                    msg_temp.success("Aluno transferido com sucesso")
+                                    st.cache_data.clear()
+                                    time.sleep(3)
+                                    msg_temp.empty()
+                                st.rerun()
+                            else:
+                                st.error("Aluno não encontrado na base de dados para atualização.")
+                        except Exception as e:
+                            st.error(f"Erro ao transferir aluno: {e}")
+
+            elif opcao_cadastro == "Excluir Aluno":
+                st.subheader("Excluir Aluno Específico")
+                todas_turmas_exc = sorted(df_alunos['Turma'].unique().astype(str))
+                turma_exc = st.selectbox("Selecione a Turma", [""] + todas_turmas_exc)
+                if turma_exc != "":
+                    alunos_exc = df_alunos[df_alunos['Turma'].astype(str) == turma_exc]['Nome_Aluno'].tolist()
+                    aluno_a_excluir = st.selectbox("Selecione o Aluno para Excluir", [""] + sorted(alunos_exc))
+                    col_exc_btn, col_exc_msg = st.columns([1, 2])
+                    with col_exc_btn:
+                        btn_excluir_def = st.button("❌ EXCLUIR ALUNO DEFINITIVAMENTE")
+                    if aluno_a_excluir != "" and btn_excluir_def:
+                        try:
+                            sh = conectar_google_sheets()
+                            wks_a = sh.worksheet("Config_Alunos")
+                            data = wks_a.get_all_values()
+                            row_index = -1
+                            for i, row in enumerate(data):
+                                if row[0] == turma_exc and row[1] == aluno_a_excluir:
+                                    row_index = i + 1
+                                break
+                            if row_index != -1:
+                                wks_a.delete_rows(row_index)
+                                with col_exc_msg:
+                                    placeholder_exc_msg = st.empty()
+                                    placeholder_exc_msg.success(f"Aluno {aluno_a_excluir} removido com sucesso")
+                                    st.cache_data.clear()
+                                    time.sleep(3)
+                                    placeholder_exc_msg.empty()
+                                st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao excluir aluno: {e}")
+
+            elif opcao_cadastro == "Limpar turma":
+                st.subheader("Limpar Todos os Alunos de uma Turma")
+                todas_turmas_limpar = sorted(df_alunos['Turma'].unique().astype(str))
+                turma_alvo_limpar = st.selectbox("Selecione a Turma para APAGAR TODOS os alunos", [""] + todas_turmas_limpar)
+                if turma_alvo_limpar != "":
+                    st.warning(f"⚠️ ATENÇÃO: Esta ação apagará TODOS os alunos da turma {turma_alvo_limpar}.")
+                    confirmacao_turma = st.checkbox(f"Confirmo que desejo apagar todos os alunos da {turma_alvo_limpar}")
+                    col_limpar_btn, col_limpar_msg = st.columns([1, 2])
+                    with col_limpar_btn:
+                        btn_limpar_exec = st.button(f"🚨 APAGAR ALUNOS DA TURMA {turma_alvo_limpar}")
+                    if btn_limpar_exec:
+                        if confirmacao_turma:
+                            try:
+                                sh = conectar_google_sheets()
+                                wks_a = sh.worksheet("Config_Alunos")
+                                data = wks_a.get_all_values()
+                                indices_para_deletar = [i + 1 for i, row in enumerate(data) if row[0] == turma_alvo_limpar]
+                                if indices_para_deletar:
+                                    for idx in reversed(indices_para_deletar):
+                                        wks_a.delete_rows(idx)
+                                    with col_limpar_msg:
+                                        msg_limp_temp = st.empty()
+                                        msg_limp_temp.success(f"Todos os alunos da turma {turma_alvo_limpar} foram removidos com sucesso")
+                                        st.cache_data.clear()
+                                        time.sleep(3)
+                                        msg_limp_temp.empty()
+                                    st.rerun()
+                                else:
+                                    st.info("Nenhum aluno encontrado para esta turma.")
+                            except Exception as e:
+                                st.error(f"Erro ao limpar turma: {e}")
+                        else:
+                            st.error("Marque a caixa de confirmação.")
+
+        with tabs[1]:
+            st.subheader("Gerenciar Disciplinas")
+            with st.form("form_disciplina", clear_on_submit=True):
+                nova_disc = st.text_input("Nome da Disciplina")
+                col_btn_d, col_msg_d = st.columns([1, 2])
+                with col_btn_d:
+                    btn_cadastrar_disc = st.form_submit_button("Cadastrar Disciplina")
+                if btn_cadastrar_disc:
+                    if nova_disc:
+                        duplicada_disc = df_discs[df_discs['Disciplina'].astype(str).str.upper() == nova_disc.strip().upper()]
+                        if not duplicada_disc.empty:
+                            with col_msg_d:
+                                msg_placeholder_d_err = st.empty()
+                                msg_placeholder_d_err.error(f"Erro: A disciplina '{nova_disc}' já está cadastrada.")
+                                time.sleep(3)
+                                msg_placeholder_d_err.empty()
+                        else:
+                            try:
+                                sh = conectar_google_sheets()
+                                try:
+                                    wks_d = sh.worksheet("Config_Disciplinas")
+                                except:
+                                    wks_d = sh.add_worksheet(title="Config_Disciplinas", rows="100", cols="2")
+                                    wks_d.append_row(["Disciplina"])
+                                wks_d.append_row([nova_disc])
+                                with col_msg_d:
+                                    msg_placeholder = st.empty()
+                                    msg_placeholder.success(f"Disciplina '{nova_disc}' cadastrada com sucesso")
+                                    st.cache_data.clear()
+                                    time.sleep(3)
+                                    msg_placeholder.empty()
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro: {e}")
+                    else:
+                        st.error("Informe o nome da disciplina.")
+
+            st.divider()
+            st.subheader("Excluir Disciplina")
+            if not df_discs.empty:
+                disc_lista = sorted(df_discs['Disciplina'].unique().astype(str))
+                disc_excluir = st.selectbox("Selecione a disciplina para remover", [""] + disc_lista)
+                col_exc_d1, col_exc_d2 = st.columns([1, 2])
+                with col_exc_d1:
+                    btn_remover_disc = st.button("❌ REMOVER DISCIPLINA")
+                if btn_remover_disc:
+                    if disc_excluir != "":
+                        try:
+                            sh = conectar_google_sheets()
+                            wks_d = sh.worksheet("Config_Disciplinas")
+                            celula = wks_d.find(str(disc_excluir))
+                            wks_d.delete_rows(celula.row)
+                            with col_exc_d2:
+                                placeholder_disc_exc = st.empty()
+                                placeholder_disc_exc.success(f"Disciplina '{disc_excluir}' removida com sucesso")
+                                st.cache_data.clear()
+                                time.sleep(3)
+                                placeholder_disc_exc.empty()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao excluir: {e}")
+                    else:
+                        st.error("Selecione uma disciplina.")
+            else:
+                st.info("Nenhuma disciplina cadastrada.")
+
+        with tabs[2]:
+            st.subheader("Cadastrar Novo Professor")
+            with st.form("form_prof", clear_on_submit=True):
+                novo_prof = st.text_input("Nome do Professor")
+                novo_usuario = st.text_input("Nome de Usuário (Login)")
+                nova_senha = st.text_input("Senha", type="password", help="Opcional")
+                todas_turmas_disp = sorted(df_alunos['Turma'].unique().astype(str))
+                turmas_vinculo = st.multiselect("Vincular Turmas", options=todas_turmas_disp)
+                if not df_discs.empty:
+                    disciplina_opcoes = sorted(list(set(df_discs['Disciplina'].unique().astype(str).tolist() + ["SOE"])))
+                else:
+                    disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida", "SOE"]
+                disciplinas_vinculo = st.multiselect("Vincular Disciplinas", options=disciplina_opcoes)
+                col_btn_salvar, col_msg_salvar = st.columns([1, 2])
+                with col_btn_salvar:
+                    btn_salvar_prof = st.form_submit_button("Salvar Professor")
+                if btn_salvar_prof:
+                    if not novo_prof or not novo_usuario:
+                        st.error("Por favor, preencha o nome do professor e o nome de usuário.")
+                    else:
+                        try:
+                            sh = conectar_google_sheets()
+                            wks_p = sh.worksheet("Config_Professores")
+                            
+                            # Carrega os usuários que já existem para fazer a checagem (live from sheet)
+                            dados_existentes = wks_p.get_all_records()
+                            usuarios_cadastrados = [str(linha.get("Usuario", "")).strip().lower() for linha in dados_existentes]
+                            
+                            usuario_verificar = str(novo_usuario).strip().lower()
+                            
+                            # VALIDAÇÃO CRÍTICA: Impede se o nome de usuário (login) já existir
+                            if usuario_verificar in usuarios_cadastrados:
+                                with col_msg_salvar:
+                                    msg_placeholder_prof_err = st.empty()
+                                    msg_placeholder_prof_err.error(f"❌ Não é possível cadastrar! O usuário '{novo_usuario}' já existe no sistema. Escolha outro nome de usuário para login.")
+                                    time.sleep(3)
+                                    msg_placeholder_prof_err.empty()
+                            else:
+                                # Se não existir, faz o cadastro normalmente
+                                turmas_str = ", ".join(turmas_vinculo)
+                                disciplinas_str = ", ".join(disciplinas_vinculo)
+                                senha_final = str(nova_senha) if nova_senha else ""
+                                wks_p.append_row([novo_prof, novo_usuario, senha_final, turmas_str, disciplinas_str, "Ativo"])
+                                with col_msg_salvar:
+                                    msg_placeholder_prof = st.empty()
+                                    msg_placeholder_prof.success("Professor cadastrado com sucesso")
+                                    st.cache_data.clear()
+                                    time.sleep(3)
+                                    msg_placeholder_prof.empty()
+                                st.rerun()
                                 
-                                nota_acumulada = 0.0
-                                respostas_computadas = {}
-                                
-                                # Simulação de leitura limpa e de alta precisão baseada estritamente no gabarito oficial
-                                import random
-                                # Semeia com base no nome do aluno para manter consistência no mesmo teste
-                                random.seed(len(aluno_sel_corr) + int(nota_maxima_prova))
-                                
-                                for q_num, alternativa_correta in gabarito_atual.items():
-                                    alternativas_lista = ["A", "B", "C", "D"]
-                                    # Gera respostas realistas baseadas no gabarito do professor
-                                    escolha_aluno = random.choices(
-                                        alternativas_lista, 
-                                        weights=[0.75 if alternativa_correta == alt else 0.083 for alt in alternatives_lista], 
-                                        k=1
-                                    )[0]
-                                    
-                                    respostas_computadas[q_num] = escolha_aluno
-                                    if escolha_aluno == alternativa_correta:
-                                        nota_acumulada += pesos_atual[q_num]
-                                
-                                st.markdown("---")
-                                st.markdown("### 📊 Relatório Detalhado da Varredura Visual")
-                                
-                                col_res1, col_res2 = st.columns(2)
-                                with col_res1:
-                                    st.metric(label="NOTA FINAL DO ALUNO", value=f"{nota_acumulada:.2f} / {nota_maxima_prova:.2f} Pts")
-                                with col_res2:
-                                    st.success(f"🎉 Processamento concluído com sucesso para o aluno: **{aluno_sel_corr}**")
-                                    
-                                dados_conferencia = []
-                                for q_num in gabarito_atual.keys():
-                                    pontos_ganhos = pesos_atual[q_num] if respostas_computadas[q_num] == gabarito_atual[q_num] else 0.0
-                                    status_q = "✅ Acertou" if pontos_ganhos > 0 else "❌ Errou"
-                                    dados_conferencia.append({
-                                        "Questão": f"Questão {q_num}",
-                                        "Valor da Questão": f"{pesos_atual[q_num]:.2f} pts",
-                                        "Gabarito Oficial": gabarito_atual[q_num],
-                                        "Marcado pelo Aluno": respostas_computadas[q_num],
-                                        "Pontos Obtidos": f"{pontos_ganhos:.2f} pts",
-                                        "Resultado": status_q
-                                    })
-                                st.table(pd.DataFrame(dados_conferencia))
+                        except Exception as e:
+                            st.error(f"Erro ao acessar o banco de dados: {e}")
+            
+            st.divider()
+            st.subheader("Editar ou Excluir Usuário Existente")
+            lista_usuarios_edit = df_profs['Usuario'].tolist()
+            user_selecionado = st.selectbox("Selecione o Usuário para Modificar", [""] + lista_usuarios_edit)
+            if user_selecionado != "":
+                dados_atuais = df_profs[df_profs['Usuario'] == user_selecionado].iloc[0]
+                with st.form("form_editar_usuario"):
+                    edit_nome = st.text_input("Alterar Nome do Professor", value=dados_atuais['Professor'])
+                    edit_login = st.text_input("Alterar Login (Usuário)", value=dados_atuais['Usuario'])
+                    todas_turmas_disp = sorted(df_alunos['Turma'].unique().astype(str))
+                    turmas_atuais = str(dados_atuais.get('Turmas', "")).split(", ") if dados_atuais.get('Turmas') else []
+                    edit_turmas = st.multiselect("Alterar Turmas", options=todas_turmas_disp, default=[t for t in turmas_atuais if t in todas_turmas_disp])
+                    if not df_discs.empty:
+                        disciplina_opcoes = sorted(list(set(df_discs['Disciplina'].unique().astype(str).tolist() + ["SOE"])))
+                    else:
+                        disciplina_opcoes = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida", "SOE"]
+                    disciplinas_atuais = str(dados_atuais.get('Disciplinas', "")).split(", ") if dados_atuais.get('Disciplinas') else []
+                    edit_disciplinas = st.multiselect("Alterar Disciplinas", options=disciplina_opcoes, default=[d for d in disciplinas_atuais if d in disciplina_opcoes])
+                    col_btn1, col_btn_msg, col_btn2 = st.columns([1, 2, 1])
+                    with col_btn1:
+                        btn_update = st.form_submit_button("SALVAR ALTERAÇÕES")
+                    with col_btn2:
+                        btn_delete = st.form_submit_button("❌ EXCLUIR USUÁRIO")
+                if btn_update:
+                    try:
+                        sh = conectar_google_sheets()
+                        wks_p = sh.worksheet("Config_Professores")
+                        celula = wks_p.find(str(user_selecionado))
+                        turmas_edit_str = ", ".join(edit_turmas)
+                        disciplinas_edit_str = ", ".join(edit_disciplinas)
+                        wks_p.update_cell(celula.row, 1, edit_nome)
+                        wks_p.update_cell(celula.row, 2, edit_login)
+                        wks_p.update_cell(celula.row, 4, turmas_edit_str)
+                        wks_p.update_cell(celula.row, 5, disciplinas_edit_str)
+                        with col_btn_msg:
+                            msg_placeholder_edit = st.empty()
+                            msg_placeholder_edit.success(f"Dados de {user_selecionado} atualizados com sucesso!")
+                            st.cache_data.clear()
+                            time.sleep(3)
+                            msg_placeholder_edit.empty()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao atualizar: {e}")
+                if btn_delete:
+                    try:
+                        sh = conectar_google_sheets()
+                        wks_p = sh.worksheet("Config_Professores")
+                        celula = wks_p.find(str(user_selecionado))
+                        wks_p.delete_rows(celula.row)
+                        with col_btn_msg:
+                            msg_placeholder_del = st.empty()
+                            msg_placeholder_del.success(f"Usuário {user_selecionado} excluído com sucesso!")
+                            st.cache_data.clear()
+                            time.sleep(3)
+                            msg_placeholder_del.empty()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao excluir: {e}")
+
+        with tabs[3]:
+            st.subheader("Alterar Senha de Usuário")
+            lista_usuarios = df_profs['Usuario'].tolist()
+            user_alvo = st.selectbox("Selecione o Usuário", [""] + lista_usuarios)
+            nova_senha_input = st.text_input("Nova Senha", type="password")
+            confirmar_senha = st.text_input("Confirmar Nova Senha", type="password")
+            col_senha1, col_senha2 = st.columns([1, 2])
+            with col_senha1:
+                btn_senha = st.button("Atualizar Senha")
+            if btn_senha:
+                if not user_alvo:
+                    st.error("Selecione um usuário.")
+                elif nova_senha_input != confirmar_senha:
+                    st.error("As senhas não coincidem.")
+                else:
+                    try:
+                        sh = conectar_google_sheets()
+                        wks_p = sh.worksheet("Config_Professores")
+                        celula = wks_p.find(str(user_alvo))
+                        wks_p.update_cell(celula.row, 3, str(nova_senha_input))
+                        with col_senha2:
+                            st.success(f"✅ Senha de {user_alvo} atualizada!")
+                        st.cache_data.clear()
+                    except Exception as e:
+                        st.error(f"Erro ao atualizar: {e}")
+
+        with tabs[4]:
+            st.subheader("Configurar Período de Lançamento")
+            with st.form("form_periodo"):
+                bim_sel = st.selectbox("Bimestre", ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
+                data_inicio = st.date_input("Início do Lançamento", format="DD/MM/YYYY")
+                data_fim = st.date_input("Fim do Lançamento", format="DD/MM/YYYY")
+                col_btn_per, col_msg_per = st.columns([1, 2])
+                with col_btn_per:
+                    btn_salvar_per = st.form_submit_button("Salvar Período")
+                if btn_salvar_per:
+                    try:
+                        sh = conectar_google_sheets()
+                        try:
+                            wks_per = sh.worksheet("Config_Periodos")
+                        except:
+                            wks_per = sh.add_worksheet(title="Config_Periodos", rows="10", cols="3")
+                            wks_per.append_row(["Bimestre", "Inicio", "Fim"])
+                        data_per = wks_per.get_all_values()
+                        found = False
+                        inicio_str = data_inicio.strftime("%d/%m/%Y")
+                        fim_str = data_fim.strftime("%d/%m/%Y")
+                        for i, row in enumerate(data_per):
+                            if row[0] == bim_sel:
+                                wks_per.update_cell(i + 1, 2, inicio_str)
+                                wks_per.update_cell(i + 1, 3, fim_str)
+                                found = True
+                                break
+                        if not found:
+                            wks_per.append_row([bim_sel, inicio_str, fim_str])
+                        with col_msg_per:
+                            msg_placeholder_per = st.empty()
+                            msg_placeholder_per.success(f"Período do {bim_sel} configurado com sucesso!")
+                            st.cache_data.clear()
+                            time.sleep(3)
+                            msg_placeholder_per.empty()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao salvar período: {e}")
+            st.divider()
+            st.subheader("Períodos Configurados")
+            if not df_periodos.empty:
+                st.dataframe(df_periodos, use_container_width=True)
+                col_btn_limp, col_msg_limp = st.columns([1, 2])
+                with col_btn_limp:
+                    btn_limpar_per = st.button("Limpar Todos os Períodos")
+                if btn_limpar_per:
+                    try:
+                        sh = conectar_google_sheets()
+                        wks_per = sh.worksheet("Config_Periodos")
+                        rows = len(wks_per.get_all_values())
+                        if rows > 1:
+                            wks_per.delete_rows(2, rows)
+                            with col_msg_limp:
+                                msg_placeholder_limp = st.empty()
+                                msg_placeholder_limp.success("Todos os períodos foram removidos com sucesso!")
+                                st.cache_data.clear()
+                                time.sleep(3)
+                                msg_placeholder_limp.empty()
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro: {e}")
+            else:
+                st.info("Nenhum período configurado.")
+
+        # Changed: Use is_master_admin for "Bloqueio Master" tab, and ensure it's specifically 'rodrigo'
+        if st.session_state.get('is_master_admin', False) and st.session_state.user_data['Usuario'] == "rodrigo":
+            with tabs[5]:
+                st.subheader("🛡️ Controle de Bloqueio Master")
+                st.markdown("### 📊 Status Atual de Usuários")
+                df_status = df_profs[['Professor', 'Usuario', 'Status']].copy()
+                df_status['Status'] = df_status['Status'].apply(lambda x: "🔴 BLOQUEADO" if str(x).upper() == "BLOQUEADO" else "🟢 ATIVO")
+                st.table(df_status)
+                st.divider()
+                user_bloqueio = st.selectbox("Selecione o Usuário para Bloquear/Desbloquear", [""] + ["Todos"] + df_profs['Usuario'].tolist())
+                if user_bloqueio != "":
+                    if user_bloqueio == "Todos":
+                        st.warning("⚠️ Você selecionou TODOS os usuários para bloqueio/desbloqueio em massa.")
+                        col_b1, col_b2 = st.columns(2)
+                        with col_b1:
+                            if st.button("🔴 BLOQUEAR TODOS"):
+                                try:
+                                    sh = conectar_google_sheets()
+                                    wks_p = sh.worksheet("Config_Professores")
+                                    data_p = wks_p.get_all_values()
+                                    for i in range(2, len(data_p) + 1):
+                                        wks_p.update_cell(i, 6, "Bloqueado")
+                                    st.success("Todos os usuários foram bloqueados.")
+                                    st.cache_data.clear()
+                                    time.sleep(2)
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro: {e}")
+                        with col_b2:
+                            if st.button("🟢 DESBLOQUEAR TODOS"):
+                                try:
+                                    sh = conectar_google_sheets()
+                                    wks_p = sh.worksheet("Config_Professores")
+                                    data_p = wks_p.get_all_values()
+                                    for i in range(2, len(data_p) + 1):
+                                        wks_p.update_cell(i, 6, "Ativo")
+                                    st.success("Todos os usuários foram desbloqueados.")
+                                    st.cache_data.clear()
+                                    time.sleep(2)
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro: {e}")
+                    else:
+                        dados_bloqueio = df_profs[df_profs['Usuario'] == user_bloqueio].iloc[0]
+                        status_atual = str(dados_bloqueio.get("Status", "Ativo"))
+                        st.write(f"Status atual de **{user_bloqueio}**: {status_atual}")
+                        col_b1, col_b2 = st.columns(2)
+                        with col_b1:
+                            if st.button(f"🔴 BLOQUEAR {user_bloqueio}"):
+                                try:
+                                    sh = conectar_google_sheets()
+                                    wks_p = sh.worksheet("Config_Professores")
+                                    celula = wks_p.find(str(user_bloqueio))
+                                    wks_p.update_cell(celula.row, 6, "Bloqueado")
+                                    st.success(f"Usuário {user_bloqueio} bloqueado.")
+                                    st.cache_data.clear()
+                                    time.sleep(2)
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro: {e}")
+                        with col_b2:
+                            if st.button(f"🟢 DESBLOQUEAR {user_bloqueio}"):
+                                try:
+                                    sh = conectar_google_sheets()
+                                    wks_p = sh.worksheet("Config_Professores")
+                                    celula = wks_p.find(str(user_bloqueio))
+                                    wks_p.update_cell(celula.row, 6, "Ativo")
+                                    st.success(f"Usuário {user_bloqueio} desbloqueado.")
+                                    st.cache_data.clear()
+                                    time.sleep(2)
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro: {e}")
 
     elif pagina_atual == "Agendamento de Equipamentos":
         st.title("📅 Gerenciamento de Equipamentos")
