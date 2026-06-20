@@ -636,7 +636,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrências":
+    elif pagina_atual == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -1250,54 +1250,57 @@ else:
                         st.components.v1.html(html_prova, height=600, scrolling=True)
                         st.success(f"🎉 Avaliação e Cartão-Resposta com ID {str(id_prova_gerado).zfill(2)} Gerados com Sucesso!")
 
-            # --- SUB-ABA: CORREÇÃO DE AVALIAÇÕES (UNIFICADA E CORRIGIDA) ---
+            # --- SUB-ABA: CORREÇÃO DE AVALIAÇÕES ---
             elif aba_av_escolhida == "Correção":
-                st.subheader("📸 Correção Automatizada por ID")
-                st.write("Digite/bipe o ID da avaliação e capture a foto do cartão-resposta do aluno.")
+                st.subheader("📸 Leitura Automatizada e Correção por ID")
+                st.write("Aponte o cartão-resposta para a câmera ou bipe/digite o ID da avaliação.")
                 
-                # Campo de entrada para digitação ou leitor de código de barras físico
-                id_input = st.text_input("🔢 Digite o ID da Avaliação:", key="id_prova_manual", placeholder="Ex: 42")
+                # Campo para receber o ID bipado via leitor de código de barras/digitado de forma rápida
+                id_detectado = st.text_input("🔢 ID da Avaliação (Bipado ou Detectado):", key="id_prova_bipado", placeholder="Ex: 1001")
                 
-                # Inicializa a câmera em tela
-                img_file = st.camera_input("Capturar Cartão Resposta", key="camera_correcao_id_valida")
+                # Abre a câmera imediatamente em tela para captura
+                img_file = st.camera_input("Capturar Cartão Resposta", key="camera_correcao_automatica")
                 
-                if id_input:
-                    id_limpo = str(id_input).strip()
+                # Estrutura lógica de processamento
+                if img_file is not None or id_detectado:
+                    st.info("🔄 Processando dados da avaliação...")
                     
-                    # Bloco de conexão e recuperação segura dos Gabaritos
-                    try:
-                        sh = conectar_google_sheets()
-                        try:
-                            wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
-                        except gspread.exceptions.WorksheetNotFound:
-                            # Proteção de segurança: Se a tabela não existir, ela se cria sozinha
-                            wks_gav = sh.add_worksheet(title="Gabaritos_Avaliacoes", rows="1000", cols="5")
-                            wks_gav.append_row(["ID_Prova", "Disciplina", "Turma", "Gabarito", "Data_Criacao"])
-                        
-                        dados_gabaritos = wks_gav.get_all_records()
-                        df_gabaritos = pd.DataFrame(dados_gabaritos)
-                    except Exception as e:
-                        df_gabaritos = pd.DataFrame()
-                        st.error(f"Erro ao conectar ao banco de dados: Gabaritos_Avaliacoes ({e})")
+                    # Se uma imagem foi capturada e o ID ainda não foi digitado, tentamos extrair o ID da prova do cabeçalho
+                    if img_file is not None and not id_detectado:
+                        # [Lógica do OpenCV/ZBar ou processamento de imagem para ler as bolinhas de ID ou QR Code]
+                        # Exemplo fictício da variável que seu leitor extrai da imagem:
+                        # id_detectado = extrair_id_da_imagem(img_file)
+                        pass
 
-                    if not df_gabaritos.empty:
-                        # Converte e remove espaços invisíveis da coluna e do input
-                        df_gabaritos['ID_Prova'] = df_gabaritos['ID_Prova'].astype(str).str.strip()
-                        prova_alvo = df_gabaritos[df_gabaritos['ID_Prova'] == id_limpo]
-                        
-                        if prova_alvo.empty:
-                            st.error(f"❌ Nenhuma avaliação com o ID '{id_limpo}' foi localizada no banco de dados. Verifique a planilha.")
-                        else:
-                            dados_da_prova = prova_alvo.iloc[0]
-                            st.success(f"🎯 Avaliação Conectada com Sucesso: {dados_da_prova.get('Disciplina')} — Turma {dados_da_prova.get('Turma')}")
+                    if not id_detectado:
+                        st.warning("⚠️ Não foi possível identificar o ID da prova automaticamente na imagem. Digite o ID no campo acima para prosseguir.")
+                    else:
+                        # Carrega dinamicamente a base de dados de gabaritos para encontrar a prova correspondente ao ID
+                        try:
+                            sh = conectar_google_sheets()
+                            wks_gav = sh.worksheet("Gabaritos_Avaliacoes") 
+                            dados_gabaritos = wks_gav.get_all_records()
+                            df_gabaritos = pd.DataFrame(dados_gabaritos)
+                        except Exception as e:
+                            df_gabaritos = pd.DataFrame()
+                            st.error(f"Erro ao conectar ao banco de dados: {e}")
+
+                        if not df_gabaritos.empty:
+                            # Garante que a comparação seja feita como string limpa
+                            df_gabaritos['ID_Prova'] = df_gabaritos['ID_Prova'].astype(str).str.strip()
+                            prova_alvo = df_gabaritos[df_gabaritos['ID_Prova'] == str(id_detectado).strip()]
                             
-                            # Ativa o motor óptico apenas quando a foto for enviada pelo st.camera_input
-                            if img_file is not None:
-                                st.info("🔄 Analisando marcações do cartão-resposta...")
+                            if prova_alvo.empty:
+                                st.error(f"❌ Nenhuma avaliação com o ID '{id_detectado}' foi localizada no banco de dados.")
+                            else:
+                                dados_da_prova = prova_alvo.iloc[0]
+                                st.success(f"🎯 Prova Identificada com Sucesso! | Disciplina: {dados_da_prova.get('Disciplina')} | Turma: {dados_da_prova.get('Turma')}")
                                 
-                                # --- SEU MOTOR DE CORREÇÃO ORIGINAL (OPENCV) COMEÇA AQUI ---
-                                # O sistema utiliza o gabarito oficial recuperado em: dados_da_prova['Gabarito']
-                                st.write("Processando a imagem capturada...")
+                                # --- DAQUI PARA BAIXO O SISTEMA CONTINUA A PROCESSAR AS RESPOSTAS DO CARTÃO ---
+                                st.write("Analisando respostas do aluno...")
+                                
+                                # Aqui o seu código OpenCV existente roda usando os dados_da_prova['Gabarito'] 
+                                # para calcular a nota e salvar o resultado automaticamente...
 
             elif aba_av_escolhida == "Histórico de Notas":
                 st.subheader("📋 Histórico Completo de Provas Corrigidas")
@@ -2154,3 +2157,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
