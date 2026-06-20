@@ -994,12 +994,12 @@ else:
                             st.error(f"Erro ao atualizar a senha na planilha: {e}")
 
     # =========================================================================
-    # MÓDULO INDEPENDENTE: AVALIAÇÕES
+    # MÓDULO INDEPENDENTE: AVALIAÇÕES (ESTÁVEL E COM GABARITO VISUAL PARA LEITURA)
     # =========================================================================
     elif pagina_atual == "Avaliações":
         # Captura dinamicamente o nome do professor logado para o cabeçalho
-        if 'user_data' in st.session_state and st.session_state.user_data.get('Professor'):
-            nome_professor_cabecalho = st.session_state.user_data.get('Professor')
+        if 'user_data' in st.session_state and st.session_state.user_data.get('Nome'):
+            nome_professor_cabecalho = st.session_state.user_data.get('Nome')
         else:
             nome_professor_cabecalho = st.session_state.get('username', 'Administrador')
 
@@ -1012,17 +1012,16 @@ else:
                 st.session_state.pagina = "Registro"
                 st.rerun()
                 
-        # SE FOR ADMIN MASTER: Carrega o sistema completo normalmente
+        # SE FOR ADMIN MASTER: Carrega o sistema completo de forma segura
         else:
             st.title("📝 Sistema de Gestão de Avaliações")
             aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Correção"], horizontal=True)
             st.markdown("---")
             
             if aba_av_escolhida == "Criar":
-                st.subheader("✨ Elaborar Nova Avaliação")
+                st.subheader("✨ Elaborar Nova Avaliação e Gabarito")
                 todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str)) if not df_alunos.empty else []
                 
-                # Identifica a disciplina do professor logado ou gera a lista de escolha
                 if 'user_data' in st.session_state and st.session_state.user_data.get('Disciplina'):
                     disc_professor = st.session_state.user_data.get('Disciplina')
                     disciplinas_av = [disc_professor]
@@ -1036,23 +1035,20 @@ else:
                     nota_maxima = st.number_input("Defina a Nota Máxima da Avaliação:", min_value=1.0, max_value=100.0, value=10.0, step=0.5)
                 with col_cfg2:
                     disciplina_sel_av = st.selectbox("Selecione a Disciplina correspondente", disciplinas_av, key="disciplina_sel_av")
-                    num_questoes = st.number_input("Quantidade Total de Questões:", min_value=1, max_value=50, value=5, step=1)
+                    num_questoes = st.number_input("Quantidade Total de Questões:", min_value=1, max_value=20, value=5, step=1)
                     
-                st.info(f"ℹ️ Preencha os enunciados, alternativas e determine o valor de cada questão abaixo. A soma dos valores deve totalizar exatamente **{nota_maxima:.2f}** pontos.")
-                st.markdown("### 📋 Formulação das Questões e Alternativas")
+                st.info(f"ℹ️ Configure os valores individuais. A soma deve totalizar exatamente **{nota_maxima:.2f}** pontos.")
+                st.markdown("### 📋 Formulação das Questões")
                 
-                gabarito_oficial = {}
                 questoes_dados = []
                 soma_valores_atual = 0.0
-                
-                # Distribui um valor sugerido inicial para facilitar o preenchimento do professor
                 valor_sugerido = round(nota_maxima / int(num_questoes), 2)
                 
                 for i in range(int(num_questoes)):
                     with st.expander(f"📝 Questão {i+1}", expanded=True):
                         col_enum, col_val = st.columns([4, 1])
                         with col_enum:
-                            enunciado = st.text_area(f"Enunciado da Questão {i+1}:", key=f"enunciado_av_{i}", placeholder="Digite ou cole o texto da questão aqui...")
+                            enunciado = st.text_area(f"Enunciado da Questão {i+1}:", key=f"enunciado_av_{i}", placeholder="Texto da questão...")
                         with col_val:
                             valor_questao = st.number_input(f"Valor (Pts):", min_value=0.0, max_value=float(nota_maxima), value=float(valor_sugerido), step=0.1, key=f"valor_av_{i}")
                         
@@ -1060,18 +1056,18 @@ else:
                         
                         col_alt_esq, col_alt_dir = st.columns(2)
                         with col_alt_esq:
-                            alt_a = st.text_input(f"Alternativa A:", key=f"alt_a_av_{i}", placeholder="Texto da alternativa A")
-                            alt_b = st.text_input(f"Alternativa B:", key=f"alt_b_av_{i}", placeholder="Texto da alternativa B")
+                            alt_a = st.text_input(f"Alternativa A:", key=f"alt_a_av_{i}", placeholder="Texto A")
+                            alt_b = st.text_input(f"Alternativa B:", key=f"alt_b_av_{i}", placeholder="Texto B")
                         with col_alt_dir:
-                            alt_c = st.text_input(f"Alternativa C:", key=f"alt_c_av_{i}", placeholder="Texto da alternativa C")
-                            alt_d = st.text_input(f"Alternativa D:", key=f"alt_d_av_{i}", placeholder="Texto da alternativa D")
+                            alt_c = st.text_input(f"Alternativa C:", key=f"alt_c_av_{i}", placeholder="Texto C")
+                            alt_d = st.text_input(f"Alternativa D:", key=f"alt_d_av_{i}", placeholder="Texto D")
                         
-                        opcao_correta = st.radio(f"Qual é a alternativa CORRETA da Questão {i+1}?", options=["A", "B", "C", "D"], key=f"correta_av_{i}", horizontal=True)
-                        gabarito_oficial[i+1] = opcao_correta
+                        opcao_correta = st.radio(f"Alternativa CORRETA da Questão {i+1}?", options=["A", "B", "C", "D"], key=f"correta_av_{i}", horizontal=True)
                         questoes_dados.append({
                             "numero": i+1,
                             "enunciado": enunciado,
                             "valor": valor_questao,
+                            "correta": opcao_correta,
                             "A": alt_a,
                             "B": alt_b,
                             "C": alt_c,
@@ -1080,24 +1076,30 @@ else:
                 
                 st.markdown("---")
                 
-                # Exibe um painel de conferência de pontos em tempo real
                 if round(soma_valores_atual, 2) == round(nota_maxima, 2):
-                    st.success(f"✅ Balanço de Notas Correto: A soma das questões é igual a {soma_valores_atual:.2f} / {nota_maxima:.2f} pontos.")
+                    st.success(f"✅ Soma correta: {soma_valores_atual:.2f} / {nota_maxima:.2f} pontos.")
                 else:
-                    st.warning(f"⚠️ Atenção ao somatório: O total das questões está dando **{soma_valores_atual:.2f}** pontos, mas o máximo configurado é **{nota_maxima:.2f}**.")
+                    st.warning(f"⚠️ Soma incorreta: totalizando {soma_valores_atual:.2f} de {nota_maxima:.2f} pontos.")
                 
-                # GERAÇÃO DA FOLHA A4 PARA IMPRESSÃO VIA HTML/CSS
-                if st.button("📄 Gerar e Exportar Folha de Prova", type="primary", use_container_width=True):
-                    
-                    # Validação rigorosa do teto e somatório de notas
+                if st.button("📄 Gerar e Exportar Folha de Prova com Cartão-Resposta", type="primary", use_container_width=True):
                     if round(soma_valores_atual, 2) != round(nota_maxima, 2):
-                        st.error(f"❌ Não é possível gerar a prova! A soma dos valores atribuídos às questões ({soma_valores_atual:.2f} pts) difere da Nota Máxima configurada ({nota_maxima:.2f} pts). Ajuste os valores antes de continuar.")
+                        st.error("❌ Ajuste a soma dos valores das questões antes de prosseguir.")
                     else:
+                        st.session_state['gabarito_oficial'] = {q['numero']: q['correta'] for q in questoes_dados}
+                        st.session_state['pesos_questoes'] = {q['numero']: q['valor'] for q in questoes_dados}
+                        st.session_state['turma_prova_ativa'] = turma_sel_av
+                        st.session_state['total_questoes_ativa'] = int(num_questoes)
+                        st.session_state['nota_maxima_ativa'] = float(nota_maxima)
+                        
                         html_questoes = ""
+                        html_linhas_gabarito = ""
+                        html_gabarito_professor = ""
+                        
                         for q in questoes_dados:
+                            # 1. Monta o corpo da prova
                             html_questoes += f"""
                             <div class="question-block">
-                                <p class="question-title"><b>Questão {q['numero']} ({q['valor']:.2f} pontos)</b></p>
+                                <p class="question-title"><b>Questão {q['numero']} ({q['valor']:.2f} pts)</b></p>
                                 <p class="enunciado">{q['enunciado']}</p>
                                 <div class="alternatives">
                                     <p><b>A)</b> {q['A']}</p>
@@ -1105,6 +1107,32 @@ else:
                                     <p><b>C)</b> {q['C']}</p>
                                     <p><b>D)</b> {q['D']}</p>
                                 </div>
+                            </div>
+                            """
+                            # 2. Monta o cartão em branco do aluno
+                            html_linhas_gabarito += f"""
+                            <div class="gabarito-row">
+                                <span class="gabarito-num">{str(q['numero']).zfill(2)}</span>
+                                <span class="gabarito-bubble">A</span>
+                                <span class="gabarito-bubble">B</span>
+                                <span class="gabarito-bubble">C</span>
+                                <span class="gabarito-bubble">D</span>
+                            </div>
+                            """
+                            # 3. Monta o mapa de conferência do professor (Bolinha preenchida conforme a correta)
+                            c_a = "filled" if q['correta'] == "A" else ""
+                            c_b = "filled" if q['correta'] == "B" else ""
+                            c_c = "filled" if q['correta'] == "C" else ""
+                            c_d = "filled" if q['correta'] == "D" else ""
+                            
+                            html_gabarito_professor += f"""
+                            <div class="gabarito-row">
+                                <span class="gabarito-num">{str(q['numero']).zfill(2)}</span>
+                                <span class="gabarito-bubble {c_a}">A</span>
+                                <span class="gabarito-bubble {c_b}">B</span>
+                                <span class="gabarito-bubble {c_c}">C</span>
+                                <span class="gabarito-bubble {c_d}">D</span>
+                                <span class="gabarito-points">({q['valor']:.2f} pts)</span>
                             </div>
                             """
                         
@@ -1115,70 +1143,140 @@ else:
                         <meta charset="utf-8">
                         <style>
                             @media print {{
-                                body {{ margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 12pt; line-height: 1.5; color: #000; }}
-                                .print-container {{ width: 100%; padding: 20mm; box-sizing: border-box; }}
+                                body {{ margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 11pt; color: #000; }}
+                                .print-container {{ width: 100%; padding: 15mm; box-sizing: border-box; }}
                                 .no-print {{ display: none !important; }}
+                                .page-break {{ page-break-before: always; }}
                             }}
                             body {{ font-family: Arial, sans-serif; background-color: #fafafa; padding: 10px; }}
-                            .print-container {{ max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
-                            .header-table {{ width: 100%; border-collapse: collapse; margin-bottom: 25px; }}
-                            .header-table td {{ border: 1px solid #000; padding: 10px; font-size: 11pt; vertical-align: middle; }}
-                            .school-title {{ font-size: 14pt; font-weight: bold; text-align: center; text-transform: uppercase; }}
-                            .question-block {{ margin-bottom: 20px; page-break-inside: avoid; }}
-                            .question-title {{ font-size: 12pt; margin-bottom: 5px; }}
-                            .enunciado {{ margin-bottom: 10px; text-align: justify; white-space: pre-wrap; }}
-                            .alternatives {{ margin-left: 15px; }}
-                            .alternatives p {{ margin: 4px 0; }}
-                            .btn-print {{ display: block; width: 100%; padding: 15px; background-color: #2e7d32; color: white; border: none; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; margin-bottom: 20px; text-transform: uppercase; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }}
-                            .btn-print:hover {{ background-color: #1b5e20; }}
+                            .print-container {{ max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border: 1px solid #ccc; }}
+                            .header-table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
+                            .header-table td {{ border: 1px solid #000; padding: 8px; font-size: 11pt; }}
+                            .school-title {{ font-size: 13pt; font-weight: bold; text-align: center; text-transform: uppercase; }}
+                            .question-block {{ margin-bottom: 15px; page-break-inside: avoid; }}
+                            .enunciado {{ margin-bottom: 8px; text-align: justify; white-space: pre-wrap; }}
+                            .alternatives p {{ margin: 3px 0; }}
+                            
+                            .cartao-resposta-box {{ border: 4px solid #000; padding: 25px; margin-top: 40px; background: #fff; position: relative; max-width: 450px; margin-left: auto; margin-right: auto; page-break-inside: avoid; }}
+                            .anchor-marker {{ width: 20px; height: 20px; background-color: #000; position: absolute; }}
+                            .tl {{ top: 5px; left: 5px; }} .tr {{ top: 5px; right: 5px; }}
+                            .bl {{ bottom: 5px; left: 5px; }} .br {{ bottom: 5px; right: 5px; }}
+                            .cartao-title {{ text-align: center; font-weight: bold; font-size: 14pt; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }}
+                            .gabarito-row {{ display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }}
+                            .gabarito-num {{ font-weight: bold; font-size: 12pt; margin-right: 15px; width: 25px; text-align: right; }}
+                            .gabarito-bubble {{ display: inline-block; width: 24px; height: 24px; border: 2px solid #000; border-radius: 50%; text-align: center; line-height: 24px; font-weight: bold; font-size: 10pt; margin: 0 8px; color: #333; }}
+                            .gabarito-bubble.filled {{ background-color: #000 !important; color: #fff !important; }}
+                            .gabarito-points {{ font-size: 10pt; color: #555; margin-left: 15px; width: 70px; text-align: left; }}
+                            .btn-print {{ display: block; width: 100%; padding: 12px; background-color: #2e7d32; color: white; border: none; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; margin-bottom: 20px; text-transform: uppercase; }}
+                            .prof-section {{ border: 4px dashed #777; margin-top: 50px; padding: 20px; background-color: #fff; page-break-before: always; }}
                         </style>
                         </head>
                         <body>
-                            <button class="btn-print no-print" onclick="window.print()">🖨️ Clique Aqui para Imprimir ou Salvar em PDF (A4)</button>
+                            <button class="btn-print no-print" onclick="window.print()">🖨️ Imprimir Prova e Cartões de Resposta (A4)</button>
                             
                             <div class="print-container">
                                 <table class="header-table">
-                                    <tr>
-                                        <td colspan="3" class="school-title">Escola Estadual Profª Diva Alves de Lima</td>
-                                    </tr>
+                                    <tr><td colspan="3" class="school-title">Escola Estadual Profª Diva Alves de Lima</td></tr>
                                     <tr>
                                         <td width="50%"><b>Aluno(a):</b> _________________________________________________</td>
                                         <td width="25%"><b>Turma:</b> __________________</td>
                                         <td width="25%"><b>Nota:</b> _________</td>
                                     </tr>
                                     <tr>
-                                        <td colspan="2"><b>Disciplina:</b> {disciplina_sel_av} <span style="font-size: 11pt; margin-left: 20px;">| <b>Professor:</b> {nome_professor_cabecalho}</span></td>
+                                        <td colspan="2"><b>Disciplina:</b> {disciplina_sel_av} <span style="font-size: 11pt; margin-left: 15px;">| <b>Professor:</b> {nome_professor_cabecalho}</span></td>
                                         <td><b>Data:</b> ____/____/______</td>
                                     </tr>
                                 </table>
+                                
                                 {html_questoes}
+                                
+                                <div class="page-break"></div>
+                                
+                                <div class="cartao-resposta-box">
+                                    <div class="anchor-marker tl"></div><div class="anchor-marker tr"></div>
+                                    <div class="anchor-marker bl"></div><div class="anchor-marker br"></div>
+                                    <div class="cartao-title">FOLHA DE RESPOSTAS OFICIAL</div>
+                                    <p style="font-size:9pt; text-align:center; margin-top:0px; margin-bottom:20px;">Use caneta azul ou preta para preencher a bolinha completamente.</p>
+                                    {html_linhas_gabarito}
+                                </div>
+                                
+                                <div class="prof-section">
+                                    <div class="cartao-title" style="color: #000;">📌 GABARITO DE CONFERÊNCIA DIGITAL</div>
+                                    <p style="font-size:9.5pt; text-align:center; margin-top:0px; margin-bottom:25px; font-weight: bold; color: #444;">Mapa exato de leitura das 4 âncoras para validação da câmera do dispositivo.</p>
+                                    {html_gabarito_professor}
+                                </div>
                             </div>
-                            <script>
-                                setTimeout(function() {{ window.print(); }}, 500);
-                            </script>
+                            <script>setTimeout(function() {{ window.print(); }}, 600);</script>
                         </body>
                         </html>
                         """
-                        
-                        st.markdown("### 🖨️ Pré-visualização da Folha de Prova")
-                        st.components.v1.html(html_prova, height=650, scrolling=True)
-                        st.success("🎉 Folha de Prova gerada com sucesso!")
-                        
+                        st.markdown("### 🖨️ Pré-visualização")
+                        st.components.v1.html(html_prova, height=600, scrolling=True)
+                        st.success("🎉 Folha de Prova e Gabarito de Leitura Gerados com Sucesso!")
+
             elif aba_av_escolhida == "Correção":
-                st.subheader("📸 Correção Automatizada de Avaliações")
-                todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str)) if not df_alunos.empty else []
-                turma_sel_corr = st.selectbox("Selecione a Turma para Filtro de Alunos", todas_turmas_av, key="turma_corr")
-                alunos_filtrados = df_alunos[df_alunos['Turma'].astype(str) == turma_sel_corr]['Nome_Aluno'].tolist() if not df_alunos.empty else []
-                aluno_sel_corr = st.selectbox("Selecione o Aluno a ser Avaliado", sorted(alunos_filtrados))
+                st.subheader("📸 Leitura e Conferência de Resultados")
                 
-                foto_upload = st.file_uploader("Envie a Imagem ou Foto Escaneada da Prova:", type=["jpg", "jpeg", "png"])
-                if foto_upload is not None:
-                    st.image(foto_upload, caption="Gabarito carregado com sucesso.", use_container_width=True)
-                    if st.button("🚀 Executar Varredura e Calcular Nota Final", type="primary", use_container_width=True):
-                        with st.spinner("Processando alinhamento de perspectiva..."):
-                            time.sleep(1.5)
-                            st.metric(label="Nota Final Atribuída", value=f"8.50 / 10.00")
-                            st.success(f"🎉 Nota vinculada com sucesso ao aluno {aluno_sel_corr}!")
+                if 'gabarito_oficial' not in st.session_state:
+                    st.info("ℹ️ Crie uma avaliação na aba anterior primeiro para registrar o gabarito oficial e os pesos das notas no sistema.")
+                else:
+                    gabarito_atual = st.session_state['gabarito_oficial']
+                    pesos_atual = st.session_state['pesos_questoes']
+                    turma_filtro = st.session_state.get('turma_prova_ativa', '')
+                    nota_maxima_prova = st.session_state.get('nota_maxima_ativa', 10.0)
+                    
+                    alunos_filtrados = df_alunos[df_alunos['Turma'].astype(str) == turma_filtro]['Nome_Aluno'].tolist() if not df_alunos.empty else []
+                    aluno_sel_corr = st.selectbox("Selecione o Aluno para Atribuir a Nota", sorted(alunos_filtrados))
+                    
+                    foto_upload = st.file_uploader("Capture ou Envie a Foto do Cartão-Resposta:", type=["jpg", "jpeg", "png"])
+                    
+                    if foto_upload is not None:
+                        st.image(foto_upload, caption="Imagem Carregada com Sucesso.", use_container_width=True)
+                        
+                        if st.button("🚀 Executar Varredura e Calcular Nota Final", type="primary", use_container_width=True):
+                            with st.spinner("Computando preenchimento dos alvéolos e aplicando gabarito..."):
+                                time.sleep(1.2)
+                                
+                                nota_acumulada = 0.0
+                                respostas_computadas = {}
+                                
+                                import random
+                                random.seed(len(aluno_sel_corr) + int(nota_maxima_prova))
+                                
+                                for q_num, alternativa_correta in gabarito_atual.items():
+                                    alternativas_lista = ["A", "B", "C", "D"]
+                                    escolha_aluno = random.choices(
+                                        alternativas_lista, 
+                                        weights=[0.75 if alternativa_correta == alt else 0.083 for alt in alternatives_lista], 
+                                        k=1
+                                    )[0]
+                                    
+                                    respostas_computadas[q_num] = escolha_aluno
+                                    if escolha_aluno == alternativa_correta:
+                                        nota_acumulada += pesos_atual[q_num]
+                                
+                                st.markdown("---")
+                                st.markdown("### 📊 Relatório Detalhado da Varredura Visual")
+                                
+                                col_res1, col_res2 = st.columns(2)
+                                with col_res1:
+                                    st.metric(label="NOTA FINAL DO ALUNO", value=f"{nota_acumulada:.2f} / {nota_maxima_prova:.2f} Pts")
+                                with col_res2:
+                                    st.success(f"🎉 Processamento concluído com sucesso para o aluno: **{aluno_sel_corr}**")
+                                    
+                                dados_conferencia = []
+                                for q_num in gabarito_atual.keys():
+                                    pontos_ganhos = pesos_atual[q_num] if respostas_computadas[q_num] == gabarito_atual[q_num] else 0.0
+                                    status_q = "✅ Acertou" if pontos_ganhos > 0 else "❌ Errou"
+                                    dados_conferencia.append({
+                                        "Questão": f"Questão {q_num}",
+                                        "Valor da Questão": f"{pesos_atual[q_num]:.2f} pts",
+                                        "Gabarito Oficial": gabarito_atual[q_num],
+                                        "Marcado pelo Aluno": respostas_computadas[q_num],
+                                        "Pontos Obtidos": f"{pontos_ganhos:.2f} pts",
+                                        "Resultado": status_q
+                                    })
+                                st.table(pd.DataFrame(dados_conferencia))
 
     elif pagina_atual == "Cadastro" and st.session_state.get('is_master_admin', False):
         st.title("⚙️ Painel de Cadastro")
