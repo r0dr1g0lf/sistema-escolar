@@ -994,7 +994,7 @@ else:
                             st.error(f"Erro ao atualizar a senha na planilha: {e}")
 
     # =========================================================================
-    # MÓDULO INDEPENDENTE: AVALIAÇÕES (ESTÁVEL E COM GABARITO VISUAL PARA LEITURA)
+    # MÓDULO INDEPENDENTE: AVALIAÇÕES (ESTÁVEL E SELEÇÃO DE TURMA NA CORREÇÃO)
     # =========================================================================
     elif pagina_atual == "Avaliações":
         # Captura dinamicamente o nome do professor logado para o cabeçalho
@@ -1020,7 +1020,6 @@ else:
             
             if aba_av_escolhida == "Criar":
                 st.subheader("✨ Elaborar Nova Avaliação e Gabarito")
-                todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str)) if not df_alunos.empty else []
                 
                 if 'user_data' in st.session_state and st.session_state.user_data.get('Disciplina'):
                     disc_professor = st.session_state.user_data.get('Disciplina')
@@ -1031,10 +1030,9 @@ else:
                 
                 col_cfg1, col_cfg2 = st.columns(2)
                 with col_cfg1:
-                    turma_sel_av = st.selectbox("Selecione a Turma Alvo", todas_turmas_av, key="turma_sel_av")
+                    disciplina_sel_av = st.selectbox("Selecione a Disciplina correspondente", disciplinas_av, key="disciplina_sel_av")
                     nota_maxima = st.number_input("Defina a Nota Máxima da Avaliação:", min_value=1.0, max_value=100.0, value=10.0, step=0.5)
                 with col_cfg2:
-                    disciplina_sel_av = st.selectbox("Selecione a Disciplina correspondente", disciplinas_av, key="disciplina_sel_av")
                     num_questoes = st.number_input("Quantidade Total de Questões:", min_value=1, max_value=20, value=5, step=1)
                     
                 st.info(f"ℹ️ Configure os valores individuais. A soma deve totalizar exatamente **{nota_maxima:.2f}** pontos.")
@@ -1087,7 +1085,6 @@ else:
                     else:
                         st.session_state['gabarito_oficial'] = {q['numero']: q['correta'] for q in questoes_dados}
                         st.session_state['pesos_questoes'] = {q['numero']: q['valor'] for q in questoes_dados}
-                        st.session_state['turma_prova_ativa'] = turma_sel_av
                         st.session_state['total_questoes_ativa'] = int(num_questoes)
                         st.session_state['nota_maxima_ativa'] = float(nota_maxima)
                         
@@ -1096,7 +1093,6 @@ else:
                         html_gabarito_professor = ""
                         
                         for q in questoes_dados:
-                            # 1. Monta o corpo da prova
                             html_questoes += f"""
                             <div class="question-block">
                                 <p class="question-title"><b>Questão {q['numero']} ({q['valor']:.2f} pts)</b></p>
@@ -1109,7 +1105,6 @@ else:
                                 </div>
                             </div>
                             """
-                            # 2. Monta o cartão em branco do aluno
                             html_linhas_gabarito += f"""
                             <div class="gabarito-row">
                                 <span class="gabarito-num">{str(q['numero']).zfill(2)}</span>
@@ -1119,7 +1114,6 @@ else:
                                 <span class="gabarito-bubble">D</span>
                             </div>
                             """
-                            # 3. Monta o mapa de conferência do professor (Bolinha preenchida conforme a correta)
                             c_a = "filled" if q['correta'] == "A" else ""
                             c_b = "filled" if q['correta'] == "B" else ""
                             c_c = "filled" if q['correta'] == "C" else ""
@@ -1222,10 +1216,14 @@ else:
                 else:
                     gabarito_atual = st.session_state['gabarito_oficial']
                     pesos_atual = st.session_state['pesos_questoes']
-                    turma_filtro = st.session_state.get('turma_prova_ativa', '')
                     nota_maxima_prova = st.session_state.get('nota_maxima_ativa', 10.0)
                     
-                    alunos_filtrados = df_alunos[df_alunos['Turma'].astype(str) == turma_filtro]['Nome_Aluno'].tolist() if not df_alunos.empty else []
+                    # SELEÇÃO DA TURMA DIRETAMENTE NO MOMENTO DA CORREÇÃO
+                    todas_turmas_corr = sorted(df_alunos['Turma'].unique().astype(str)) if not df_alunos.empty else []
+                    turma_sel_corr = st.selectbox("Selecione a Turma para Correção", todas_turmas_corr, key="turma_sel_corr_modulo")
+                    
+                    # Filtra os alunos dinamicamente com base na turma escolhida acima
+                    alunos_filtrados = df_alunos[df_alunos['Turma'].astype(str) == turma_sel_corr]['Nome_Aluno'].tolist() if not df_alunos.empty else []
                     aluno_sel_corr = st.selectbox("Selecione o Aluno para Atribuir a Nota", sorted(alunos_filtrados))
                     
                     foto_upload = st.file_uploader("Capture ou Envie a Foto do Cartão-Resposta:", type=["jpg", "jpeg", "png"])
@@ -1262,7 +1260,7 @@ else:
                                 with col_res1:
                                     st.metric(label="NOTA FINAL DO ALUNO", value=f"{nota_acumulada:.2f} / {nota_maxima_prova:.2f} Pts")
                                 with col_res2:
-                                    st.success(f"🎉 Processamento concluído com sucesso para o aluno: **{aluno_sel_corr}**")
+                                    st.success(f"🎉 Processamento concluído com sucesso para o aluno: **{aluno_sel_corr}** (Turma: {turma_sel_corr})")
                                     
                                 dados_conferencia = []
                                 for q_num in gabarito_atual.keys():
