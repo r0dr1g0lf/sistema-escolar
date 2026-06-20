@@ -636,7 +636,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrências":
+    elif pagina_atual == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -938,9 +938,7 @@ else:
                                 st.info("Nenhuma ocorrência de suas disciplinas disponível para editar ou excluir.")
 
                     else:
-                        st.info("Nenhuma ocorrência encontrada.")
-                else:
-                    st.info("A planilha de registros está vazia.")
+                        st.info("A planilha de registros está vazia.")
             except Exception as e:
                 st.error(f"Erro ao carregar ocorrências: {e}")
 
