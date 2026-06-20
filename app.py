@@ -876,7 +876,7 @@ else:
                         if is_soe:
                             st.info("Usuários SOE não possuem permissão para editar ou excluir registros.")
                         else:
-                            # Changed: Use is_master_admin for admin/rodrigo check
+                            # Changed: Use is_master_admin for admin check
                             if st.session_state.get('is_master_admin', False):
                                 df_edit_oc_propria = df_oc_filtrado
                             else:
@@ -997,6 +997,12 @@ else:
     # MÓDULO INDEPENDENTE: AVALIAÇÕES
     # =========================================================================
     elif pagina_atual == "Avaliações":
+        # Captura dinamicamente o nome do professor logado para o cabeçalho
+        if 'user_data' in st.session_state and st.session_state.user_data.get('Professor'):
+            nome_professor_cabecalho = st.session_state.user_data.get('Professor')
+        else:
+            nome_professor_cabecalho = st.session_state.get('username', 'Administrador')
+
         # SE NÃO FOR ADMIN MASTER: Mostra apenas a mensagem de em construção
         if not st.session_state.get('is_master_admin', False):
             st.title("📝 Sistema de Gestão de Avaliações")
@@ -1114,11 +1120,11 @@ else:
                                 </tr>
                                 <tr>
                                     <td width="50%"><b>Aluno(a):</b> _________________________________________________</td>
-                                    <td width="25%"><b>Turma:</b> {turma_sel_av}</td>
+                                    <td width="25%"><b>Turma:</b> __________________</td>
                                     <td width="25%"><b>Nota:</b> _________</td>
                                 </tr>
                                 <tr>
-                                    <td colspan="2"><b>Disciplina:</b> {disciplina_sel_av}</td>
+                                    <td colspan="2"><b>Disciplina:</b> {disciplina_sel_av} <span style="font-size: 11pt; margin-left: 20px;">| <b>Professor:</b> {nome_professor_cabecalho}</span></td>
                                     <td><b>Data:</b> ____/____/______</td>
                                 </tr>
                             </table>
