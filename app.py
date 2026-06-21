@@ -636,7 +636,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrencias":
+    elif pagina_atual == "Ocorrências":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -1023,12 +1023,8 @@ else:
             if aba_av_escolhida == "Criar":
                 st.subheader("✨ Elaborar Nova Avaliação e Gabarito")
                 
-                # Variáveis para o novo trecho de código
-                escola_nome = "Escola Estadual Profª Diva Alves de Lima"
-                professor_av = nome_professor_cabecalho
-
                 if 'user_data' in st.session_state and st.session_state.user_data.get('Disciplinas'):
-                    # Assuming 'Disciplinas' can be a comma-separated string
+                    # Assuming 'Disciplinas' can be a comma-separated string, take the first one or prompt
                     disc_professor_raw = st.session_state.user_data.get('Disciplinas').split(',')[0].strip()
                     disciplinas_av = [disc_professor_raw]
                     st.success(f"📚 Disciplina identificada pelo seu perfil: **{disc_professor_raw}**")
@@ -1040,8 +1036,6 @@ else:
                     disciplina_sel_av = st.selectbox("Selecione a Disciplina correspondente", disciplinas_av, key="disciplina_sel_av")
                     nota_maxima = st.number_input("Defina a Nota Máxima da Avaliação:", min_value=1.0, max_value=100.0, value=10.0, step=0.5)
                 with col_cfg2:
-                    todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str))
-                    turma_av = st.selectbox("Selecione a Turma para a Avaliação:", todas_turmas_av, key="turma_av_sel")
                     num_questoes = st.number_input("Quantidade Total de Questões:", min_value=1, max_value=20, value=5, step=1)
                     
                 st.info(f"ℹ️ Configure os valores individuais. A soma deve totalizar exatamente **{nota_maxima:.2f}** pontos.")
@@ -1075,12 +1069,10 @@ else:
                             "enunciado": enunciado,
                             "valor": valor_questao,
                             "correta": opcao_correta,
-                            "alternativas": { # Modificado para o formato esperado pelo novo trecho de código
-                                "A": alt_a,
-                                "B": alt_b,
-                                "C": alt_c,
-                                "D": alt_d
-                            }
+                            "A": alt_a,
+                            "B": alt_b,
+                            "C": alt_c,
+                            "D": alt_d
                         })
                 
                 st.markdown("---")
@@ -1090,24 +1082,26 @@ else:
                 else:
                     st.warning(f"⚠️ Soma incorreta: totalizando {soma_valores_atual:.2f} de {nota_maxima:.2f} pontos.")
                 
-                if st.button("🖨️ Gerar e exportar folha de prova com cartão resposta", type="primary", use_container_width=True):
+                if st.button("📄 Gerar e Exportar Folha de Prova com Cartão-Resposta", type="primary", use_container_width=True):
+                    escola_nome = "Escola Estadual Profª Diva Alves de Lima"
+                    professor_av = nome_professor_cabecalho
+                    disciplina_av = disciplina_sel_av
+                    turma_av = "" # Não há campo de seleção de turma para a prova em si, apenas para o aluno que a fará.
                     id_prova_unico = f"PRV-{int(time.time())}"
                     timestamp_atual = datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S")
                     
-                    # 1. Serialização dos dados das questões e do gabarito para persistência
+                    # --- INÍCIO DA ADIÇÃO DE SALVAMENTO NO BANCO ---
                     string_questoes_banco = ""
                     gabarito_resumido_banco = ""
                     for q in questoes_dados:
-                        string_questoes_banco += f"[Q{q['numero']}: {q['enunciado']} | A: {q['alternativas']['A']} | B: {q['alternativas']['B']} | C: {q['alternativas']['C']} | D: {q['alternativas']['D']} (Correta: {q['correta']})]; "
+                        string_questoes_banco += f"[Q{q['numero']}: {q['enunciado']} | A: {q['A']} | B: {q['B']} | C: {q['C']} | D: {q['D']} (Correta: {q['correta']})]; "
                         gabarito_resumido_banco += f"{q['numero']}={q['correta']}; "
 
-                    # 2. Gravação de salvamento no Banco de Dados (Google Sheets)
                     try:
                         sh = conectar_google_sheets()
                         try:
                             wks_avaliacoes = sh.worksheet("Dados_Avaliacoes")
                         except:
-                            # Cria a aba automaticamente caso não exista na planilha mestre
                             wks_avaliacoes = sh.add_worksheet(title="Dados_Avaliacoes", rows="1000", cols="8")
                             wks_avaliacoes.append_row(["ID_Prova", "Data_Criacao", "Responsavel", "Disciplina", "Turma", "Nota_Maxima", "Dados_Questoes", "Gabarito_Oficial"])
                         
@@ -1115,7 +1109,7 @@ else:
                             id_prova_unico,
                             timestamp_atual,
                             professor_av,
-                            disciplina_sel_av, # Usando disciplina_sel_av
+                            disciplina_av,
                             turma_av,
                             str(nota_maxima),
                             string_questoes_banco,
@@ -1125,11 +1119,11 @@ else:
                         st.success(f"💾 Avaliação {id_prova_unico} salva com sucesso no banco de dados!")
                     except Exception as e:
                         st.error(f"⚠️ Erro ao salvar dados na planilha: {e}")
+                    # --- FIM DA ADIÇÃO DE SALVAMENTO NO BANCO ---
 
-                    # 3. Construção do layout de texto original da prova e gabarito do aluno
                     texto_completo_prova = f"========================================================================\n"
                     texto_completo_prova += f"🏫 {escola_nome}\n"
-                    texto_completo_prova += f"📖 DISCIPLINA: {disciplina_sel_av}  |  👤 PROFESSOR: {professor_av}\n" # Usando disciplina_sel_av
+                    texto_completo_prova += f"📖 DISCIPLINA: {disciplina_av}  |  👤 PROFESSOR: {professor_av}\n"
                     texto_completo_prova += f"👥 TURMA: {turma_av}  |  📅 DATA: ____/____/______\n"
                     texto_completo_prova += f"📝 ALUNO(A): _____________________________________________________\n"
                     texto_completo_prova += f"🆔 CÓDIGO DA PROVA: {id_prova_unico}  |  🎯 VALOR: {nota_maxima} Pontos\n"
@@ -1138,10 +1132,10 @@ else:
                     
                     for q in questoes_dados:
                         texto_completo_prova += f"Questão {q['numero']} (Valor: {q['valor']} pts) - {q['enunciado']}\n"
-                        texto_completo_prova += f"  A) {q['alternativas']['A']}\n"
-                        texto_completo_prova += f"  B) {q['alternativas']['B']}\n"
-                        texto_completo_prova += f"  C) {q['alternativas']['C']}\n"
-                        texto_completo_prova += f"  D) {q['alternativas']['D']}\n\n"
+                        texto_completo_prova += f"  A) {q['A']}\n"
+                        texto_completo_prova += f"  B) {q['B']}\n"
+                        texto_completo_prova += f"  C) {q['C']}\n"
+                        texto_completo_prova += f"  D) {q['D']}\n\n"
 
                     texto_completo_prova += f"\n========================================================================\n"
                     texto_completo_prova += f"                      CARTÃO RESPOSTA (GABARITO DO ALUNO)\n"
@@ -1152,17 +1146,6 @@ else:
                         texto_completo_prova += f"Questão {str(q['numero']).zfill(2)}:  [ A ]  [ B ]  [ C ]  [ D ]\n"
 
                     st.session_state['prova_gerada_texto'] = texto_completo_prova
-
-                # Exibição contínua da pré-visualização e download para evitar sumiço na tela
-                if st.session_state.get('prova_gerada_texto') is not None:
-                    st.markdown("### 🖨️ Pré-visualização da Folha de Prova Pronta para Impressão")
-                    st.text_area("Texto gerado:", value=st.session_state['prova_gerada_texto'], height=400)
-                    st.download_button(
-                        label="📥 Baixar Arquivo de Prova (.TXT)",
-                        data=st.session_state['prova_gerada_texto'],
-                        file_name=f"Avaliacao_{disciplina_sel_av.replace(' ', '_')}.txt", # Usando disciplina_sel_av
-                        mime="text/plain"
-                    )
 
             # --- SUB-ABA: CORREÇÃO DE AVALIAÇÕES ---
             elif aba_av_escolhida == "Correção":
@@ -1576,8 +1559,6 @@ else:
                         sh = conectar_google_sheets()
                         wks_p = sh.worksheet("Config_Professores")
                         celula = wks_p.find(str(user_selecionado))
-                        turmas_edit_str = ", ".join(edit_turmas)
-                        disciplinas_edit_str = ", ".join(edit_disciplinas)
                         wks_p.update_cell(celula.row, 1, edit_nome)
                         wks_p.update_cell(celula.row, 2, edit_login)
                         wks_p.update_cell(celula.row, 4, turmas_edit_str)
