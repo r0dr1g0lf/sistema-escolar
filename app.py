@@ -636,7 +636,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrencias":
+    elif pagina_atual == "Ocorrências":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -1249,6 +1249,33 @@ else:
                         st.markdown("### 🖨️ Pré-visualização")
                         st.components.v1.html(html_prova, height=600, scrolling=True)
                         st.success(f"🎉 Avaliação e Cartão-Resposta com ID {str(id_prova_gerado).zfill(2)} Gerados com Sucesso!")
+                        # --- INÍCIO DA ATUALIZAÇÃO: SALVAMENTO NO BANCO ---
+                        try:
+                            sh = conectar_google_sheets()
+                            
+                            # Tenta acessar a aba, se não existir, cria automaticamente com o cabeçalho
+                            try:
+                                wks_gabaritos = sh.worksheet("Gabaritos_Avaliacoes")
+                            except:
+                                wks_gabaritos = sh.add_worksheet(title="Gabaritos_Avaliacoes", rows="1000", cols="6")
+                                wks_gabaritos.append_row(["ID_Prova", "Disciplina", "Gabarito_JSON", "Pesos_JSON", "Nota_Maxima", "Professor"])
+                            
+                            # Prepara e salva os dados
+                            dados_salvamento = [
+                                st.session_state['id_avaliacao_ativa'],
+                                st.session_state['disciplina_ativa'],
+                                str(st.session_state['gabarito_oficial']),
+                                str(st.session_state['pesos_questoes']),
+                                sum(st.session_state['pesos_questoes'].values()),
+                                st.session_state.user_data['Professor']
+                            ]
+                            
+                            wks_gabaritos.append_row(dados_salvamento)
+                            st.success("✅ Avaliação salva com sucesso no banco de dados!")
+                            
+                        except Exception as e:
+                            st.error(f"Erro ao salvar no banco: {e}")
+                        # --- FIM DA ATUALIZAÇÃO ---
 
             # --- SUB-ABA: CORREÇÃO DE AVALIAÇÕES ---
             elif aba_av_escolhida == "Correção":
@@ -2157,4 +2184,3 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
