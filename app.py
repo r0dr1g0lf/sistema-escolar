@@ -636,7 +636,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrencias":
+    elif pagina_atual == "Ocorrências":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -998,20 +998,20 @@ else:
         st.title("📝 Gerenciamento de Avaliações")
         st.subheader("Criação de Estrutura de Gabaritos para Correção Automatizada")
 
-        # Menu interno para separar o fluxo operacional
+        # Criação das sub-abas internas para o fluxo operacional do professor
         aba_criar, aba_visualizar = st.tabs(["➕ Criar Nova Avaliação", "📊 Banco de Provas Cadastradas"])
 
         with aba_criar:
             st.markdown("### Configurar Nova Avaliação e Cartão Resposta")
             
-            # Carrega dados auxiliares de professores e alunos para mapear disciplinas e turmas
+            # Carrega dados dinâmicos do banco para associar turmas e professores de forma limpa
             try:
                 sh_aux = conectar_google_sheets()
                 professores_lista = sorted(list(set(pd.DataFrame(sh_aux.worksheet("Config_Professores").get_all_records())["Professor"].tolist())))
                 turmas_lista = sorted(list(set(pd.DataFrame(sh_aux.worksheet("Config_Alunos").get_all_records())["Turma"].tolist())))
             except Exception:
-                professores_lista = ["Professor Geral"]
-                turmas_lista = ["Turma Geral"]
+                professores_lista = [prof_nome]
+                turmas_lista = ["Geral"]
 
             with st.form("form_criar_gabarito_camera", clear_on_submit=True):
                 nome_avaliacao = st.text_input("Título / Nome da Avaliação:", placeholder="Ex: Avaliação Bimestral de Matemática")
@@ -1033,7 +1033,7 @@ else:
                 
                 letras_disponiveis = ["A", "B", "C", "D", "E"][:qtd_alternativas]
                 
-                # Criação do Grid dinâmico de 5 colunas para preenchimento rápido
+                # Grid dinâmico de 5 colunas para preenchimento ágil na interface do Streamlit
                 gabarito_mapeado = {}
                 colunas_grid = st.columns(5)
                 
@@ -1055,19 +1055,19 @@ else:
                             try:
                                 wks_avaliacoes = sh.worksheet("Config_Avaliacoes")
                             except gspread.exceptions.WorksheetNotFound:
-                                # Cria a aba caso ela não exista no documento com as colunas estruturais
+                                # Cria de forma automática a aba na planilha caso ela ainda não exista no documento
                                 wks_avaliacoes = sh.add_worksheet(title="Config_Avaliacoes", rows="1000", cols="8")
                                 wks_avaliacoes.append_row(["ID_Avaliacao", "Nome_Avaliacao", "Professor_Disciplina", "Turma", "Qtd_Questoes", "Qtd_Alternativas", "Gabarito_JSON", "Data_Criacao"])
 
-                            # Garante IDs diferentes e únicos usando timestamp absoluto do sistema
+                            # Garante IDs estritamente diferentes e únicos usando timestamp absoluto do sistema
+                            import json
                             id_prova_unico = str(int(time.time()))
                             
-                            # Serialização rigorosa do gabarito em JSON em uma única célula para comparação no celular
-                            import json
+                            # Serialização do gabarito em formato string JSON em célula única para validação na câmera
                             gabarito_string_json = json.dumps(gabarito_mapeado)
                             data_registro_atual = datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S")
 
-                            # Envia os dados consolidados para o Google Sheets
+                            # Grava a matriz completa na planilha do Google Sheets
                             wks_avaliacoes.append_row([
                                 id_prova_unico,
                                 nome_avaliacao.strip(),
@@ -1082,7 +1082,7 @@ else:
                             st.success(f"🚀 Avaliação Cadastrada com Sucesso!")
                             st.info(f"🔑 **ID Único gerado para rastreamento da Câmera:** `{id_prova_unico}`")
                             
-                            # Simulação da folha de exportação/impressão contendo o cabeçalho técnico
+                            # Pré-visualização técnica estruturada para fins de conferência e impressão
                             st.markdown("### 🖨️ Pré-visualização da Folha de Resposta Pronta para Impressão")
                             st.code(
                                 f"=========================================================================\n"
