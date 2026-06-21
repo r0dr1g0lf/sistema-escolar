@@ -636,7 +636,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrências":
+    elif pagina_atual == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -1037,14 +1037,13 @@ else:
                 with col_cfg2:
                     num_questoes = st.number_input("Quantidade Total de Questões:", min_value=1, max_value=20, value=5, step=1)
                     
-                st.info(f"ℹ️ Configure os valores individuais. A soma deve totalizar exatamente **{nota_maxima:.2f}** pontos.")
+                st.info(f"ℹ️ Configure os valores individuais e as alternativas. A soma deve totalizar exatamente **{nota_maxima:.2f}** pontos.")
                 st.markdown("### 📋 Formulação das Questões")
                 
                 questoes_dados = []
                 soma_valores_atual = 0.0
                 valor_sugerido = round(nota_maxima / int(num_questoes), 2)
                 
-                # Renderização dinâmica do formulário de questões
                 for i in range(int(num_questoes)):
                     with st.expander(f"📝 Questão {i+1}", expanded=True):
                         col_enum, col_val = st.columns([4, 1])
@@ -1053,50 +1052,48 @@ else:
                         with col_val:
                             valor_questao = st.number_input(f"Valor (Pts):", min_value=0.0, max_value=float(nota_maxima), value=float(valor_sugerido), step=0.1, key=f"valor_av_{i}")
                         
-                        # Armazena temporariamente os dados digitados para validação posterior
+                        st.markdown("**Alternativas de Resposta:**")
+                        col_a, col_b = st.columns(2)
+                        with col_a:
+                            opc_a = st.text_input(f"Opção A (Correta):", key=f"opc_a_av_{i}", placeholder="Alternativa correta...")
+                            opc_b = st.text_input(f"Opção B:", key=f"opc_b_av_{i}", placeholder="Segunda opção...")
+                        with col_b:
+                            opc_c = st.text_input(f"Opção C:", key=f"opc_c_av_{i}", placeholder="Terceira opção...")
+                            opc_d = st.text_input(f"Opção D:", key=f"opc_d_av_{i}", placeholder="Quarta opção...")
+                            
                         questoes_dados.append({
                             "numero": i + 1,
                             "enunciado": enunciado,
-                            "valor": valor_questao
+                            "valor": valor_questao,
+                            "alternativas": {"A": opc_a, "B": opc_b, "C": opc_c, "D": opc_d}
                         })
                         soma_valores_atual += valor_questao
 
                 st.markdown("---")
-                # Exibe contador em tempo real da pontuação da avaliação
                 if round(soma_valores_atual, 2) == round(nota_maxima, 2):
                     st.success(f"✅ Soma dos pontos perfeita: **{soma_valores_atual:.2f} / {nota_maxima:.2f}**")
                 else:
                     st.warning(f"⚠️ Atenção: A soma atual está em **{soma_valores_atual:.2f}** pontos. Ajuste para atingir **{nota_maxima:.2f}**.")
 
-                # Inclusão do botão solicitado para geração, gravação e exportação
                 if st.button("🖨️ Gerar e exportar folha de prova com cartão resposta", use_container_width=True, type="primary"):
-                    # Validação rigorosa de pontuação
                     if round(soma_valores_atual, 2) != round(nota_maxima, 2):
                         st.error(f"❌ Não é possível salvar. A soma dos valores das questões ({soma_valores_atual:.2f} pts) difere da Nota Máxima estipulada ({nota_maxima:.2f} pts).")
-                    # Validação de preenchimento de segurança
-                    elif any(q["enunciado"].strip() == "" for q in questoes_dados):
-                        st.error("❌ Preenchimento obrigatório: Existem questões com o enunciado em branco. Por favor, formule todas as questões antes de exportar.")
+                    elif any(q["enunciado"].strip() == "" or q["alternativas"]["A"].strip() == "" or q["alternativas"]["B"].strip() == "" or q["alternativas"]["C"].strip() == "" or q["alternativas"]["D"].strip() == "" for q in questoes_dados):
+                        st.error("❌ Preenchimento obrigatório: Existem campos de enunciado ou alternativas em branco. Verifique todas as questões.")
                     else:
-                        with st.spinner("💾 Conectando ao banco de dados e gerando avaliação..."):
+                        with st.spinner("💾 Gravando dados da avaliação no banco de dados..."):
                             try:
-                                # Abre a planilha e localiza a aba de armazenamento de avaliações
                                 banco_dados = conectar_google_sheets()
-                                
                                 try:
                                     wks_avaliacoes = banco_dados.worksheet("Dados_Avaliacoes")
                                 except gspread.exceptions.WorksheetNotFound:
-                                    # Cria dinamicamente a aba caso não exista no seu Sheets corporativo
-                                    wks_avaliacoes = banco_dados.add_worksheet(title="Dados_Avaliacoes", rows="1000", cols="25")
-                                    wks_avaliacoes.append_row(["Data_Criacao", "Responsavel", "Disciplina", "Nota_Maxima", "Qtd_Questoes", "Dados_Estruturados_Questoes"])
+                                    wks_avaliacoes = banco_dados.add_worksheet(title="Dados_Avaliacoes", rows="1000", cols="6")
+                                    wks_avaliacoes.append_row(["Data_Criacao", "Responsavel", "Disciplina", "Nota_Maxima", "Qtd_Questoes", "Dados_Questoes_JSON"])
                                 
-                                # Estruturação dos dados das questões em formato textual linear/JSON seguro para o Sheets
-                                dados_questoes_serializados = str([{f"Q{q['numero']}": {"txt": q['enunciado'], "pts": q['valor']}} for q in questoes_dados])
-                                
-                                # Identifica o usuário criador logado no sistema
-                                usuario_autor = st.session_state.get("username", "Admin_Master")
+                                dados_questoes_serializados = str([{f"Q{q['numero']}": {"enunciado": q['enunciado'], "pts": q['valor'], "opcoes": q['alternativas']}} for q in questoes_dados])
+                                usuario_autor = st.session_state.user_data.get('Professor', 'Admin_Master') # Adjusted to use 'Professor' from session_state
                                 timestamp_atual = datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S")
                                 
-                                # Prepara a linha completa de registro
                                 nova_linha_avaliacao = [
                                     timestamp_atual,
                                     usuario_autor,
@@ -1106,18 +1103,14 @@ else:
                                     dados_questoes_serializados
                                 ]
                                 
-                                # Gravação persistente na planilha
                                 wks_avaliacoes.append_row(nova_linha_avaliacao)
-                                
-                                # Feedback visual imediato e limpeza de cache
-                                st.success("✨ Avaliação criada com sucesso e salva no banco de dados da Escola Diva Lima!")
+                                st.success("✨ Avaliação criada com sucesso e salva de forma persistente!")
                                 st.balloons()
                                 st.cache_data.clear()
                                 time.sleep(2.0)
                                 st.rerun()
-                                
                             except Exception as e:
-                                st.error(f"❌ Falha crítica de comunicação com o Google Sheets: {e}")
+                                st.error(f"❌ Erro ao gravar dados no Google Sheets: {e}")
 
             # --- SUB-ABA: CORREÇÃO DE AVALIAÇÕES ---
             elif aba_av_escolhida == "Correção":
