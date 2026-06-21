@@ -636,7 +636,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrencias":
+    elif pagina_atual == "Ocorrências":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -1000,8 +1000,8 @@ else:
             st.session_state['historico_correcoes'] = []
 
         # Captura dinamicamente o nome do professor logado para o cabeçalho
-        if 'user_data' in st.session_state and st.session_state.user_data.get('Nome'):
-            nome_professor_cabecalho = st.session_state.user_data.get('Nome')
+        if 'user_data' in st.session_state and st.session_state.user_data.get('Professor'):
+            nome_professor_cabecalho = st.session_state.user_data.get('Professor')
         else:
             nome_professor_cabecalho = st.session_state.get('username', 'Administrador')
 
@@ -1023,8 +1023,8 @@ else:
             if aba_av_escolhida == "Criar":
                 st.subheader("✨ Elaborar Nova Avaliação e Gabarito")
                 
-                if 'user_data' in st.session_state and st.session_state.user_data.get('Disciplina'):
-                    disc_professor = st.session_state.user_data.get('Disciplina')
+                if 'user_data' in st.session_state and st.session_state.user_data.get('Disciplinas'):
+                    disc_professor = st.session_state.user_data.get('Disciplinas').split(', ')[0] # Pega a primeira disciplina se houver
                     disciplinas_av = [disc_professor]
                     st.success(f"📚 Disciplina identificada pelo seu perfil: **{disc_professor}**")
                 else:
@@ -1055,17 +1055,21 @@ else:
                         st.markdown("**Alternativas de Resposta:**")
                         col_a, col_b = st.columns(2)
                         with col_a:
-                            opc_a = st.text_input(f"Opção A (Correta):", key=f"opc_a_av_{i}", placeholder="Alternativa correta...")
+                            opc_a = st.text_input(f"Opção A:", key=f"opc_a_av_{i}", placeholder="Primeira opção...")
                             opc_b = st.text_input(f"Opção B:", key=f"opc_b_av_{i}", placeholder="Segunda opção...")
                         with col_b:
                             opc_c = st.text_input(f"Opção C:", key=f"opc_c_av_{i}", placeholder="Terceira opção...")
                             opc_d = st.text_input(f"Opção D:", key=f"opc_d_av_{i}", placeholder="Quarta opção...")
+                        
+                        # Adição do selectbox para definir qual das alternativas está correta
+                        alternativa_correta = st.selectbox(f"Selecione a Alternativa Correta para a Questão {i+1}:", ["A", "B", "C", "D"], key=f"gabarito_av_{i}")
                             
                         questoes_dados.append({
                             "numero": i + 1,
                             "enunciado": enunciado,
                             "valor": valor_questao,
-                            "alternativas": {"A": opc_a, "B": opc_b, "C": opc_c, "D": opc_d}
+                            "alternativas": {"A": opc_a, "B": opc_b, "C": opc_c, "D": opc_d},
+                            "correta": alternativa_correta
                         })
                         soma_valores_atual += valor_questao
 
@@ -1090,7 +1094,7 @@ else:
                                     wks_avaliacoes = banco_dados.add_worksheet(title="Dados_Avaliacoes", rows="1000", cols="6")
                                     wks_avaliacoes.append_row(["Data_Criacao", "Responsavel", "Disciplina", "Nota_Maxima", "Qtd_Questoes", "Dados_Questoes_JSON"])
                                 
-                                dados_questoes_serializados = str([{f"Q{q['numero']}": {"enunciado": q['enunciado'], "pts": q['valor'], "opcoes": q['alternativas']}} for q in questoes_dados])
+                                dados_questoes_serializados = str([{f"Q{q['numero']}": {"enunciado": q['enunciado'], "pts": q['valor'], "opcoes": q['alternativas'], "gabarito": q['correta']}} for q in questoes_dados])
                                 usuario_autor = st.session_state.user_data.get('Professor', 'Admin_Master') # Adjusted to use 'Professor' from session_state
                                 timestamp_atual = datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S")
                                 
