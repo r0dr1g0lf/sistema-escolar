@@ -1646,4 +1646,498 @@ else:
                             usuario_verificar = str(novo_usuario).strip().lower()
                             
                             # VALIDAÇÃO CRÍTICA: Impede se o nome de usuário (login) já existir
-                            if usuario_verific
+                            if usuario_verificar in usuarios_cadastrados:
+                                with col_msg_salvar:
+                                    msg_placeholder_prof_err = st.empty()
+                                    msg_placeholder_prof_err.error(f"Erro: O nome de usuário '{novo_usuario}' já existe. Escolha outro.")
+                                    time.sleep(3)
+                                    msg_placeholder_prof_err.empty()
+                            else:
+                                nova_linha_prof = [
+                                    novo_prof,
+                                    novo_usuario,
+                                    nova_senha if nova_senha else "12345", # Senha padrão se não informada
+                                    ", ".join(turmas_vinculo),
+                                    ", ".join(disciplinas_vinculo),
+                                    "Ativo" # Status padrão
+                                ]
+                                wks_p.append_row(nova_linha_prof)
+                                with col_msg_salvar:
+                                    msg_placeholder_prof = st.empty()
+                                    msg_placeholder_prof.success(f"Professor '{novo_prof}' cadastrado com sucesso!")
+                                    st.cache_data.clear()
+                                    time.sleep(3)
+                                    msg_placeholder_prof.empty()
+                                st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao cadastrar professor: {e}")
+
+            st.divider()
+            st.subheader("Gerenciar Professores Existentes")
+            if not df_profs.empty:
+                prof_lista = sorted(df_profs['Professor'].unique().astype(str))
+                prof_selecionado = st.selectbox("Selecione o Professor para Gerenciar", [""] + prof_lista)
+                
+                if prof_selecionado != "":
+                    dados_prof = df_profs[df_profs['Professor'].astype(str) == prof_selecionado].iloc[0]
+                    
+                    with st.form("form_gerenciar_prof"):
+                        edit_nome_prof = st.text_input("Nome do Professor", value=dados_prof['Professor'])
+                        edit_usuario_prof = st.text_input("Nome de Usuário (Login)", value=dados_prof['Usuario'], disabled=True) # Usuário não pode ser alterado
+                        edit_senha_prof = st.text_input("Nova Senha (deixe em branco para manter a atual)", type="password")
+                        
+                        todas_turmas_disp_edit = sorted(df_alunos['Turma'].unique().astype(str))
+                        turmas_atuais = [t.strip() for t in str(dados_prof.get('Turmas', "")).split(", ") if t.strip()]
+                        edit_turmas_vinculo = st.multiselect("Vincular Turmas", options=todas_turmas_disp_edit, default=turmas_atuais)
+                        
+                        if not df_discs.empty:
+                            disciplina_opcoes_edit = sorted(list(set(df_discs['Disciplina'].unique().astype(str).tolist() + ["SOE"])))
+                        else:
+                            disciplina_opcoes_edit = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida", "SOE"]
+                        disciplinas_atuais = [d.strip() for d in str(dados_prof.get('Disciplinas', "")).split(", ") if d.strip()]
+                        edit_disciplinas_vinculo = st.multiselect("Vincular Disciplinas", options=disciplina_opcoes_edit, default=disciplinas_atuais)
+                        
+                        status_opcoes = ["Ativo", "Bloqueado"]
+                        status_atual = str(dados_prof.get('Status', 'Ativo'))
+                        edit_status_prof = st.selectbox("Status do Usuário", options=status_opcoes, index=status_opcoes.index(status_atual))
+                        
+                        col_ger_btn1, col_ger_btn2, col_ger_msg = st.columns([1, 1, 2])
+                        with col_ger_btn1:
+                            btn_atualizar_prof = st.form_submit_button("Atualizar Professor")
+                        with col_ger_btn2:
+                            btn_excluir_prof = st.form_submit_button("❌ Excluir Professor")
+                            
+                        if btn_atualizar_prof:
+                            try:
+                                sh = conectar_google_sheets()
+                                wks_p = sh.worksheet("Config_Professores")
+                                
+                                # Encontra a linha do professor pelo nome de usuário (que é imutável)
+                                celula = wks_p.find(str(edit_usuario_prof))
+                                
+                                if celula:
+                                    # Atualiza os dados
+                                    wks_p.update_cell(celula.row, 1, edit_nome_prof)
+                                    if edit_senha_prof: # Só atualiza a senha se uma nova for fornecida
+                                        wks_p.update_cell(celula.row, 3, edit_senha_prof)
+                                    wks_p.update_cell(celula.row, 4, ", ".join(edit_turmas_vinculo))
+                                    wks_p.update_cell(celula.row, 5, ", ".join(edit_disciplinas_vinculo))
+                                    wks_p.update_cell(celula.row, 6, edit_status_prof)
+                                    
+                                    with col_ger_msg:
+                                        msg_placeholder_upd = st.empty()
+                                        msg_placeholder_upd.success(f"Professor '{edit_nome_prof}' atualizado com sucesso!")
+                                        st.cache_data.clear()
+                                        time.sleep(3)
+                                        msg_placeholder_upd.empty()
+                                    st.rerun()
+                                else:
+                                    st.error("Professor não encontrado para atualização.")
+                            except Exception as e:
+                                st.error(f"Erro ao atualizar professor: {e}")
+                                
+                        if btn_excluir_prof:
+                            if st.session_state.user_data['Usuario'] == edit_usuario_prof:
+                                st.error("Você não pode excluir seu próprio usuário enquanto estiver logado.")
+                            else:
+                                try:
+                                    sh = conectar_google_sheets()
+                                    wks_p = sh.worksheet("Config_Professores")
+                                    celula = wks_p.find(str(edit_usuario_prof))
+                                    if celula:
+                                        wks_p.delete_rows(celula.row)
+                                        with col_ger_msg:
+                                            msg_placeholder_del = st.empty()
+                                            msg_placeholder_del.success(f"Professor '{edit_nome_prof}' excluído permanentemente!")
+                                            st.cache_data.clear()
+                                            time.sleep(3)
+                                            msg_placeholder_del.empty()
+                                        st.rerun()
+                                    else:
+                                        st.error("Professor não encontrado para exclusão.")
+                                except Exception as e:
+                                    st.error(f"Erro ao excluir professor: {e}")
+            else:
+                st.info("Nenhum professor cadastrado.")
+
+        with tabs[3]:
+            st.subheader("Alterar Senha de Usuário (Admin Master)")
+            if st.session_state.user_data['Usuario'] != "rodrigo":
+                st.warning("Apenas o usuário 'rodrigo' pode alterar senhas de outros usuários.")
+            else:
+                if not df_profs.empty:
+                    usuarios_para_alterar = sorted(df_profs['Usuario'].unique().astype(str).tolist())
+                    usuario_alvo = st.selectbox("Selecione o Usuário para Alterar a Senha", [""] + usuarios_para_alterar)
+                    
+                    if usuario_alvo != "":
+                        with st.form("form_alterar_senha_admin"):
+                            nova_senha_admin = st.text_input("Nova Senha para o Usuário Selecionado", type="password")
+                            confirmar_senha_admin = st.text_input("Confirmar Nova Senha", type="password")
+                            
+                            col_senha_a1, col_senha_a2 = st.columns([1, 2])
+                            with col_senha_a1:
+                                btn_a = st.form_submit_button("Atualizar Senha")
+                                
+                            if btn_a:
+                                if nova_senha_admin != confirmar_senha_admin:
+                                    with col_senha_a2:
+                                        msg_placeholder_err_a = st.empty()
+                                        msg_placeholder_err_a.error("As senhas não coincidem.")
+                                        time.sleep(3)
+                                        msg_placeholder_err_a.empty()
+                                elif len(nova_senha_admin.strip()) == 0:
+                                    with col_senha_a2:
+                                        st.error("A senha não pode ficar em branco.")
+                                else:
+                                    try:
+                                        sh = conectar_google_sheets()
+                                        wks_p = sh.worksheet("Config_Professores")
+                                        
+                                        celula = wks_p.find(str(usuario_alvo))
+                                        
+                                        if celula:
+                                            wks_p.update_cell(celula.row, 3, str(nova_senha_admin).strip())
+                                            with col_senha_a2:
+                                                msg_placeholder_ok_a = st.empty()
+                                                msg_placeholder_ok_a.success(f"✅ Senha do usuário '{usuario_alvo}' alterada com sucesso!")
+                                                st.cache_data.clear()
+                                                time.sleep(2)
+                                                msg_placeholder_ok_a.empty()
+                                                st.rerun()
+                                        else:
+                                            st.error("Usuário não encontrado.")
+                                    except Exception as e:
+                                        st.error(f"Erro ao atualizar a senha na planilha: {e}")
+                else:
+                    st.info("Nenhum professor cadastrado para gerenciar senhas.")
+
+        with tabs[4]:
+            st.subheader("Configurar Período de Lançamento de Notas/Ocorrências")
+            st.info("Defina as datas de início e fim para cada bimestre. Apenas dentro desses períodos será possível realizar lançamentos.")
+            
+            if not df_periodos.empty:
+                st.markdown("#### Períodos Atuais")
+                st.dataframe(df_periodos, use_container_width=True, hide_index=True)
+                
+                st.markdown("---")
+                st.markdown("#### Editar Período Existente")
+                periodos_existentes = [""] + sorted(df_periodos['Bimestre'].unique().astype(str).tolist())
+                periodo_edit = st.selectbox("Selecione o Bimestre para editar", periodos_existentes)
+                
+                if periodo_edit != "":
+                    dados_periodo = df_periodos[df_periodos['Bimestre'].astype(str) == periodo_edit].iloc[0]
+                    
+                    with st.form("form_editar_periodo"):
+                        edit_inicio = st.date_input("Data de Início", value=datetime.strptime(str(dados_periodo['Inicio']), "%d/%m/%Y").date(), format="DD/MM/YYYY", key="edit_inicio_per")
+                        edit_fim = st.date_input("Data de Fim", value=datetime.strptime(str(dados_periodo['Fim']), "%d/%m/%Y").date(), format="DD/MM/YYYY", key="edit_fim_per")
+                        
+                        col_per_btn, col_per_msg = st.columns([1, 2])
+                        with col_per_btn:
+                            btn_salvar_periodo = st.form_submit_button("Salvar Alterações do Período")
+                            
+                        if btn_salvar_periodo:
+                            if edit_inicio > edit_fim:
+                                with col_per_msg:
+                                    st.error("A data de início não pode ser posterior à data de fim.")
+                            else:
+                                try:
+                                    sh = conectar_google_sheets()
+                                    wks_per = sh.worksheet("Config_Periodos")
+                                    
+                                    celula = wks_per.find(str(periodo_edit))
+                                    if celula:
+                                        wks_per.update_cell(celula.row, 2, edit_inicio.strftime("%d/%m/%Y"))
+                                        wks_per.update_cell(celula.row, 3, edit_fim.strftime("%d/%m/%Y"))
+                                        with col_per_msg:
+                                            st.success(f"Período '{periodo_edit}' atualizado com sucesso!")
+                                            st.cache_data.clear()
+                                            time.sleep(2)
+                                            st.rerun()
+                                    else:
+                                        st.error("Período não encontrado para atualização.")
+                                except Exception as e:
+                                    st.error(f"Erro ao atualizar período: {e}")
+                
+                st.markdown("---")
+                st.markdown("#### Adicionar Novo Período")
+            
+            with st.form("form_novo_periodo", clear_on_submit=True):
+                novo_bimestre = st.text_input("Nome do Novo Bimestre (Ex: 1º Bimestre, 2024.1)", key="novo_bimestre_per")
+                novo_inicio = st.date_input("Data de Início", value=data_atual, format="DD/MM/YYYY", key="novo_inicio_per")
+                novo_fim = st.date_input("Data de Fim", value=data_atual, format="DD/MM/YYYY", key="novo_fim_per")
+                
+                col_add_per_btn, col_add_per_msg = st.columns([1, 2])
+                with col_add_per_btn:
+                    btn_add_periodo = st.form_submit_button("Adicionar Novo Período")
+                    
+                if btn_add_periodo:
+                    if not novo_bimestre:
+                        with col_add_per_msg:
+                            st.error("O nome do bimestre não pode ser vazio.")
+                    elif novo_inicio > novo_fim:
+                        with col_add_per_msg:
+                            st.error("A data de início não pode ser posterior à data de fim.")
+                    else:
+                        try:
+                            sh = conectar_google_sheets()
+                            try:
+                                wks_per = sh.worksheet("Config_Periodos")
+                            except gspread.exceptions.WorksheetNotFound:
+                                wks_per = sh.add_worksheet(title="Config_Periodos", rows="100", cols="3")
+                                wks_per.append_row(["Bimestre", "Inicio", "Fim"])
+                            
+                            # Verifica se o bimestre já existe
+                            if not df_periodos.empty and novo_bimestre.strip().lower() in df_periodos['Bimestre'].astype(str).str.lower().tolist():
+                                with col_add_per_msg:
+                                    st.error(f"O bimestre '{novo_bimestre}' já existe.")
+                            else:
+                                wks_per.append_row([novo_bimestre, novo_inicio.strftime("%d/%m/%Y"), novo_fim.strftime("%d/%m/%Y")])
+                                with col_add_per_msg:
+                                    st.success(f"Período '{novo_bimestre}' adicionado com sucesso!")
+                                    st.cache_data.clear()
+                                    time.sleep(2)
+                                    st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao adicionar período: {e}")
+            
+            st.markdown("---")
+            st.markdown("#### Excluir Período")
+            if not df_periodos.empty:
+                periodos_para_excluir = [""] + sorted(df_periodos['Bimestre'].unique().astype(str).tolist())
+                periodo_excluir = st.selectbox("Selecione o Bimestre para excluir", periodos_para_excluir)
+                
+                col_del_per_btn, col_del_per_msg = st.columns([1, 2])
+                with col_del_per_btn:
+                    btn_excluir_periodo = st.button("❌ Excluir Período")
+                    
+                if btn_excluir_periodo:
+                    if periodo_excluir != "":
+                        try:
+                            sh = conectar_google_sheets()
+                            wks_per = sh.worksheet("Config_Periodos")
+                            celula = wks_per.find(str(periodo_excluir))
+                            if celula:
+                                wks_per.delete_rows(celula.row)
+                                with col_del_per_msg:
+                                    st.success(f"Período '{periodo_excluir}' excluído com sucesso!")
+                                    st.cache_data.clear()
+                                    time.sleep(2)
+                                    st.rerun()
+                            else:
+                                st.error("Período não encontrado para exclusão.")
+                        except Exception as e:
+                            st.error(f"Erro ao excluir período: {e}")
+                    else:
+                        st.error("Selecione um período para excluir.")
+            else:
+                st.info("Nenhum período cadastrado para excluir.")
+
+        # Changed: Use is_master_admin for "Bloqueio Master" tab, and ensure it's specifically 'rodrigo'
+        if st.session_state.get('is_master_admin', False) and st.session_state.user_data['Usuario'] == "rodrigo":
+            with tabs[5]:
+                st.subheader("Bloqueio Master de Usuários")
+                st.warning("Esta função permite bloquear ou desbloquear o acesso de qualquer usuário ao sistema.")
+                
+                if not df_profs.empty:
+                    usuarios_para_bloquear = sorted(df_profs['Usuario'].unique().astype(str).tolist())
+                    # Remove o próprio 'rodrigo' da lista para evitar auto-bloqueio
+                    if "rodrigo" in usuarios_para_bloquear:
+                        usuarios_para_bloquear.remove("rodrigo")
+                    
+                    usuario_alvo_bloqueio = st.selectbox("Selecione o Usuário para Bloquear/Desbloquear", [""] + usuarios_para_bloquear)
+                    
+                    if usuario_alvo_bloqueio != "":
+                        dados_usuario_bloqueio = df_profs[df_profs['Usuario'].astype(str) == usuario_alvo_bloqueio].iloc[0]
+                        status_atual_bloqueio = str(dados_usuario_bloqueio.get('Status', 'Ativo'))
+                        
+                        st.info(f"Status atual de '{usuario_alvo_bloqueio}': **{status_atual_bloqueio}**")
+                        
+                        novo_status_bloqueio = st.radio(
+                            "Definir novo status:",
+                            ["Ativo", "Bloqueado"],
+                            index=0 if status_atual_bloqueio == "Ativo" else 1
+                        )
+                        
+                        col_bloq_btn, col_bloq_msg = st.columns([1, 2])
+                        with col_bloq_btn:
+                            btn_atualizar_status = st.button("Atualizar Status do Usuário")
+                            
+                        if btn_atualizar_status:
+                            try:
+                                sh = conectar_google_sheets()
+                                wks_p = sh.worksheet("Config_Professores")
+                                
+                                celula = wks_p.find(str(usuario_alvo_bloqueio))
+                                if celula:
+                                    wks_p.update_cell(celula.row, 6, novo_status_bloqueio) # Coluna 6 é 'Status'
+                                    with col_bloq_msg:
+                                        st.success(f"Status do usuário '{usuario_alvo_bloqueio}' atualizado para '{novo_status_bloqueio}'!")
+                                        st.cache_data.clear()
+                                        time.sleep(2)
+                                        st.rerun()
+                                else:
+                                    st.error("Usuário não encontrado.")
+                            except Exception as e:
+                                st.error(f"Erro ao atualizar status do usuário: {e}")
+                else:
+                    st.info("Nenhum usuário cadastrado para gerenciar bloqueio.")
+
+    elif st.session_state.pagina == "Agendamento de Equipamentos":
+        st.title("📅 Agendamento de Equipamentos")
+        
+        tab_ag1, tab_ag2 = st.tabs(["Novo Agendamento", "Meus Agendamentos / Gerenciar"])
+        
+        with tab_ag1:
+            st.subheader("📝 Solicitar Novo Agendamento")
+            
+            equipamentos_disponiveis = ["Projetor", "Notebook", "Caixa de Som", "Microfone", "Tablet"] # Exemplo de equipamentos
+            
+            with st.form("form_agendamento", clear_on_submit=True):
+                equipamento_sel = st.selectbox("Equipamento", equipamentos_disponiveis)
+                data_uso = st.date_input("Data de Uso", value=data_atual, format="DD/MM/YYYY")
+                
+                turno_opcoes = ["Manhã", "Tarde", "Noite"]
+                turno_sel = st.selectbox("Turno", turno_opcoes)
+                
+                horario_opcoes = ["1º Horário", "2º Horário", "3º Horário", "4º Horário", "5º Horário", "6º Horário"]
+                horario_sel = st.selectbox("Horário", horario_opcoes)
+                
+                observacao = st.text_area("Observações (opcional)")
+                
+                btn_agendar = st.form_submit_button("Agendar Equipamento")
+                
+            if btn_agendar:
+                if data_uso < data_atual:
+                    st.error("Não é possível agendar para datas passadas.")
+                else:
+                    # Verifica conflito antes de agendar
+                    if verificar_conflito(equipamento_sel, data_uso.strftime("%d/%m/%Y"), turno_sel, horario_sel):
+                        st.error(f"❌ Conflito! O equipamento '{equipamento_sel}' já está agendado para {data_uso.strftime('%d/%m/%Y')} no turno '{turno_sel}' e horário '{horario_sel}'.")
+                    else:
+                        try:
+                            sh = conectar_google_sheets()
+                            wks_ag = sh.worksheet("Agendamentos_Equipamentos")
+                            
+                            nova_linha_ag = [
+                                datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
+                                equipamento_sel,
+                                prof_nome,
+                                data_uso.strftime("%d/%m/%Y"),
+                                turno_sel,
+                                horario_sel,
+                                observacao
+                            ]
+                            
+                            wks_ag.append_row(nova_linha_ag)
+                            st.success("✅ Equipamento agendado com sucesso!")
+                            st.cache_data.clear()
+                            time.sleep(2)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao agendar equipamento: {e}")
+
+        with tab_ag2:
+            st.subheader("📋 Meus Agendamentos e Gerenciamento")
+            
+            df_ag, wks_ag = carregar_agendamentos()
+            
+            if df_ag.empty:
+                st.info("Nenhum agendamento encontrado.")
+            else:
+                # Filtra agendamentos do professor logado
+                meus_agendamentos = df_ag[df_ag['Professor'].astype(str) == prof_nome].copy()
+                
+                if meus_agendamentos.empty:
+                    st.info("Você não possui agendamentos registrados.")
+                else:
+                    # Adiciona ID_Original para exclusão/edição
+                    meus_agendamentos['ID_Original'] = range(2, len(df_ag) + 2) # Ajusta para o índice real da planilha
+                    
+                    # Converte Data_Uso para datetime para ordenação e comparação
+                    meus_agendamentos['Data_Uso_DT'] = pd.to_datetime(meus_agendamentos['Data_Uso'], format="%d/%m/%Y")
+                    
+                    # Filtra apenas agendamentos futuros ou do dia atual
+                    agendamentos_futuros = meus_agendamentos[meus_agendamentos['Data_Uso_DT'].dt.date >= data_atual].sort_values(by='Data_Uso_DT')
+                    
+                    if agendamentos_futuros.empty:
+                        st.info("Você não possui agendamentos futuros.")
+                    else:
+                        st.markdown("#### Próximos Agendamentos")
+                        st.dataframe(agendamentos_futuros[['Data_Uso', 'Turno', 'Horario', 'Equipamento', 'Observacao']], use_container_width=True, hide_index=True)
+                        
+                        st.divider()
+                        st.markdown("#### Gerenciar Agendamento")
+                        
+                        opcoes_agendamento = {
+                            f"{row['Data_Uso']} - {row['Turno']} {row['Horario']} - {row['Equipamento']}": row['ID_Original']
+                            for _, row in agendamentos_futuros.iterrows()
+                        }
+                        
+                        agendamento_selecionado = st.selectbox("Selecione um agendamento para editar ou excluir", [""] + list(opcoes_agendamento.keys()))
+                        
+                        if agendamento_selecionado != "":
+                            linha_idx_ag = opcoes_agendamento[agendamento_selecionado]
+                            dados_ag_edit = agendamentos_futuros[agendamentos_futuros['ID_Original'] == linha_idx_ag].iloc[0]
+                            
+                            with st.form("form_editar_agendamento"):
+                                st.markdown(f"Editando agendamento de: **{dados_ag_edit['Equipamento']}** em **{dados_ag_edit['Data_Uso']}**")
+                                
+                                edit_equipamento = st.selectbox("Equipamento", equipamentos_disponiveis, index=equipamentos_disponiveis.index(dados_ag_edit['Equipamento']))
+                                edit_data_uso = st.date_input("Data de Uso", value=dados_ag_edit['Data_Uso_DT'], format="DD/MM/YYYY")
+                                edit_turno = st.selectbox("Turno", turno_opcoes, index=turno_opcoes.index(dados_ag_edit['Turno']))
+                                edit_horario = st.selectbox("Horário", horario_opcoes, index=horario_opcoes.index(dados_ag_edit['Horario']))
+                                edit_observacao = st.text_area("Observações", value=dados_ag_edit['Observacao'])
+                                
+                                col_ag_btn1, col_ag_btn2 = st.columns(2)
+                                with col_ag_btn1:
+                                    btn_salvar_edit_ag = st.form_submit_button("Salvar Alterações")
+                                with col_ag_btn2:
+                                    btn_excluir_ag = st.form_submit_button("❌ Excluir Agendamento")
+                                    
+                                if btn_salvar_edit_ag:
+                                    if edit_data_uso < data_atual:
+                                        st.error("Não é possível agendar para datas passadas.")
+                                    else:
+                                        # Verifica conflito, excluindo o próprio agendamento da verificação
+                                        df_temp = df_ag[df_ag['ID_Original'] != linha_idx_ag]
+                                        conflito_edit = df_temp[
+                                            (df_temp['Equipamento'] == edit_equipamento) & 
+                                            (df_temp['Data_Uso'] == edit_data_uso.strftime("%d/%m/%Y")) & 
+                                            (df_temp['Turno'] == edit_turno) & 
+                                            (df_temp['Horario'] == edit_horario)
+                                        ]
+                                        
+                                        if not conflito_edit.empty:
+                                            st.error(f"❌ Conflito! O equipamento '{edit_equipamento}' já está agendado para {edit_data_uso.strftime('%d/%m/%Y')} no turno '{edit_turno}' e horário '{edit_horario}'.")
+                                        else:
+                                            try:
+                                                # Atualiza a linha na planilha
+                                                wks_ag.update_cell(linha_idx_ag, 2, edit_equipamento)
+                                                wks_ag.update_cell(linha_idx_ag, 4, edit_data_uso.strftime("%d/%m/%Y"))
+                                                wks_ag.update_cell(linha_idx_ag, 5, edit_turno)
+                                                wks_ag.update_cell(linha_idx_ag, 6, edit_horario)
+                                                wks_ag.update_cell(linha_idx_ag, 7, edit_observacao)
+                                                
+                                                st.success("Agendamento atualizado com sucesso!")
+                                                st.cache_data.clear()
+                                                time.sleep(2)
+                                                st.rerun()
+                                            except Exception as e:
+                                                st.error(f"Erro ao salvar alterações: {e}")
+                                                
+                                if btn_excluir_ag:
+                                    try:
+                                        wks_ag.delete_rows(linha_idx_ag)
+                                        st.success("Agendamento excluído permanentemente!")
+                                        st.cache_data.clear()
+                                        time.sleep(2)
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Erro ao excluir agendamento: {e}")
+                    
+                    st.markdown("#### Agendamentos Passados")
+                    agendamentos_passados = meus_agendamentos[meus_agendamentos['Data_Uso_DT'].dt.date < data_atual].sort_values(by='Data_Uso_DT', ascending=False)
+                    if agendamentos_passados.empty:
+                        st.info("Você não possui agendamentos passados.")
+                    else:
+                        st.dataframe(agendamentos_passados[['Data_Uso', 'Turno', 'Horario', 'Equipamento', 'Observacao']], use_container_width=True, hide_index=True)
