@@ -6,6 +6,7 @@ from google.oauth2.service_account import Credentials
 import time
 import io
 import pytz
+import json
 
 # Configuração do fuso horário correto de Roraima
 fuso_roraima = pytz.timezone('America/Boa_Vista')
@@ -38,7 +39,20 @@ def carregar_dados():
     except:
         df_per = pd.DataFrame(columns=["Bimestre", "Inicio", "Fim"])
         
-    return df_p, df_a, df_d, df_per
+    # NEW: Load evaluation gabaritos
+    try:
+        wks_gabaritos = sh.worksheet("Config_Gabaritos_Avaliacoes")
+        df_gabaritos_av = pd.DataFrame(wks_gabaritos.get_all_records())
+    except gspread.exceptions.WorksheetNotFound:
+        # If worksheet doesn't exist, create it with headers
+        wks_gabaritos = sh.add_worksheet(title="Config_Gabaritos_Avaliacoes", rows="1000", cols="9")
+        wks_gabaritos.append_row(["ID_Prova", "Disciplina", "Professor", "Data_Criacao", "Nota_Maxima", "Num_Questoes", "Gabarito_JSON", "Pesos_JSON", "Questoes_JSON"])
+        df_gabaritos_av = pd.DataFrame(columns=["ID_Prova", "Disciplina", "Professor", "Data_Criacao", "Nota_Maxima", "Num_Questoes", "Gabarito_JSON", "Pesos_JSON", "Questoes_JSON"])
+    except Exception as e:
+        st.error(f"Erro ao carregar gabaritos de avaliações: {e}")
+        df_gabaritos_av = pd.DataFrame(columns=["ID_Prova", "Disciplina", "Professor", "Data_Criacao", "Nota_Maxima", "Num_Questoes", "Gabarito_JSON", "Pesos_JSON", "Questoes_JSON"])
+        
+    return df_p, df_a, df_d, df_per, df_gabaritos_av
 
 def carregar_agendamentos():
     try:
@@ -106,7 +120,7 @@ else:
     st.set_page_config(page_title="Sistema Escola Diva Lima", layout="wide")
 
 try:
-    df_profs, df_alunos, df_discs, df_periodos = carregar_dados()
+    df_profs, df_alunos, df_discs, df_periodos, df_gabaritos_av = carregar_dados()
 except Exception as e:
     st.error(f"Erro ao carregar dados: {e}")
     st.info("Dica: Verifique se a planilha foi compartilhada como EDITOR com o e-mail da conta de serviço e se as abas têm os nomes corretos.")
@@ -1000,8 +1014,8 @@ else:
             st.session_state['historico_correcoes'] = []
 
         # Captura dinamicamente o nome do professor logado para o cabeçalho
-        if 'user_data' in st.session_state and st.session_state.user_data.get('Nome'):
-            nome_professor_cabecalho = st.session_state.user_data.get('Nome')
+        if 'user_data' in st.session_state and st.session_state.user_data.get('Professor'):
+            nome_professor_cabecalho = st.session_state.user_data.get('Professor')
         else:
             nome_professor_cabecalho = st.session_state.get('username', 'Administrador')
 
@@ -1017,16 +1031,19 @@ else:
         # SE FOR ADMIN MASTER: Carrega o sistema completo de forma segura
         else:
             st.title("📝 Sistema de Gestão de Avaliações")
-            aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Correção", "Histórico de Notas"], horizontal=True)
+            aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Ver avaliações", "Correção", "Histórico de Notas"], horizontal=True)
             st.markdown("---")
             
             if aba_av_escolhida == "Criar":
                 st.subheader("✨ Elaborar Nova Avaliação e Gabarito")
                 
-                if 'user_data' in st.session_state and st.session_state.user_data.get('Disciplina'):
-                    disc_professor = st.session_state.user_data.get('Disciplina')
-                    disciplinas_av = [disc_professor]
-                    st.success(f"📚 Disciplina identificada pelo seu perfil: **{disc_professor}**")
+                if 'user_data' in st.session_state and st.session_state.user_data.get('Disciplinas'):
+                    # Assuming 'Disciplinas' can be a comma-separated string, take the first one or let user choose
+                    disc_professor_list = [d.strip() for d in st.session_state.user_data.get('Disciplinas').split(',') if d.strip()]
+                    if disc_professor_list:
+                        disciplinas_av = sorted(list(set(df_discs['Disciplina'].unique().astype(str).tolist() + disc_professor_list)))
+                    else:
+                        disciplinas_av = sorted(df_discs['Disciplina'].unique().astype(str)) if not df_discs.empty else ["Geografia", "História", "Português", "Matemática"]
                 else:
                     disciplinas_av = sorted(df_discs['Disciplina'].unique().astype(str)) if not df_discs.empty else ["Geografia", "História", "Português", "Matemática"]
                 
@@ -1086,17 +1103,45 @@ else:
                         st.error("❌ Ajuste a soma dos valores das questões antes de prosseguir.")
                     else:
                         import random
-                        id_prova_gerado = random.randint(1, 99)
+                        
+                        # NEW: Generate a unique ID for the evaluation
+                        existing_ids = df_gabaritos_av['ID_Prova'].astype(str).tolist() if not df_gabaritos_av.empty else []
+                        id_prova_gerado = None
+                        while id_prova_gerado is None or str(id_prova_gerado).zfill(2) in existing_ids:
+                            id_prova_gerado = random.randint(1, 99) # Keep it 2 digits for now
+                        
                         id_dezena = id_prova_gerado // 10
                         id_unidade = id_prova_gerado % 10
                         
-                        st.session_state['id_avaliacao_ativa'] = id_prova_gerado
+                        st.session_state['id_avaliacao_ativa'] = str(id_prova_gerado).zfill(2) # Store as 2-digit string
                         st.session_state['gabarito_oficial'] = {q['numero']: q['correta'] for q in questoes_dados}
                         st.session_state['pesos_questoes'] = {q['numero']: q['valor'] for q in questoes_dados}
                         st.session_state['total_questoes_ativa'] = int(num_questoes)
                         st.session_state['nota_maxima_ativa'] = float(nota_maxima)
                         st.session_state['disciplina_ativa'] = disciplina_sel_av
-                        
+
+                        # NEW: Save evaluation data to Google Sheets
+                        try:
+                            sh = conectar_google_sheets()
+                            wks_gabaritos = sh.worksheet("Config_Gabaritos_Avaliacoes")
+                            
+                            nova_linha_gabarito = [
+                                str(id_prova_gerado).zfill(2), # Ensure 2-digit string ID
+                                disciplina_sel_av,
+                                nome_professor_cabecalho,
+                                datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
+                                str(nota_maxima),
+                                str(num_questoes),
+                                json.dumps(st.session_state['gabarito_oficial']),
+                                json.dumps(st.session_state['pesos_questoes']),
+                                json.dumps(questoes_dados) # Save full question data
+                            ]
+                            wks_gabaritos.append_row(nova_linha_gabarito)
+                            st.cache_data.clear() # Clear cache to reload with new evaluation
+                            st.success(f"✅ Avaliação com ID {str(id_prova_gerado).zfill(2)} salva no banco de dados!")
+                        except Exception as e:
+                            st.error(f"Erro ao salvar avaliação no Google Sheets: {e}")
+                            
                         html_questoes = ""
                         html_linhas_gabarito = ""
                         html_gabarito_professor = ""
@@ -1250,6 +1295,103 @@ else:
                         st.components.v1.html(html_prova, height=600, scrolling=True)
                         st.success(f"🎉 Avaliação e Cartão-Resposta com ID {str(id_prova_gerado).zfill(2)} Gerados com Sucesso!")
 
+            # NEW: "Ver avaliações" tab logic
+            elif aba_av_escolhida == "Ver avaliações":
+                st.subheader("📚 Avaliações Criadas e Salvas")
+                st.markdown("Consulte abaixo as avaliações que foram criadas e salvas no sistema:")
+
+                if not df_gabaritos_av.empty:
+                    # Ensure ID_Prova is string for consistent filtering
+                    df_gabaritos_av['ID_Prova'] = df_gabaritos_av['ID_Prova'].astype(str).str.zfill(2)
+                    
+                    # Display a summary table
+                    df_display = df_gabaritos_av[['ID_Prova', 'Disciplina', 'Professor', 'Data_Criacao', 'Nota_Maxima', 'Num_Questoes']].copy()
+                    df_display.rename(columns={
+                        'ID_Prova': 'ID',
+                        'Data_Criacao': 'Data de Criação',
+                        'Nota_Maxima': 'Nota Máxima',
+                        'Num_Questoes': 'Nº Questões'
+                    }, inplace=True)
+                    
+                    st.dataframe(df_display, use_container_width=True, hide_index=True)
+
+                    st.markdown("---")
+                    st.subheader("Detalhes e Gerenciamento de Avaliação")
+                    
+                    # Selectbox to choose an evaluation for details/deletion
+                    selected_eval_id = st.selectbox(
+                        "Selecione uma avaliação para ver os detalhes ou gerenciar:",
+                        [""] + df_gabaritos_av['ID_Prova'].tolist(),
+                        key="select_eval_to_manage"
+                    )
+
+                    if selected_eval_id:
+                        selected_eval_data = df_gabaritos_av[df_gabaritos_av['ID_Prova'] == selected_eval_id].iloc[0]
+                        
+                        st.markdown(f"#### Detalhes da Avaliação ID: {selected_eval_data['ID_Prova']}")
+                        st.write(f"**Disciplina:** {selected_eval_data['Disciplina']}")
+                        st.write(f"**Professor:** {selected_eval_data['Professor']}")
+                        st.write(f"**Data de Criação:** {selected_eval_data['Data_Criacao']}")
+                        st.write(f"**Nota Máxima:** {selected_eval_data['Nota_Maxima']}")
+                        st.write(f"**Número de Questões:** {selected_eval_data['Num_Questoes']}")
+
+                        st.markdown("##### Gabarito Oficial:")
+                        gabarito = json.loads(selected_eval_data['Gabarito_JSON'])
+                        pesos = json.loads(selected_eval_data['Pesos_JSON'])
+                        
+                        gabarito_df = pd.DataFrame([
+                            {'Questão': q, 'Correta': ans, 'Valor': pesos.get(str(q), 'N/A')}
+                            for q, ans in gabarito.items()
+                        ])
+                        st.dataframe(gabarito_df, hide_index=True)
+
+                        st.markdown("##### Questões Detalhadas:")
+                        questoes_detalhadas = json.loads(selected_eval_data['Questoes_JSON'])
+                        for q_data in questoes_detalhadas:
+                            st.markdown(f"**Questão {q_data['numero']} ({q_data['valor']:.2f} pts)**")
+                            st.write(f"Enunciado: {q_data['enunciado']}")
+                            st.write(f"A) {q_data['A']}")
+                            st.write(f"B) {q_data['B']}")
+                            st.write(f"C) {q_data['C']}")
+                            st.write(f"D) {q_data['D']}")
+                            st.write(f"**Resposta Correta: {q_data['correta']}**")
+                            st.markdown("---")
+                        
+                        # Deletion functionality (only for master admin)
+                        if st.session_state.get('is_master_admin', False):
+                            st.markdown("---")
+                            st.subheader("🗑️ Excluir Avaliação")
+                            if st.button(f"❌ Excluir Avaliação ID: {selected_eval_id}", key=f"delete_eval_{selected_eval_id}"):
+                                try:
+                                    sh = conectar_google_sheets()
+                                    wks_gabaritos = sh.worksheet("Config_Gabaritos_Avaliacoes")
+                                    
+                                    # Find the row index based on ID_Prova
+                                    # Need to get all values to find the exact row number
+                                    all_records = wks_gabaritos.get_all_values()
+                                    row_to_delete = -1
+                                    for i, row in enumerate(all_records):
+                                        if i == 0: continue # Skip header
+                                        if str(row[0]).strip() == selected_eval_id: # Assuming ID_Prova is the first column
+                                            row_to_delete = i + 1 # gspread is 1-indexed
+                                            break
+                                    
+                                    if row_to_delete != -1:
+                                        wks_gabaritos.delete_rows(row_to_delete)
+                                        st.success(f"✅ Avaliação ID {selected_eval_id} excluída com sucesso!")
+                                        st.cache_data.clear()
+                                        time.sleep(1.5)
+                                        st.rerun()
+                                    else:
+                                        st.error("Erro: Avaliação não encontrada para exclusão.")
+                                except Exception as e:
+                                    st.error(f"Erro ao excluir avaliação: {e}")
+                        else:
+                            st.caption("ℹ️ A exclusão de avaliações está disponível apenas para administradores.")
+
+                else:
+                    st.info("Nenhuma avaliação foi criada e salva no sistema até o momento.")
+
             # --- SUB-ABA: CORREÇÃO DE AVALIAÇÕES ---
             elif aba_av_escolhida == "Correção":
                 st.subheader("📸 Leitura Automatizada e Correção por ID")
@@ -1276,25 +1418,18 @@ else:
                         st.warning("⚠️ Não foi possível identificar o ID da prova automaticamente na imagem. Digite o ID no campo acima para prosseguir.")
                     else:
                         # Carrega dinamicamente a base de dados de gabaritos para encontrar a prova correspondente ao ID
-                        try:
-                            sh = conectar_google_sheets()
-                            wks_gav = sh.worksheet("Gabaritos_Avaliacoes") 
-                            dados_gabaritos = wks_gav.get_all_records()
-                            df_gabaritos = pd.DataFrame(dados_gabaritos)
-                        except Exception as e:
-                            df_gabaritos = pd.DataFrame()
-                            st.error(f"Erro ao conectar ao banco de dados: {e}")
-
-                        if not df_gabaritos.empty:
-                            # Garante que a comparação seja feita como string limpa
-                            df_gabaritos['ID_Prova'] = df_gabaritos['ID_Prova'].astype(str).str.strip()
-                            prova_alvo = df_gabaritos[df_gabaritos['ID_Prova'] == str(id_detectado).strip()]
+                        # df_gabaritos_av is already loaded by carregar_dados()
+                        
+                        if not df_gabaritos_av.empty:
+                            # Garante que a comparação seja feita como string limpa e 2-digit padded
+                            df_gabaritos_av['ID_Prova'] = df_gabaritos_av['ID_Prova'].astype(str).str.strip().str.zfill(2)
+                            prova_alvo = df_gabaritos_av[df_gabaritos_av['ID_Prova'] == str(id_detectado).strip().zfill(2)]
                             
                             if prova_alvo.empty:
                                 st.error(f"❌ Nenhuma avaliação com o ID '{id_detectado}' foi localizada no banco de dados.")
                             else:
                                 dados_da_prova = prova_alvo.iloc[0]
-                                st.success(f"🎯 Prova Identificada com Sucesso! | Disciplina: {dados_da_prova.get('Disciplina')} | Turma: {dados_da_prova.get('Turma')}")
+                                st.success(f"🎯 Prova Identificada com Sucesso! | Disciplina: {dados_da_prova.get('Disciplina')} | Professor: {dados_da_prova.get('Professor')}")
                                 
                                 # --- DAQUI PARA BAIXO O SISTEMA CONTINUA A PROCESSAR AS RESPOSTAS DO CARTÃO ---
                                 st.write("Analisando respostas do aluno...")
@@ -1817,344 +1952,3 @@ else:
                                     sh = conectar_google_sheets()
                                     wks_p = sh.worksheet("Config_Professores")
                                     data_p = wks_p.get_all_values()
-                                    for i in range(2, len(data_p) + 1):
-                                        wks_p.update_cell(i, 6, "Ativo")
-                                    st.success("Todos os usuários foram desbloqueados.")
-                                    st.cache_data.clear()
-                                    time.sleep(2)
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Erro: {e}")
-                    else:
-                        dados_bloqueio = df_profs[df_profs['Usuario'] == user_bloqueio].iloc[0]
-                        status_atual = str(dados_bloqueio.get("Status", "Ativo"))
-                        st.write(f"Status atual de **{user_bloqueio}**: {status_atual}")
-                        col_b1, col_b2 = st.columns(2)
-                        with col_b1:
-                            if st.button(f"🔴 BLOQUEAR {user_bloqueio}"):
-                                try:
-                                    sh = conectar_google_sheets()
-                                    wks_p = sh.worksheet("Config_Professores")
-                                    celula = wks_p.find(str(user_bloqueio))
-                                    wks_p.update_cell(celula.row, 6, "Bloqueado")
-                                    st.success(f"Usuário {user_bloqueio} bloqueado.")
-                                    st.cache_data.clear()
-                                    time.sleep(2)
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Erro: {e}")
-                        with col_b2:
-                            if st.button(f"🟢 DESBLOQUEAR {user_bloqueio}"):
-                                try:
-                                    sh = conectar_google_sheets()
-                                    wks_p = sh.worksheet("Config_Professores")
-                                    celula = wks_p.find(str(user_bloqueio))
-                                    wks_p.update_cell(celula.row, 6, "Ativo")
-                                    st.success(f"Usuário {user_bloqueio} desbloqueado.")
-                                    st.cache_data.clear()
-                                    time.sleep(2)
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Erro: {e}")
-
-    elif pagina_atual == "Agendamento de Equipamentos":
-        st.title("📅 Gerenciamento de Equipamentos")
-        st.subheader("Escola Diva Lima")
-        
-        # 1. Identifica o professor logado com segurança
-        usuario_logado = st.session_state.user_data['Usuario']
-        nome_professor_logado = st.session_state.user_data['Professor']
-        st.info(f"👤 **Usuário Conectado:** {nome_professor_logado}")
-        
-        # Criação das duas abas na interface
-        aba_cadastrar, aba_visualizar = st.tabs(["🆕 Realizar Agendamento", "📋 Visualizar Agendamentos"])
-        
-        # ---------------------------------------------------------------------
-        # ABA 1: FORMULÁRIO DE CADASTRO DE AGENDAMENTO
-        # ---------------------------------------------------------------------
-        with aba_cadastrar:
-            st.subheader("🗓️ Realizar Agendamento de Equipamento")
-            
-            # Trava de Segurança: Apenas ADM MASTER acessa durante a manutenção
-            if not st.session_state.get('is_master_admin', False):
-                st.info("🛠️ **Sistema em Manutenção Preventiva**\n\nEstamos atualizando a ferramenta de agendamentos para trazer melhorias! O recurso estará liberado para todos os professores em breve. Agradecemos a compreensão.")
-            else:
-                st.warning("⚡ **Acesso Administrativo Ativo:** Você está visualizando esta aba porque está logado como ADM MASTER durante os testes de atualização.")
-                
-                # 2. Carrega as turmas vinculadas ao professor logado para evitar componentes vazios
-                try:
-                    sh = conectar_google_sheets()
-                    df_p = pd.DataFrame(sh.worksheet("Config_Professores").get_all_records())
-                    
-                    # Filtra na tabela onde a coluna Usuario bate com o professor logado
-                    dados_prof = df_p[df_p["Usuario"] == usuario_logado]
-                    # Como estamos no bloco de 'is_master_admin', sempre mostra todas as turmas
-                    df_a = pd.DataFrame(sh.worksheet("Config_Alunos").get_all_records())
-                    if "Turma" in df_a.columns:
-                        turmas_disponiveis = sorted(df_a["Turma"].dropna().unique().tolist())
-                    else:
-                        turmas_disponiveis = ["Regular A", "Regular B"] # Fallback
-                except Exception as e:
-                    st.error(f"Erro ao carregar turmas: {e}")
-                    turmas_disponiveis = ["Erro ao carregar turmas"]
-
-                if not turmas_disponiveis or turmas_disponiveis == ["Erro ao carregar turmas"]:
-                    st.warning("⚠️ Não foi possível carregar as turmas. Por favor, verifique a configuração ou tente novamente.")
-                else:
-                    # Componentes visuais organizados
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        turma_selecionada = st.selectbox("Selecione a Turma:", turmas_disponiveis, key="agend_turma")
-                        
-                        # Novo campo para selecionar o período logo abaixo da turma
-                        periodo_selecionado = st.selectbox("Selecione o Período:", ["Matutino", "Vespertino"], key="agend_periodo")
-                        
-                        # Lista de equipamentos com a Caixa de som incluída
-                        equipamentos_disponiveis = ["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"]
-                        equipamento_selecionado = st.selectbox("Selecione o Equipamento:", equipamentos_disponiveis, key="agend_equip")
-                        
-                        # Verificação dos Tablets alterada para menu de seleção (selectbox) de 1 a 30
-                        if "Tablets" in equipamento_selecionado:
-                            opcoes_quantidade = list(range(1, 31))  # Cria a lista de 1 a 30
-                            quantidade_tablets = st.selectbox(
-                                "Selecione a quantidade de Tablets (1 a 30)", 
-                                options=opcoes_quantidade,
-                                index=0,  # Começa marcado no número 1
-                                key="agend_qtd_tablets"
-                            )
-                            equipamento = f"Tablets (Maleta) ({quantidade_tablets} unidades)"
-                        else:
-                            equipamento = equipamento_selecionado
-                        
-                        # Filtra os horários disponíveis com base no período selecionado
-                        if periodo_selecionado == "Matutino":
-                            tempos_disponiveis = [
-                                "1º Tempo (Matutino)", "2º Tempo (Matutino)", 
-                                "3º Tempo (Matutino)", "4º Tempo (Matutino)"
-                            ]
-                        else: # Vespertino
-                            tempos_disponiveis = [
-                                "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", 
-                                "3º Tempo (Vespertino)", "4º Tempo (Vespertino)"
-                            ]
-                        tempo_aula = st.selectbox("Tempo de Aula:", tempos_disponiveis, key="agend_tempo")
-                        
-                    with col2:
-                        # Data de Registro automática capturada do Relógio do Sistema Operacional
-                        data_registro = datetime.now(fuso_roraima).strftime("%d/%m/%Y")
-                        st.text_input("Data de Registro (Hoje):", value=data_registro, disabled=True, key="agend_reg")
-                        
-                        # Data de Uso usando o seletor de calendário nativo do Streamlit
-                        data_uso = st.date_input("Data de Uso do Equipamento:", value=data_atual, format="DD/MM/YYYY", key="agend_uso")
-                        data_uso_formatada = data_uso.strftime("%d/%m/%Y")
-
-                    # Novo campo para o professor digitar o objetivo ou observações
-                    observacoes = st.text_area("Objetivo / Observações sobre o agendamento", placeholder="Ex: Aula prática sobre o conteúdo X / Uso dos tablets para pesquisa em grupo...")
-
-                    st.markdown("---")
-                    
-                    # Botão para processar e salvar no banco de dados do Sheets
-                    if st.button("💾 Confirmar Agendamento do Equipamento", use_container_width=True, key="btn_confirmar_agendamento"):
-                        try:
-                            sh = conectar_google_sheets()
-                            
-                            # Tenta acessar ou cria a aba de agendamentos caso ela não exista na planilha
-                            try:
-                                wks_a = sh.worksheet("Config_Agendamentos")
-                            except:
-                                wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7") # Changed cols to 7
-                                wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo", "Observacoes"]) # Added "Observacoes"
-                            
-                            # Verifica duplicidade (Evita conflito de agendamento do mesmo equipamento no mesmo dia/tempo)
-                            dados_agendados = wks_a.get_all_records()
-                            conflito = False
-                            
-                            if dados_agendados:
-                                df_agendados = pd.DataFrame(dados_agendados)
-                                # Verifica se o mesmo equipamento já está reservado no mesmo dia e tempo
-                                filtro_conflito = df_agendados[
-                                    (df_agendados["Equipamento"] == equipamento) & 
-                                    (df_agendados["Data Uso"] == data_uso_formatada) & 
-                                    (df_agendados["Tempo"] == tempo_aula)
-                                ]
-                                if not filtro_conflito.empty:
-                                    conflito = True
-                            
-                            if conflito:
-                                st.error(f"❌ Não é possível agendar! O equipamento '{equipamento}' já está reservado para o dia {data_uso_formatada} no {tempo_aula}.")
-                            else:
-                                # Registra a nova linha se estiver livre
-                                wks_a.append_row([
-                                    str(nome_professor_logado),
-                                    str(turma_selecionada),
-                                    str(equipamento),
-                                    str(data_registro),
-                                    str(data_uso_formatada),
-                                    str(tempo_aula),
-                                    str(observacoes)
-                                ])
-                                st.success(f"✅ Agendamento de {equipamento} realizado com sucesso!")
-                                st.cache_data.clear()
-                                time.sleep(1.5)
-                                st.rerun()
-                                
-                        except Exception as e:
-                            st.error(f"Erro ao salvar os dados na planilha: {e}")
-
-        # ---------------------------------------------------------------------
-        # ABA 2: TABELA DE VISUALIZAÇÃO E GERENCIAMENTO (ADM)
-        # ---------------------------------------------------------------------
-        with aba_visualizar:
-            st.markdown("### 📋 Escala de Uso de Equipamentos")
-            st.write("Consulte e gerencie abaixo a lista completa de agendamentos realizados:")
-            
-            try:
-                sh = conectar_google_sheets()
-                wks_a = sh.worksheet("Config_Agendamentos")
-                dados_tabela = wks_a.get_all_records()
-
-                if dados_tabela:
-                    df_tabela = pd.DataFrame(dados_tabela)
-                    
-                    # Cria um índice temporário para sabermos exatamente qual linha alterar/deletar no Sheets
-                    # No gspread, a primeira linha de dados após o cabeçalho é a linha 2
-                    df_tabela["linha_sheets"] = range(2, len(df_tabela) + 2)
-                    
-                    colunas_ordenadas = ["Data Uso", "Tempo", "Equipamento", "Turma", "Professor", "Data Registro", "Observacoes", "linha_sheets"] # Added "Observacoes"
-                    if all(col in df_tabela.columns for col in colunas_ordenadas):
-                        df_exibicao = df_tabela[colunas_ordenadas]
-                    else:
-                        df_exibicao = df_tabela.copy()
-                    
-                    # Filtro por equipamento
-                    filtro_equip = st.multiselect("Filtrar por Equipamento:", options=["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"], default=[], key="adm_filtro_equip")
-                    if filtro_equip:
-                        df_exibicao = df_exibicao[df_exibicao["Equipamento"].isin(filtro_equip)]
-
-                    # Exibe a tabela sem mostrar a coluna de controle interno 'linha_sheets' para o usuário
-                    st.dataframe(
-                        df_exibicao.drop(columns=["linha_sheets"], errors="ignore"), 
-                        use_container_width=True, 
-                        hide_index=True
-                    )
-                    
-                    st.markdown("---")
-                    
-                    # --- ÁREA EXCLUSIVA DE GERENCIAMENTO / ADM ---
-                    # Changed: Use is_master_admin for admin check
-                    is_admin = st.session_state.get('is_master_admin', False)
-
-                    if is_admin:
-                        st.subheader("🛠️ Painel de Controle do Administrador")
-                        
-                        # Criamos uma lista de opções legíveis para selecionar qual agendamento manipular
-                        opcoes_selecao = []
-                        for idx, row in df_exibicao.iterrows():
-                            # Embed linha_sheets directly into the option string
-                            opcoes_selecao.append(f"{row['linha_sheets']} - {row['Equipamento']} - {row['Turma']} ({row['Data Uso']} no {row['Tempo']})")
-                        
-                        if opcoes_selecao: # Only show selectbox if there are options
-                            agend_selecionado_texto = st.selectbox("Selecione um agendamento para Modificar ou Excluir:", opcoes_selecao)
-                            
-                            # Extract linha_sheets_alvo directly from the selected string
-                            linha_sheets_alvo = int(agend_selecionado_texto.split(' - ')[0])
-                            
-                            # Find the corresponding row in df_exibicao using linha_sheets
-                            selected_row_data = df_exibicao[df_exibicao['linha_sheets'] == linha_sheets_alvo].iloc[0]
-                            
-                            col_adm1, col_adm2, col_adm3 = st.columns(3)
-                            
-                            # 1. BOTAO EXCLUIR SELECIONADO
-                            with col_adm1:
-                                if st.button("🗑️ Excluir Selecionado", use_container_width=True, type="secondary"):
-                                    try:
-                                        # Exclui a linha específica no Google Sheets
-                                        wks_a.delete_rows(linha_sheets_alvo)
-                                        st.success("✅ Agendamento excluído com sucesso!")
-                                        st.cache_data.clear()
-                                        time.sleep(1.5)
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(f"Erro ao excluir linha: {e}")
-                            
-                            # 2. BOTAO EDITAR SELECIONADO
-                            with col_adm2:
-                                expander_editar = st.expander("📝 Editar Selecionado")
-                                with expander_editar:
-                                    dado_antigo = selected_row_data # Use selected_row_data
-                                    
-                                    # Updated options for editing equipment
-                                    equipamentos_edit_opcoes = ["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"]
-                                    
-                                    # Determine initial index for selectbox
-                                    try:
-                                        initial_equip_index = next(i for i, opt in enumerate(equipamentos_edit_opcoes) if opt in dado_antigo["Equipamento"])
-                                    except StopIteration:
-                                        initial_equip_index = 0 # Default to first option if not found
-                                        
-                                    novo_equip_raw = st.selectbox("Novo Equipamento:", equipamentos_edit_opcoes, index=initial_equip_index, key="ed_eq")
-                                    
-                                    novo_equip_final = novo_equip_raw
-                                    if "Tablets" in novo_equip_raw:
-                                        # Extract current quantity if it exists in the string, otherwise default to 1
-                                        import re
-                                        match = re.search(r'\((\d+)\sunidades\)', dado_antigo["Equipamento"])
-                                        current_qty = int(match.group(1)) if match else 1
-                                        
-                                        edit_quantidade_tablets = st.number_input(
-                                            "Nova quantidade de Tablets (1 a 30)",
-                                            min_value=1,
-                                            max_value=30,
-                                            value=current_qty,
-                                            step=1,
-                                            key="ed_qtd_tablets"
-                                        )
-                                        novo_equip_final = f"Tablets (Maleta) ({edit_quantidade_tablets} unidades)"
-                                    
-                                    novo_tempo = st.selectbox("Novo Tempo:", ["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"], index=["1º Tempo (Matutino)", "2º Tempo (Matutino)", "3º Tempo (Matutino)", "4º Tempo (Matutino)", "5º Tempo (Matutino)", "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", "3º Tempo (Vespertino)", "4º Tempo (Vespertino)", "5º Tempo (Vespertino)"].index(dado_antigo["Tempo"]), key="ed_tp")
-                                    nova_observacao = st.text_area("Novas Observações:", value=dado_antigo["Observacoes"], key="ed_obs") # Added new text_area for editing
-                                    
-                                    if st.button("💾 Salvar Alterações", use_container_width=True):
-                                        try:
-                                            # Atualiza as células correspondentes (Colunas: 3=Equipamento, 6=Tempo, 7=Observacoes)
-                                            wks_a.update_cell(linha_sheets_alvo, 3, str(novo_equip_final))
-                                            wks_a.update_cell(linha_sheets_alvo, 6, str(novo_tempo))
-                                            wks_a.update_cell(linha_sheets_alvo, 7, str(nova_observacao)) # Updated Observacoes
-                                            st.success("✅ Agendamento atualizado!")
-                                            st.cache_data.clear()
-                                            time.sleep(1.5)
-                                            st.rerun()
-                                        except Exception as e:
-                                            st.error(f"Erro ao editar: {e}")
-                            
-                            # 3. BOTAO EXCLUIR TUDO (PERIGO)
-                            with col_adm3:
-                                confirmar_deletar_tudo = st.checkbox("⚠️ Liberar botão 'Excluir Todos'")
-                                if confirmar_deletar_tudo:
-                                    if st.button("🚨 EXCLUIR TODOS OS AGENDAMENTOS", use_container_width=True, type="primary"):
-                                        try:
-                                            # Limpa todas as linhas mantendo apenas o cabeçalho (linha 1)
-                                            wks_a.resize(rows=1)
-                                            wks_a.resize(rows=1000)
-                                            st.success("💥 Todos os agendamentos foram limpos do banco de dados!")
-                                            st.cache_data.clear()
-                                            time.sleep(1.5)
-                                            st.rerun()
-                                        except Exception as e:
-                                            st.error(f"Erro ao limpar tabela: {e}")
-                        else:
-                            st.info("Nenhum agendamento corresponde ao filtro aplicado ou não há agendamentos para gerenciar.")
-                    else:
-                        st.caption("ℹ️ Recursos de edição e exclusão de reservas estão disponíveis apenas para administradores.")
-                else:
-                    st.info("ℹ️ Nenhum agendamento foi registrado até o momento.")
-                    
-            except Exception as e:
-                st.error(f"Erro ao carregar o painel de gerenciamento: {e}")
-
-    elif pagina_atual == "Cadastro":
-        st.error("Acesso restrito.")
-        st.session_state.pagina = "Registro"
-        st.rerun()
-
