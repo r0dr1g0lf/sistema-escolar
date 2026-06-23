@@ -637,7 +637,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrencias":
+    elif pagina_atual == "Ocorrências":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -996,6 +996,13 @@ else:
     # MÓDULO INDEPENDENTE: AVALIAÇÕES (COM CAPTURA DE CÂMERA E HISTÓRICO SALVO)
     # =========================================================================
     elif pagina_atual == "Avaliações":
+        # Define os cabeçalhos esperados para a planilha de Gabaritos_Avaliacoes
+        expected_headers_gav = [
+            "ID_Prova", "Disciplina", "Professor", "Data_Criacao", 
+            "Nota_Maxima", "Total_Questoes", "Gabarito_JSON", 
+            "Pesos_JSON", "Questoes_JSON"
+        ]
+
         # Inicializa a lista de histórico global na memória caso não exista
         if 'historico_correcoes' not in st.session_state:
             st.session_state['historico_correcoes'] = []
@@ -1093,7 +1100,8 @@ else:
                         try:
                             sh = conectar_google_sheets()
                             wks_gav_check = sh.worksheet("Gabaritos_Avaliacoes")
-                            existing_ids = [str(r.get('ID_Prova')) for r in wks_gav_check.get_all_records()]
+                            # MODIFICADO: Adicionado expected_headers para evitar erro de cabeçalho duplicado/vazio
+                            existing_ids = [str(r.get('ID_Prova')) for r in wks_gav_check.get_all_records(expected_headers=expected_headers_gav)]
                             while str(id_prova_gerado) in existing_ids:
                                 id_prova_gerado = random.randint(1, 99)
                         except gspread.exceptions.WorksheetNotFound:
@@ -1120,11 +1128,7 @@ else:
                             except gspread.exceptions.WorksheetNotFound:
                                 # Cria a aba se ela não existir
                                 wks_gav = sh.add_worksheet(title="Gabaritos_Avaliacoes", rows="1000", cols="9")
-                                wks_gav.append_row([
-                                    "ID_Prova", "Disciplina", "Professor", "Data_Criacao", 
-                                    "Nota_Maxima", "Total_Questoes", "Gabarito_JSON", 
-                                    "Pesos_JSON", "Questoes_JSON"
-                                ])
+                                wks_gav.append_row(expected_headers_gav)
                             
                             # Prepara os dados para salvar como strings JSON
                             gabarito_json = json.dumps({str(q['numero']): q['correta'] for q in questoes_dados})
@@ -1310,7 +1314,8 @@ else:
                 try:
                     sh = conectar_google_sheets()
                     wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
-                    dados_gabaritos = wks_gav.get_all_records()
+                    # MODIFICADO: Adicionado expected_headers para evitar erro de cabeçalho duplicado/vazio
+                    dados_gabaritos = wks_gav.get_all_records(expected_headers=expected_headers_gav)
                     df_gabaritos = pd.DataFrame(dados_gabaritos)
 
                     if not df_gabaritos.empty:
@@ -1395,7 +1400,8 @@ else:
                         try:
                             sh = conectar_google_sheets()
                             wks_gav = sh.worksheet("Gabaritos_Avaliacoes") 
-                            dados_gabaritos = wks_gav.get_all_records()
+                            # MODIFICADO: Adicionado expected_headers para evitar erro de cabeçalho duplicado/vazio
+                            dados_gabaritos = wks_gav.get_all_records(expected_headers=expected_headers_gav)
                             df_gabaritos = pd.DataFrame(dados_gabaritos)
                         except Exception as e:
                             df_gabaritos = pd.DataFrame()
