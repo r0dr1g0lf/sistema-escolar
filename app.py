@@ -6,7 +6,6 @@ from google.oauth2.service_account import Credentials
 import time
 import io
 import pytz
-import json # Adicionado para manipulação de JSON
 
 # Configuração do fuso horário correto de Roraima
 fuso_roraima = pytz.timezone('America/Boa_Vista')
@@ -637,7 +636,7 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar registros: {e}")
 
-    elif pagina_atual == "Ocorrências":
+    elif pagina_atual == "Ocorrencias":
         st.title("🚨 Registro de Ocorrências")
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
@@ -996,20 +995,13 @@ else:
     # MÓDULO INDEPENDENTE: AVALIAÇÕES (COM CAPTURA DE CÂMERA E HISTÓRICO SALVO)
     # =========================================================================
     elif pagina_atual == "Avaliações":
-        # Define os cabeçalhos esperados para a planilha de Gabaritos_Avaliacoes
-        expected_headers_gav = [
-            "ID_Prova", "Disciplina", "Professor", "Data_Criacao", 
-            "Nota_Maxima", "Total_Questoes", "Gabarito_JSON", 
-            "Pesos_JSON", "Questoes_JSON"
-        ]
-
         # Inicializa a lista de histórico global na memória caso não exista
         if 'historico_correcoes' not in st.session_state:
             st.session_state['historico_correcoes'] = []
 
         # Captura dinamicamente o nome do professor logado para o cabeçalho
-        if 'user_data' in st.session_state and st.session_state.user_data.get('Professor'): # Corrigido de 'Nome' para 'Professor'
-            nome_professor_cabecalho = st.session_state.user_data.get('Professor')
+        if 'user_data' in st.session_state and st.session_state.user_data.get('Nome'):
+            nome_professor_cabecalho = st.session_state.user_data.get('Nome')
         else:
             nome_professor_cabecalho = st.session_state.get('username', 'Administrador')
 
@@ -1025,7 +1017,7 @@ else:
         # SE FOR ADMIN MASTER: Carrega o sistema completo de forma segura
         else:
             st.title("📝 Sistema de Gestão de Avaliações")
-            aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Ver avaliações", "Correção", "Histórico de Notas"], horizontal=True)
+            aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Correção", "Histórico de Notas"], horizontal=True)
             st.markdown("---")
             
             if aba_av_escolhida == "Criar":
@@ -1095,21 +1087,6 @@ else:
                     else:
                         import random
                         id_prova_gerado = random.randint(1, 99)
-                        
-                        # Verifica se o ID já existe na planilha Gabaritos_Avaliacoes
-                        try:
-                            sh = conectar_google_sheets()
-                            wks_gav_check = sh.worksheet("Gabaritos_Avaliacoes")
-                            # MODIFICADO: Adicionado expected_headers para evitar erro de cabeçalho duplicado/vazio
-                            existing_ids = [str(r.get('ID_Prova')) for r in wks_gav_check.get_all_records(expected_headers=expected_headers_gav)]
-                            while str(id_prova_gerado) in existing_ids:
-                                id_prova_gerado = random.randint(1, 99)
-                        except gspread.exceptions.WorksheetNotFound:
-                            # Se a planilha não existe, o ID é único
-                            pass
-                        except Exception as e:
-                            st.warning(f"Não foi possível verificar IDs existentes na planilha: {e}. Prosseguindo com ID gerado.")
-
                         id_dezena = id_prova_gerado // 10
                         id_unidade = id_prova_gerado % 10
                         
@@ -1120,39 +1097,6 @@ else:
                         st.session_state['nota_maxima_ativa'] = float(nota_maxima)
                         st.session_state['disciplina_ativa'] = disciplina_sel_av
                         
-                        # --- NOVO: Salva os detalhes da avaliação no Google Sheets ---
-                        try:
-                            sh = conectar_google_sheets()
-                            try:
-                                wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
-                            except gspread.exceptions.WorksheetNotFound:
-                                # Cria a aba se ela não existir
-                                wks_gav = sh.add_worksheet(title="Gabaritos_Avaliacoes", rows="1000", cols="9")
-                                wks_gav.append_row(expected_headers_gav)
-                            
-                            # Prepara os dados para salvar como strings JSON
-                            gabarito_json = json.dumps({str(q['numero']): q['correta'] for q in questoes_dados})
-                            pesos_json = json.dumps({str(q['numero']): q['valor'] for q in questoes_dados})
-                            questoes_json = json.dumps(questoes_dados) # Salva todos os detalhes das questões
-                            
-                            nova_avaliacao_linha = [
-                                str(id_prova_gerado),
-                                disciplina_sel_av,
-                                nome_professor_cabecalho,
-                                datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
-                                str(nota_maxima),
-                                str(num_questoes),
-                                gabarito_json,
-                                pesos_json,
-                                questoes_json
-                            ]
-                            wks_gav.append_row(nova_avaliacao_linha)
-                            st.success("✅ Avaliação salva no banco de dados com sucesso!")
-                            st.cache_data.clear() # Limpa o cache para recarregar os dados na próxima vez
-                        except Exception as e:
-                            st.error(f"Erro ao salvar avaliação no Google Sheets: {e}")
-                        # --- FIM NOVO: Salva os detalhes da avaliação no Google Sheets ---
-
                         html_questoes = ""
                         html_linhas_gabarito = ""
                         html_gabarito_professor = ""
@@ -1306,71 +1250,6 @@ else:
                         st.components.v1.html(html_prova, height=600, scrolling=True)
                         st.success(f"🎉 Avaliação e Cartão-Resposta com ID {str(id_prova_gerado).zfill(2)} Gerados com Sucesso!")
 
-            # --- NOVO: SUB-ABA: VER AVALIAÇÕES CRIADAS ---
-            elif aba_av_escolhida == "Ver avaliações":
-                st.subheader("📚 Avaliações Criadas")
-                st.write("Aqui você pode visualizar as avaliações que foram criadas e salvas no sistema.")
-
-                try:
-                    sh = conectar_google_sheets()
-                    wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
-                    # MODIFICADO: Adicionado expected_headers para evitar erro de cabeçalho duplicado/vazio
-                    dados_gabaritos = wks_gav.get_all_records(expected_headers=expected_headers_gav)
-                    df_gabaritos = pd.DataFrame(dados_gabaritos)
-
-                    if not df_gabaritos.empty:
-                        # Garante que ID_Prova seja string para comparação consistente
-                        df_gabaritos['ID_Prova'] = df_gabaritos['ID_Prova'].astype(str)
-                        
-                        # Exibe colunas relevantes em uma tabela
-                        st.dataframe(df_gabaritos[['ID_Prova', 'Disciplina', 'Professor', 'Data_Criacao', 'Nota_Maxima', 'Total_Questoes']], use_container_width=True, hide_index=True)
-                        
-                        st.markdown("---")
-                        st.subheader("Detalhes da Avaliação Selecionada")
-                        
-                        # Cria um identificador único para cada avaliação para o selectbox
-                        df_gabaritos['Display_ID'] = df_gabaritos.apply(lambda row: f"{row['ID_Prova']} - {row['Disciplina']} ({row['Professor']})", axis=1)
-                        
-                        selected_eval_display = st.selectbox("Selecione uma avaliação para ver os detalhes:", [""] + df_gabaritos['Display_ID'].tolist(), key="select_eval_details")
-                        
-                        if selected_eval_display:
-                            selected_eval_id = selected_eval_display.split(' - ')[0]
-                            eval_details = df_gabaritos[df_gabaritos['ID_Prova'] == selected_eval_id].iloc[0]
-                            
-                            st.write(f"**ID da Prova:** `{eval_details['ID_Prova']}`")
-                            st.write(f"**Disciplina:** `{eval_details['Disciplina']}`")
-                            st.write(f"**Professor:** `{eval_details['Professor']}`")
-                            st.write(f"**Data de Criação:** `{eval_details['Data_Criacao']}`")
-                            st.write(f"**Nota Máxima:** `{eval_details['Nota_Maxima']}`")
-                            st.write(f"**Total de Questões:** `{eval_details['Total_Questoes']}`")
-                            
-                            st.markdown("#### Questões e Gabarito")
-                            if 'Questoes_JSON' in eval_details and eval_details['Questoes_JSON']:
-                                try:
-                                    questoes_data = json.loads(eval_details['Questoes_JSON'])
-                                    for q in questoes_data:
-                                        st.markdown(f"**Questão {q['numero']}** ({q['valor']:.2f} pts)")
-                                        st.write(f"Enunciado: {q['enunciado']}")
-                                        st.write(f"A) {q['A']}")
-                                        st.write(f"B) {q['B']}")
-                                        st.write(f"C) {q['C']}")
-                                        st.write(f"D) {q['D']}")
-                                        st.success(f"**Resposta Correta:** {q['correta']}")
-                                        st.markdown("---")
-                                except json.JSONDecodeError:
-                                    st.error("Erro ao carregar detalhes das questões.")
-                            else:
-                                st.info("Detalhes das questões não disponíveis.")
-
-                    else:
-                        st.info("Nenhuma avaliação foi criada e salva no sistema ainda.")
-
-                except gspread.exceptions.WorksheetNotFound:
-                    st.info("A aba 'Gabaritos_Avaliacoes' não existe na planilha. Nenhuma avaliação foi criada ainda.")
-                except Exception as e:
-                    st.error(f"Erro ao carregar avaliações: {e}")
-            # --- FIM NOVO: SUB-ABA: VER AVALIAÇÕES CRIADAS ---
-
             # --- SUB-ABA: CORREÇÃO DE AVALIAÇÕES ---
             elif aba_av_escolhida == "Correção":
                 st.subheader("📸 Leitura Automatizada e Correção por ID")
@@ -1400,8 +1279,7 @@ else:
                         try:
                             sh = conectar_google_sheets()
                             wks_gav = sh.worksheet("Gabaritos_Avaliacoes") 
-                            # MODIFICADO: Adicionado expected_headers para evitar erro de cabeçalho duplicado/vazio
-                            dados_gabaritos = wks_gav.get_all_records(expected_headers=expected_headers_gav)
+                            dados_gabaritos = wks_gav.get_all_records()
                             df_gabaritos = pd.DataFrame(dados_gabaritos)
                         except Exception as e:
                             df_gabaritos = pd.DataFrame()
@@ -2279,3 +2157,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
