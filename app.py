@@ -1248,11 +1248,106 @@ else:
                         """
                         st.markdown("### 🖨️ Pré-visualização")
                         st.components.v1.html(html_prova, height=600, scrolling=True)
-                        st.success(f"🎉 Avaliação e Cartão-Resposta com ID {str(id_prova_gerado).zfill(2)} Gerados com Sucesso!")
+                        # Salvar a avaliação no Google Sheets
+                        try:
+                            sh = conectar_google_sheets()
+                            try:
+                                wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
+                            except gspread.exceptions.WorksheetNotFound:
+                                wks_gav = sh.add_worksheet(title="Gabaritos_Avaliacoes", rows="1000", cols="8")
+                                wks_gav.append_row(["ID_Prova", "Disciplina", "Nota_Maxima", "Total_Questoes", "Gabarito_JSON", "Pesos_JSON", "Professor_Criador", "Data_Criacao"])
+
+                            gabarito_json = json.dumps(st.session_state['gabarito_oficial'])
+                            pesos_json = json.dumps(st.session_state['pesos_questoes'])
+
+                            nova_avaliacao = [
+                                str(id_prova_gerado).zfill(2),
+                                disciplina_sel_av,
+                                float(nota_maxima),
+                                int(num_questoes),
+                                gabarito_json,
+                                pesos_json,
+                                prof_nome,
+                                data_atual.strftime("%d/%m/%Y")
+                            ]
+                            wks_gav.append_row(nova_avaliacao)
+                            st.success(f"🎉 Avaliação e Cartão-Resposta com ID {str(id_prova_gerado).zfill(2)} Gerados e SALVOS com Sucesso!")
+                            st.cache_data.clear()
+                            time.sleep(1.5)
+                            st.rerun()
+
+                        except Exception as e:
+                            st.error(f"Erro ao salvar avaliação: {e}")
 
             elif aba_av_escolhida == "Ver avaliações":
                 st.subheader("🔍 Visualizar Avaliações Criadas")
-                st.info("Esta seção será desenvolvida para permitir a visualização e gerenciamento das avaliações que foram criadas e salvas no sistema.")
+                try:
+                    sh = conectar_google_sheets()
+                    try:
+                        wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
+                        dados_gabaritos = wks_gav.get_all_records()
+                        df_gabaritos = pd.DataFrame(dados_gabaritos)
+                    except gspread.exceptions.WorksheetNotFound:
+                        st.info("Nenhuma avaliação foi criada ainda.")
+                        df_gabaritos = pd.DataFrame()
+
+                    if not df_gabaritos.empty:
+                        st.dataframe(df_gabaritos[['ID_Prova', 'Disciplina', 'Nota_Maxima', 'Total_Questoes', 'Professor_Criador', 'Data_Criacao']], use_container_width=True, hide_index=True)
+
+                        st.divider()
+                        st.subheader("Detalhes da Avaliação e Gabarito")
+                        
+                        df_gabaritos['Display_Option'] = df_gabaritos.apply(lambda row: f"{row['ID_Prova']} - {row['Disciplina']} ({row['Data_Criacao']})", axis=1)
+                        
+                        selected_display_option = st.selectbox("Selecione uma avaliação para ver os detalhes:", [""] + df_gabaritos['Display_Option'].tolist())
+
+                        if selected_display_option:
+                            selected_row = df_gabaritos[df_gabaritos['Display_Option'] == selected_display_option].iloc[0]
+                            
+                            st.write(f"**ID da Prova:** {selected_row['ID_Prova']}")
+                            st.write(f"**Disciplina:** {selected_row['Disciplina']}")
+                            st.write(f"**Nota Máxima:** {selected_row['Nota_Maxima']}")
+                            st.write(f"**Total de Questões:** {selected_row['Total_Questoes']}")
+                            st.write(f"**Professor Criador:** {selected_row['Professor_Criador']}")
+                            st.write(f"**Data de Criação:** {selected_row['Data_Criacao']}")
+
+                            st.markdown("#### Gabarito Oficial")
+                            gabarito_dict = json.loads(selected_row['Gabarito_JSON'])
+                            pesos_dict = json.loads(selected_row['Pesos_JSON'])
+                            
+                            for q_num, correct_ans in gabarito_dict.items():
+                                st.write(f"Questão {q_num}: {correct_ans} ({pesos_dict.get(q_num, 0):.2f} pts)")
+                            
+                            if st.session_state.get('is_master_admin', False):
+                                st.divider()
+                                st.subheader("Ações Administrativas")
+                                if st.button(f"❌ Excluir Avaliação ID: {selected_row['ID_Prova']}", key=f"delete_av_{selected_row['ID_Prova']}"):
+                                    try:
+                                        all_sheet_values = wks_gav.get_all_values()
+                                        header = all_sheet_values[0]
+                                        data_rows = all_sheet_values[1:]
+                                        
+                                        row_to_delete_idx = -1
+                                        for i, row in enumerate(data_rows):
+                                            if row[header.index('ID_Prova')] == selected_row['ID_Prova']:
+                                                row_to_delete_idx = i + 2
+                                                break
+                                        
+                                        if row_to_delete_idx != -1:
+                                            wks_gav.delete_rows(row_to_delete_idx)
+                                            st.success(f"Avaliação ID {selected_row['ID_Prova']} excluída com sucesso!")
+                                            st.cache_data.clear()
+                                            time.sleep(1.5)
+                                            st.rerun()
+                                        else:
+                                            st.error("Erro: Avaliação não encontrada na planilha para exclusão.")
+                                    except Exception as e:
+                                        st.error(f"Erro ao excluir avaliação: {e}")
+                    else:
+                        st.info("Nenhuma avaliação cadastrada ainda.")
+
+                except Exception as e:
+                    st.error(f"Erro ao carregar avaliações: {e}")
             # --- SUB-ABA: CORREÇÃO DE AVALIAÇÕES ---
             elif aba_av_escolhida == "Correção":
                 st.subheader("📸 Leitura Automatizada e Correção por ID")
@@ -1281,9 +1376,13 @@ else:
                         # Carrega dinamicamente a base de dados de gabaritos para encontrar a prova correspondente ao ID
                         try:
                             sh = conectar_google_sheets()
-                            wks_gav = sh.worksheet("Gabaritos_Avaliacoes") 
-                            dados_gabaritos = wks_gav.get_all_records()
-                            df_gabaritos = pd.DataFrame(dados_gabaritos)
+                            try:
+                                wks_gav = sh.worksheet("Gabaritos_Avaliacoes") 
+                                dados_gabaritos = wks_gav.get_all_records()
+                                df_gabaritos = pd.DataFrame(dados_gabaritos)
+                            except gspread.exceptions.WorksheetNotFound:
+                                st.error("A planilha 'Gabaritos_Avaliacoes' não foi encontrada. Crie uma avaliação primeiro.")
+                                df_gabaritos = pd.DataFrame()
                         except Exception as e:
                             df_gabaritos = pd.DataFrame()
                             st.error(f"Erro ao conectar ao banco de dados: {e}")
