@@ -1255,11 +1255,12 @@ else:
                             try:
                                 wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
                             except gspread.exceptions.WorksheetNotFound:
-                                wks_gav = sh.add_worksheet(title="Gabaritos_Avaliacoes", rows="1000", cols="8")
-                                wks_gav.append_row(["ID_Prova", "Disciplina", "Nota_Maxima", "Total_Questoes", "Gabarito_JSON", "Pesos_JSON", "Professor_Criador", "Data_Criacao"])
+                                wks_gav = sh.add_worksheet(title="Gabaritos_Avaliacoes", rows="1000", cols="9")
+                                wks_gav.append_row(["ID_Prova", "Disciplina", "Nota_Maxima", "Total_Questoes", "Gabarito_JSON", "Pesos_JSON", "Professor_Criador", "Data_Criacao", "Questoes_Detalhes_JSON"])
 
                             gabarito_json = json.dumps(st.session_state['gabarito_oficial'])
                             pesos_json = json.dumps(st.session_state['pesos_questoes'])
+                            questoes_detalhes_json = json.dumps(questoes_dados) # Salva os detalhes completos das questões
 
                             nova_avaliacao = [
                                 str(id_prova_gerado).zfill(2),
@@ -1269,7 +1270,8 @@ else:
                                 gabarito_json,
                                 pesos_json,
                                 prof_nome,
-                                data_atual.strftime("%d/%m/%Y")
+                                data_atual.strftime("%d/%m/%Y"),
+                                questoes_detalhes_json # Adiciona os detalhes completos das questões
                             ]
                             wks_gav.append_row(nova_avaliacao)
                             st.success(f"🎉 Avaliação e Cartão-Resposta com ID {str(id_prova_gerado).zfill(2)} Gerados e SALVOS com Sucesso!")
@@ -1305,7 +1307,7 @@ else:
                             df_gabaritos = pd.DataFrame(data_rows, columns=cleaned_header)
                             
                             # Garante que as colunas essenciais existam, adicionando-as vazias se ausentes
-                            for col in ['Nota_Maxima', 'Total_Questoes', 'Professor_Criador', 'Gabarito_JSON', 'Pesos_JSON']:
+                            for col in ['Nota_Maxima', 'Total_Questoes', 'Professor_Criador', 'Gabarito_JSON', 'Pesos_JSON', 'Questoes_Detalhes_JSON']:
                                 if col not in df_gabaritos.columns:
                                     df_gabaritos[col] = ''
                         else:
@@ -1316,9 +1318,10 @@ else:
                         df_gabaritos = pd.DataFrame()
 
                     if not df_gabaritos.empty:
-                        # Limpa a coluna 'Gabarito_JSON' para evitar erros de decodificação JSON em células vazias
+                        # Limpa as colunas JSON para evitar erros de decodificação em células vazias
                         df_gabaritos['Gabarito_JSON'] = df_gabaritos['Gabarito_JSON'].apply(lambda x: '{}' if not str(x).strip() else x)
                         df_gabaritos['Pesos_JSON'] = df_gabaritos['Pesos_JSON'].apply(lambda x: '{}' if not str(x).strip() else x)
+                        df_gabaritos['Questoes_Detalhes_JSON'] = df_gabaritos['Questoes_Detalhes_JSON'].apply(lambda x: '[]' if not str(x).strip() else x)
 
                         st.dataframe(df_gabaritos[['ID_Prova', 'Disciplina', 'Nota_Maxima', 'Total_Questoes', 'Professor_Criador', 'Data_Criacao']], use_container_width=True, hide_index=True)
 
@@ -1339,12 +1342,18 @@ else:
                             st.write(f"**Professor Criador:** {selected_row['Professor_Criador']}")
                             st.write(f"**Data de Criação:** {selected_row['Data_Criacao']}")
 
-                            st.markdown("#### Gabarito Oficial")
-                            gabarito_dict = json.loads(selected_row['Gabarito_JSON'])
-                            pesos_dict = json.loads(selected_row['Pesos_JSON'])
+                            st.markdown("#### Questões e Gabarito Oficial")
+                            questoes_detalhes = json.loads(selected_row['Questoes_Detalhes_JSON'])
                             
-                            for q_num, correct_ans in gabarito_dict.items():
-                                st.write(f"Questão {q_num}: {correct_ans} ({pesos_dict.get(q_num, 0):.2f} pts)")
+                            for q in questoes_detalhes:
+                                st.markdown(f"##### Questão {q['numero']} ({float(q['valor']):.2f} pts)")
+                                st.write(f"**Enunciado:** {q['enunciado']}")
+                                st.write(f"**A)** {q['A']}")
+                                st.write(f"**B)** {q['B']}")
+                                st.write(f"**C)** {q['C']}")
+                                st.write(f"**D)** {q['D']}")
+                                st.success(f"**Resposta Correta:** {q['correta']}")
+                                st.markdown("---")
                             
                             if st.session_state.get('is_master_admin', False):
                                 st.divider()
@@ -2322,6 +2331,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
