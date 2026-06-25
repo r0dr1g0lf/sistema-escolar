@@ -1000,46 +1000,39 @@ else:
             st.session_state['historico_correcoes'] = []
 
         # Captura dinamicamente o nome do professor logado para o cabeçalho
-        if 'user_data' in st.session_state and st.session_state.user_data.get('Professor'):
-            nome_professor_cabecalho = st.session_state.user_data.get('Professor')
+        if 'user_data' in st.session_state and st.session_state.user_data.get('Nome'):
+            nome_professor_cabecalho = st.session_state.user_data.get('Nome')
         else:
             nome_professor_cabecalho = st.session_state.get('username', 'Administrador')
 
-        st.title("📝 Sistema de Gestão de Avaliações")
-
-        # Define as opções do rádio com base no status de administrador
-        radio_options = ["Ver avaliações", "Histórico de Notas"]
-        if st.session_state.get('is_master_admin', False):
-            radio_options.insert(0, "Correção")
-            radio_options.insert(0, "Criar")
-
-        aba_av_escolhida = st.radio("Selecione a ação desejada:", radio_options, horizontal=True)
-        st.markdown("---")
+        # SE NÃO FOR ADMIN MASTER: Mostra apenas a mensagem de em construção
+        if not st.session_state.get('is_master_admin', False):
+            st.title("📝 Sistema de Gestão de Avaliações")
+            st.warning("🚧 **Esta função está em desenvolvimento!** Brevemente, professores e administradores poderão criar e corrigir avaliações de forma automatizada por aqui. Fique atento às novidades!")
             
-        if aba_av_escolhida == "Criar":
-            # SE NÃO FOR ADMIN MASTER: Mostra apenas a mensagem de em construção
-            if not st.session_state.get('is_master_admin', False):
-                st.warning("🚧 **Esta função está em desenvolvimento!** Brevemente, professores e administradores poderão criar e corrigir avaliações de forma automatizada por aqui. Fique atento às novidades!")
-                if st.button("Voltar para o Início", use_container_width=True):
-                    st.session_state.pagina = "Registro"
-                    st.rerun()
-            else:
+            if st.button("Voltar para o Início", use_container_width=True):
+                st.session_state.pagina = "Registro"
+                st.rerun()
+                
+        # SE FOR ADMIN MASTER: Carrega o sistema completo de forma segura
+        else:
+            st.title("📝 Sistema de Gestão de Avaliações")
+            aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Correção", "Histórico de Notas"], horizontal=True)
+            st.markdown("---")
+            
+            if aba_av_escolhida == "Criar":
                 st.subheader("✨ Elaborar Nova Avaliação e Gabarito")
                 
-                if 'user_data' in st.session_state and st.session_state.user_data.get('Disciplinas'):
-                    discs_vinc_prof = str(st.session_state.user_data.get('Disciplinas', "")).split(", ")
-                    disciplinas_av = sorted([d.strip() for d in discs_vinc_prof if d.strip()])
-                    if disciplinas_av:
-                        st.success(f"📚 Disciplinas identificadas pelo seu perfil: **{', '.join(disciplinas_av)}**")
-                    else:
-                        st.warning("⚠️ Nenhuma disciplina vinculada ao seu perfil. Por favor, contate o administrador.")
-                        disciplinas_av = ["Nenhuma disciplina vinculada"] # Prevent empty selectbox
+                if 'user_data' in st.session_state and st.session_state.user_data.get('Disciplina'):
+                    disc_professor = st.session_state.user_data.get('Disciplina')
+                    disciplinas_av = [disc_professor]
+                    st.success(f"📚 Disciplina identificada pelo seu perfil: **{disc_professor}**")
                 else:
                     disciplinas_av = sorted(df_discs['Disciplina'].unique().astype(str)) if not df_discs.empty else ["Geografia", "História", "Português", "Matemática"]
                 
                 col_cfg1, col_cfg2 = st.columns(2)
                 with col_cfg1:
-                    disciplina_sel_av = st.selectbox("Selecione a Disciplina correspondente", disciplinas_av, key="disciplina_sel_av", disabled=(not disciplinas_av or disciplinas_av == ["Nenhuma disciplina vinculada"]))
+                    disciplina_sel_av = st.selectbox("Selecione a Disciplina correspondente", disciplinas_av, key="disciplina_sel_av")
                     nota_maxima = st.number_input("Defina a Nota Máxima da Avaliação:", min_value=1.0, max_value=100.0, value=10.0, step=0.5)
                 with col_cfg2:
                     num_questoes = st.number_input("Quantidade Total de Questões:", min_value=1, max_value=20, value=5, step=1)
@@ -1094,26 +1087,6 @@ else:
                     else:
                         import random
                         id_prova_gerado = random.randint(1, 99)
-                        
-                        # NEW: Check for duplicate ID and regenerate if necessary
-                        try:
-                            sh = conectar_google_sheets()
-                            wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
-                            existing_ids_raw = wks_gav.col_values(1) # Get all values from column 1 (ID_Prova)
-                            existing_ids = [str(i).strip() for i in existing_ids_raw[1:]] # Skip header, convert to string, strip
-                            
-                            original_id_generated = id_prova_gerado
-                            while str(id_prova_gerado) in existing_ids:
-                                id_prova_gerado = random.randint(1, 99)
-                                if id_prova_gerado == original_id_generated: # Avoid infinite loop if all 99 IDs are taken and we loop back to original
-                                    st.warning("Todos os IDs de prova de 1 a 99 foram usados. Reutilizando IDs antigos.")
-                                    break # Exit loop, might reuse an ID if all are taken
-                        except WorksheetNotFound:
-                            # If worksheet doesn't exist, no IDs to check against yet
-                            pass
-                        except Exception as e:
-                            st.warning(f"Erro ao verificar IDs existentes: {e}. Prosseguindo com ID gerado.")
-
                         id_dezena = id_prova_gerado // 10
                         id_unidade = id_prova_gerado % 10
                         
@@ -1275,148 +1248,59 @@ else:
                         """
                         st.markdown("### 🖨️ Pré-visualização")
                         st.components.v1.html(html_prova, height=600, scrolling=True)
-                        
-                        # NEW: Save to Google Sheets
-                        try:
-                            sh = conectar_google_sheets()
-                            try:
-                                wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
-                            except WorksheetNotFound:
-                                wks_gav = sh.add_worksheet(title="Gabaritos_Avaliacoes", rows="1000", cols="8")
-                                wks_gav.append_row(["ID_Prova", "Disciplina", "Professor", "Data_Criacao", "Nota_Maxima", "Total_Questoes", "Gabarito_JSON", "Pesos_JSON"])
-                            
-                            nova_linha_gabarito = [
-                                str(id_prova_gerado),
-                                disciplina_sel_av,
-                                nome_professor_cabecalho,
-                                datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
-                                float(nota_maxima),
-                                int(num_questoes),
-                                json.dumps(st.session_state['gabarito_oficial']), # Store as JSON string
-                                json.dumps(st.session_state['pesos_questoes'])    # Store as JSON string
-                            ]
-                            wks_gav.append_row(nova_linha_gabarito)
-                            st.success(f"🎉 Avaliação e Cartão-Resposta com ID {str(id_prova_gerado).zfill(2)} Gerados e Salvos com Sucesso!")
-                            st.cache_data.clear() # Clear cache to ensure new data is loaded
-                        except Exception as e:
-                            st.error(f"Erro ao salvar gabarito no Google Sheets: {e}")
+                        st.success(f"🎉 Avaliação e Cartão-Resposta com ID {str(id_prova_gerado).zfill(2)} Gerados com Sucesso!")
 
             # --- SUB-ABA: CORREÇÃO DE AVALIAÇÕES ---
             elif aba_av_escolhida == "Correção":
-                # SE NÃO FOR ADMIN MASTER: Mostra apenas a mensagem de em construção
-                if not st.session_state.get('is_master_admin', False):
-                    st.warning("🚧 **Esta função está em desenvolvimento!** Brevemente, professores e administradores poderão criar e corrigir avaliações de forma automatizada por aqui. Fique atento às novidades!")
-                    if st.button("Voltar para o Início", use_container_width=True):
-                        st.session_state.pagina = "Registro"
-                        st.rerun()
-                else:
-                    st.subheader("📸 Leitura Automatizada e Correção por ID")
-                    st.write("Aponte o cartão-resposta para a câmera ou bipe/digite o ID da avaliação.")
+                st.subheader("📸 Leitura Automatizada e Correção por ID")
+                st.write("Aponte o cartão-resposta para a câmera ou bipe/digite o ID da avaliação.")
+                
+                # Campo para receber o ID bipado via leitor de código de barras/digitado de forma rápida
+                id_detectado = st.text_input("🔢 ID da Avaliação (Bipado ou Detectado):", key="id_prova_bipado", placeholder="Ex: 1001")
+                
+                # Abre a câmera imediatamente em tela para captura
+                img_file = st.camera_input("Capturar Cartão Resposta", key="camera_correcao_automatica")
+                
+                # Estrutura lógica de processamento
+                if img_file is not None or id_detectado:
+                    st.info("🔄 Processando dados da avaliação...")
                     
-                    # Campo para receber o ID bipado via leitor de código de barras/digitado de forma rápida
-                    id_detectado = st.text_input("🔢 ID da Avaliação (Bipado ou Detectado):", key="id_prova_bipado", placeholder="Ex: 1001")
-                    
-                    # Abre a câmera imediatamente em tela para captura
-                    img_file = st.camera_input("Capturar Cartão Resposta", key="camera_correcao_automatica")
-                    
-                    # Estrutura lógica de processamento
-                    if img_file is not None or id_detectado:
-                        st.info("🔄 Processando dados da avaliação...")
-                        
-                        # Se uma imagem foi capturada e o ID ainda não foi digitado, tentamos extrair o ID da prova do cabeçalho
-                        if img_file is not None and not id_detectado:
-                            # [Lógica do OpenCV/ZBar ou processamento de imagem para ler as bolinhas de ID ou QR Code]
-                            # Exemplo fictício da variável que seu leitor extrai da imagem:
-                            # id_detectado = extrair_id_da_imagem(img_file)
-                            pass
+                    # Se uma imagem foi capturada e o ID ainda não foi digitado, tentamos extrair o ID da prova do cabeçalho
+                    if img_file is not None and not id_detectado:
+                        # [Lógica do OpenCV/ZBar ou processamento de imagem para ler as bolinhas de ID ou QR Code]
+                        # Exemplo fictício da variável que seu leitor extrai da imagem:
+                        # id_detectado = extrair_id_da_imagem(img_file)
+                        pass
 
-                        if not id_detectado:
-                            st.warning("⚠️ Não foi possível identificar o ID da prova automaticamente na imagem. Digite o ID no campo acima para prosseguir.")
-                        else:
-                            # Carrega dinamicamente a base de dados de gabaritos para encontrar a prova correspondente ao ID
-                            try:
-                                sh = conectar_google_sheets()
-                                wks_gav = sh.worksheet("Gabaritos_Avaliacoes") 
-                                dados_gabaritos = wks_gav.get_all_records()
-                                df_gabaritos = pd.DataFrame(dados_gabaritos)
-                            except Exception as e:
-                                df_gabaritos = pd.DataFrame()
-                                st.error(f"Erro ao conectar ao banco de dados: {e}")
+                    if not id_detectado:
+                        st.warning("⚠️ Não foi possível identificar o ID da prova automaticamente na imagem. Digite o ID no campo acima para prosseguir.")
+                    else:
+                        # Carrega dinamicamente a base de dados de gabaritos para encontrar a prova correspondente ao ID
+                        try:
+                            sh = conectar_google_sheets()
+                            wks_gav = sh.worksheet("Gabaritos_Avaliacoes") 
+                            dados_gabaritos = wks_gav.get_all_records()
+                            df_gabaritos = pd.DataFrame(dados_gabaritos)
+                        except Exception as e:
+                            df_gabaritos = pd.DataFrame()
+                            st.error(f"Erro ao conectar ao banco de dados: {e}")
 
-                            if not df_gabaritos.empty:
-                                # Garante que a comparação seja feita como string limpa
-                                df_gabaritos['ID_Prova'] = df_gabaritos['ID_Prova'].astype(str).str.strip()
-                                prova_alvo = df_gabaritos[df_gabaritos['ID_Prova'] == str(id_detectado).strip()]
-                                
-                                if prova_alvo.empty:
-                                    st.error(f"❌ Nenhuma avaliação com o ID '{id_detectado}' foi localizada no banco de dados.")
-                                else:
-                                    dados_da_prova = prova_alvo.iloc[0]
-                                    st.success(f"🎯 Prova Identificada com Sucesso! | Disciplina: {dados_da_prova.get('Disciplina')} | Turma: {dados_da_prova.get('Turma')}")
-                                    
-                                    # --- DAQUI PARA BAIXO O SISTEMA CONTINUA A PROCESSAR AS RESPOSTAS DO CARTÃO ---
-                                    st.write("Analisando respostas do aluno...")
-                                    
-                                    # Aqui o seu código OpenCV existente roda usando os dados_da_prova['Gabarito'] 
-                                    # para calcular a nota e salvar o resultado automaticamente...
-
-            # --- NOVO: SUB-ABA PARA VISUALIZAR AVALIAÇÕES CRIADAS ---
-            elif aba_av_escolhida == "Ver avaliações":
-                st.subheader("📚 Avaliações Criadas e Gabaritos")
-                st.write("Consulte as avaliações e seus gabaritos registrados no sistema.")
-
-                try:
-                    sh = conectar_google_sheets()
-                    wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
-                    dados_gabaritos = wks_gav.get_all_records()
-
-                    if dados_gabaritos:
-                        df_gabaritos_all = pd.DataFrame(dados_gabaritos)
-                        
-                        # Filter for non-master admins
-                        if not st.session_state.get('is_master_admin', False):
-                            df_gabaritos_filtered = df_gabaritos_all[df_gabaritos_all['Professor'] == nome_professor_cabecalho]
-                            if df_gabaritos_filtered.empty:
-                                st.info("Você ainda não criou nenhuma avaliação. Use a aba 'Criar' para elaborar e salvar novas avaliações.")
-                                # st.stop() # Removed st.stop() to allow other elements to render if any
-                        else:
-                            df_gabaritos_filtered = df_gabaritos_all
-                        
-                        if not df_gabaritos_filtered.empty:
-                            # Select and rename columns for display
-                            df_display = df_gabaritos_filtered[[
-                                'ID_Prova', 'Disciplina', 'Professor', 'Data_Criacao', 'Nota_Maxima', 'Total_Questoes'
-                            ]].copy()
+                        if not df_gabaritos.empty:
+                            # Garante que a comparação seja feita como string limpa
+                            df_gabaritos['ID_Prova'] = df_gabaritos['ID_Prova'].astype(str).str.strip()
+                            prova_alvo = df_gabaritos[df_gabaritos['ID_Prova'] == str(id_detectado).strip()]
                             
-                            df_display.rename(columns={
-                                'ID_Prova': 'ID da Prova',
-                                'Data_Criacao': 'Data de Criação',
-                                'Nota_Maxima': 'Nota Máxima',
-                                'Total_Questoes': 'Total de Questões'
-                            }, inplace=True)
-
-                            st.dataframe(df_display, use_container_width=True, hide_index=True)
-
-                            # Download button
-                            output_gav = io.BytesIO()
-                            with pd.ExcelWriter(output_gav, engine='xlsxwriter') as writer:
-                                df_display.to_excel(writer, index=False, sheet_name='Gabaritos')
-                            processed_data_gav = output_gav.getvalue()
-
-                            st.download_button(
-                                label="📥 Baixar Lista de Avaliações (Excel)",
-                                data=processed_data_gav,
-                                file_name=f'Avaliacoes_Gabaritos_{datetime.now(fuso_roraima).strftime("%Y%m%d_%H%M")}.xlsx',
-                                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                                use_container_width=True
-                            )
-                        else:
-                            st.info("Nenhuma avaliação corresponde ao seu perfil ou filtro atual.")
-
-                except WorksheetNotFound:
-                    st.info("A planilha de gabaritos 'Gabaritos_Avaliacoes' ainda não existe. Crie sua primeira avaliação na aba 'Criar' para que ela seja gerada.")
-                except Exception as e:
-                    st.error(f"Erro ao carregar avaliações: {e}")
+                            if prova_alvo.empty:
+                                st.error(f"❌ Nenhuma avaliação com o ID '{id_detectado}' foi localizada no banco de dados.")
+                            else:
+                                dados_da_prova = prova_alvo.iloc[0]
+                                st.success(f"🎯 Prova Identificada com Sucesso! | Disciplina: {dados_da_prova.get('Disciplina')} | Turma: {dados_da_prova.get('Turma')}")
+                                
+                                # --- DAQUI PARA BAIXO O SISTEMA CONTINUA A PROCESSAR AS RESPOSTAS DO CARTÃO ---
+                                st.write("Analisando respostas do aluno...")
+                                
+                                # Aqui o seu código OpenCV existente roda usando os dados_da_prova['Gabarito'] 
+                                # para calcular a nota e salvar o resultado automaticamente...
 
             elif aba_av_escolhida == "Histórico de Notas":
                 st.subheader("📋 Histórico Completo de Provas Corrigidas")
@@ -2273,3 +2157,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
