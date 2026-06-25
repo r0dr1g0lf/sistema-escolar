@@ -1017,7 +1017,7 @@ else:
         # SE FOR ADMIN MASTER: Carrega o sistema completo de forma segura
         else:
             st.title("📝 Sistema de Gestão de Avaliações")
-            aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Correção", "Histórico de Notas"], horizontal=True)
+            aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Ver avaliações", "Correção", "Histórico de Notas"], horizontal=True)
             st.markdown("---")
             
             if aba_av_escolhida == "Criar":
@@ -1250,6 +1250,9 @@ else:
                         st.components.v1.html(html_prova, height=600, scrolling=True)
                         st.success(f"🎉 Avaliação e Cartão-Resposta com ID {str(id_prova_gerado).zfill(2)} Gerados com Sucesso!")
 
+            elif aba_av_escolhida == "Ver avaliações":
+                st.subheader("🔍 Visualizar Avaliações Criadas")
+                st.info("Esta seção será desenvolvida para permitir a visualização e gerenciamento das avaliações que foram criadas e salvas no sistema.")
             # --- SUB-ABA: CORREÇÃO DE AVALIAÇÕES ---
             elif aba_av_escolhida == "Correção":
                 st.subheader("📸 Leitura Automatizada e Correção por ID")
@@ -2157,4 +2160,3 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
