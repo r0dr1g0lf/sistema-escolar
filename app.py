@@ -1303,6 +1303,11 @@ else:
                             
                             data_rows = all_values[1:]
                             df_gabaritos = pd.DataFrame(data_rows, columns=cleaned_header)
+                            
+                            # Garante que as colunas essenciais existam, adicionando-as vazias se ausentes
+                            for col in ['Nota_Maxima', 'Total_Questoes', 'Professor_Criador']:
+                                if col not in df_gabaritos.columns:
+                                    df_gabaritos[col] = ''
                         else:
                             st.info("Nenhuma avaliação foi criada ainda.")
                             df_gabaritos = pd.DataFrame()
