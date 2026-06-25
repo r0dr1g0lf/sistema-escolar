@@ -1371,6 +1371,41 @@ else:
                                             st.error("Erro: Avaliação não encontrada na planilha para exclusão.")
                                     except Exception as e:
                                         st.error(f"Erro ao excluir avaliação: {e}")
+
+                                st.markdown("---")
+                                st.subheader("Exclusão em Massa")
+                                st.warning(f"⚠️ Esta ação excluirá TODAS as avaliações criadas por **{prof_nome}**.")
+                                if st.button(f"🚨 EXCLUIR TODAS AS MINHAS AVALIAÇÕES ({prof_nome})", key="delete_all_my_evals", type="primary"):
+                                    try:
+                                        sh = conectar_google_sheets()
+                                        wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
+                                        all_sheet_values = wks_gav.get_all_values()
+                                        header = all_sheet_values[0]
+                                        data_rows = all_sheet_values[1:]
+
+                                        prof_criador_col_idx = -1
+                                        try:
+                                            prof_criador_col_idx = header.index('Professor_Criador')
+                                        except ValueError:
+                                            st.error("Coluna 'Professor_Criador' não encontrada na planilha de gabaritos.")
+                                            st.stop()
+
+                                        rows_to_delete_indices = []
+                                        for i, row in enumerate(data_rows):
+                                            if len(row) > prof_criador_col_idx and row[prof_criador_col_idx] == prof_nome:
+                                                rows_to_delete_indices.append(i + 2)
+
+                                        if rows_to_delete_indices:
+                                            for row_idx in sorted(rows_to_delete_indices, reverse=True):
+                                                wks_gav.delete_rows(row_idx)
+                                            st.success(f"✅ Todas as {len(rows_to_delete_indices)} avaliações criadas por {prof_nome} foram excluídas com sucesso!")
+                                            st.cache_data.clear()
+                                            time.sleep(1.5)
+                                            st.rerun()
+                                        else:
+                                            st.info(f"Nenhuma avaliação encontrada criada por {prof_nome} para exclusão.")
+                                    except Exception as e:
+                                        st.error(f"Erro ao excluir avaliações em massa: {e}")
                     else:
                         st.info("Nenhuma avaliação cadastrada ainda.")
 
@@ -2287,6 +2322,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
