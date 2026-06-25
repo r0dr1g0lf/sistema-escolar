@@ -1316,6 +1316,10 @@ else:
                         df_gabaritos = pd.DataFrame()
 
                     if not df_gabaritos.empty:
+                        # Limpa a coluna 'Gabarito_JSON' para evitar erros de decodificação JSON em células vazias
+                        df_gabaritos['Gabarito_JSON'] = df_gabaritos['Gabarito_JSON'].apply(lambda x: '{}' if not str(x).strip() else x)
+                        df_gabaritos['Pesos_JSON'] = df_gabaritos['Pesos_JSON'].apply(lambda x: '{}' if not str(x).strip() else x)
+
                         st.dataframe(df_gabaritos[['ID_Prova', 'Disciplina', 'Nota_Maxima', 'Total_Questoes', 'Professor_Criador', 'Data_Criacao']], use_container_width=True, hide_index=True)
 
                         st.divider()
@@ -2283,6 +2287,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
