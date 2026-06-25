@@ -6,6 +6,7 @@ from google.oauth2.service_account import Credentials
 import time
 import io
 import pytz
+import json
 
 # Configuração do fuso horário correto de Roraima
 fuso_roraima = pytz.timezone('America/Boa_Vista')
