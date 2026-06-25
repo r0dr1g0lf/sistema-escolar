@@ -56,6 +56,82 @@ def carregar_agendamentos():
     except Exception as e:
         return pd.DataFrame(), None
 
+@st.cache_data(ttl=120)
+def carregar_gabaritos_planilha():
+    try:
+        sh = conectar_google_sheets()
+        try:
+            wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
+            all_values = wks_gav.get_all_values()
+            if not all_values:
+                return pd.DataFrame(columns=['ID_Prova', 'Disciplina', 'Nota_Maxima', 'Total_Questoes', 
+                                             'Gabarito_JSON', 'Pesos_JSON', 'Professor_Criador', 
+                                             'Data_Criacao', 'Questoes_Detalhes_JSON'])
+            
+            header = [h.strip() for h in all_values[0]]
+            data_rows = all_values[1:]
+            
+            df_gabaritos = pd.DataFrame(data_rows, columns=header)
+            
+            # Garante que as colunas essenciais existam, adicionando-as vazias se ausentes
+            required_cols = ['ID_Prova', 'Disciplina', 'Nota_Maxima', 'Total_Questoes', 
+                             'Gabarito_JSON', 'Pesos_JSON', 'Professor_Criador', 
+                             'Data_Criacao', 'Questoes_Detalhes_JSON']
+            for col in required_cols:
+                if col not in df_gabaritos.columns:
+                    df_gabaritos[col] = '' # Adiciona como string vazia
+            
+            return df_gabaritos
+        except gspread.exceptions.WorksheetNotFound:
+            # Se a aba não existir, retorna um DataFrame vazio com as colunas esperadas
+            return pd.DataFrame(columns=['ID_Prova', 'Disciplina', 'Nota_Maxima', 'Total_Questoes', 
+                                         'Gabarito_JSON', 'Pesos_JSON', 'Professor_Criador', 
+                                         'Data_Criacao', 'Questoes_Detalhes_JSON'])
+    except Exception as e:
+        st.error(f"Erro ao carregar gabaritos da planilha: {e}")
+        return pd.DataFrame()
+
+def excluir_todas_minhas_avaliacoes(professor_logado):
+    try:
+        # Carrega todos os gabaritos
+        df_gabaritos = carregar_gabaritos_planilha()
+        
+        if df_gabaritos.empty:
+            st.info(f"Nenhuma avaliação encontrada criada por {professor_logado} para exclusão.")
+            return
+
+        # Filtra as linhas onde Professor_Criador é diferente do professor_logado
+        df_remaining = df_gabaritos[df_gabaritos['Professor_Criador'] != professor_logado]
+        
+        sh = conectar_google_sheets()
+        wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
+        
+        # Obtém o cabeçalho original
+        original_header = wks_gav.row_values(1)
+        
+        # Limpa toda a planilha
+        wks_gav.clear()
+        
+        # Escreve o cabeçalho original de volta
+        wks_gav.append_row(original_header)
+        
+        # Adiciona os dados restantes (que não foram criados pelo professor logado)
+        if not df_remaining.empty:
+            # Garante que as colunas correspondam à ordem do cabeçalho original
+            df_remaining_ordered = df_remaining[original_header]
+            wks_gav.append_rows(df_remaining_ordered.values.tolist())
+            
+        st.success(f"✅ Todas as avaliações criadas por {professor_logado} foram excluídas com sucesso!")
+        st.cache_data.clear()
+        st.session_state['necessita_recarga'] = True # Flag para recarregar
+        time.sleep(1.5)
+        st.rerun()
+        
+    except gspread.exceptions.WorksheetNotFound:
+        st.info("A planilha 'Gabaritos_Avaliacoes' não existe ou está vazia. Nenhuma avaliação para excluir.")
+    except Exception as e:
+        st.error(f"Erro ao excluir avaliações em massa: {e}")
+
 def verificar_conflito(equipamento, data_uso, turno, horario):
     df_ag, _ = carregar_agendamentos()
     if df_ag.empty:
@@ -2331,14 +2407,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
-
-
-
-
-
-
-
-
 
