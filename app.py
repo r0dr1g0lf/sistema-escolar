@@ -1286,8 +1286,26 @@ else:
                     sh = conectar_google_sheets()
                     try:
                         wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
-                        dados_gabaritos = wks_gav.get_all_records()
-                        df_gabaritos = pd.DataFrame(dados_gabaritos)
+                        all_values = wks_gav.get_all_values()
+                        if len(all_values) > 0:
+                            header = [h.strip() for h in all_values[0]]
+                            cleaned_header = []
+                            seen_headers = {}
+                            for i, h in enumerate(header):
+                                if not h:
+                                    h = f"Unnamed_Col_{i}"
+                                if h in seen_headers:
+                                    seen_headers[h] += 1
+                                    h = f"{h}_{seen_headers[h]}"
+                                else:
+                                    seen_headers[h] = 0
+                                cleaned_header.append(h)
+                            
+                            data_rows = all_values[1:]
+                            df_gabaritos = pd.DataFrame(data_rows, columns=cleaned_header)
+                        else:
+                            st.info("Nenhuma avaliação foi criada ainda.")
+                            df_gabaritos = pd.DataFrame()
                     except gspread.exceptions.WorksheetNotFound:
                         st.info("Nenhuma avaliação foi criada ainda.")
                         df_gabaritos = pd.DataFrame()
