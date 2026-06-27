@@ -57,58 +57,60 @@ def carregar_agendamentos():
         return pd.DataFrame(), None
 
 # Nova constante para as colunas obrigatórias na aba 'Gabaritos'
-REQUIRED_GABARITOS_COLS = ['ID_Avaliacao', 'Disciplina', 'Nota_Maxima', 'Total_Questoes', 'Conteudo_Gabarito', 'Professor_Criador', 'Data_Criacao']
+REQUIRED_GABARITOS_COLS = ['ID_Prova', 'Disciplina', 'Nota_Maxima', 'Total_Questoes', 'Professor_Criador', 'Data_Criacao', 'Gabarito_JSON']
+
+def inicializar_aba_gabaritos():
+    try:
+        sh = conectar_google_sheets()
+        try:
+            wks_gav = sh.worksheet("Gabaritos")
+            # Limpa toda a aba
+            wks_gav.clear()
+        except gspread.exceptions.WorksheetNotFound:
+            # Se a aba não existir, cria-a
+            wks_gav = sh.add_worksheet(title="Gabaritos", rows="1000", cols=len(REQUIRED_GABARITOS_COLS))
+        
+        # Insere o cabeçalho correto na primeira linha
+        wks_gav.append_row(REQUIRED_GABARITOS_COLS)
+        st.success("Aba 'Gabaritos' inicializada/resetada com o cabeçalho padrão.")
+        st.cache_data.clear() # Limpa o cache para garantir que a próxima leitura pegue o novo cabeçalho
+    except Exception as e:
+        st.error(f"Erro ao inicializar a aba 'Gabaritos': {e}")
 
 @st.cache_data(ttl=120)
 def carregar_gabaritos_planilha():
     try:
         sh = conectar_google_sheets()
         try:
-            wks_gav = sh.worksheet("Gabaritos") # Alterado o nome da aba para "Gabaritos"
+            wks_gav = sh.worksheet("Gabaritos")
             all_values = wks_gav.get_all_values()
-            if not all_values:
-                # Se a aba estiver vazia, retorna um DataFrame com as colunas obrigatórias
+            if not all_values or len(all_values[0]) != len(REQUIRED_GABARITOS_COLS) or all_values[0] != REQUIRED_GABARITOS_COLS:
+                # Se a aba estiver vazia ou o cabeçalho estiver incorreto, re-inicializa
+                inicializar_aba_gabaritos()
+                # Após re-inicialização, recarrega os valores
+                wks_gav = sh.worksheet("Gabaritos") # Re-obtém a worksheet após potencial recriação
+                all_values = wks_gav.get_all_values()
+                
+            if not all_values or len(all_values) == 1: # Apenas a linha de cabeçalho existe
                 return pd.DataFrame(columns=REQUIRED_GABARITOS_COLS)
             
-            header = [h.strip() for h in all_values[0]] # Limpa os cabeçalhos
+            header = all_values[0] # Deve ser REQUIRED_GABARITOS_COLS agora
             data_rows = all_values[1:]
             
             df_gabaritos = pd.DataFrame(data_rows, columns=header)
             
-            # Garante que todas as colunas obrigatórias existam, adicionando-as se ausentes
+            # Garante que todas as colunas obrigatórias existam (deve ser garantido pela inicialização, mas para robustez)
             for col in REQUIRED_GABARITOS_COLS:
                 if col not in df_gabaritos.columns:
-                    df_gabaritos[col] = '' # Adiciona como string vazia
+                    df_gabaritos[col] = ''
             
-            # Renomeia colunas antigas para as novas se existirem, para compatibilidade
-            if 'ID_Prova' in df_gabaritos.columns and 'ID_Avaliacao' not in df_gabaritos.columns:
-                df_gabaritos.rename(columns={'ID_Prova': 'ID_Avaliacao'}, inplace=True)
-            
-            # Consolida colunas JSON antigas em 'Conteudo_Gabarito' se existirem e 'Conteudo_Gabarito' estiver vazio
-            if ('Gabarito_JSON' in df_gabaritos.columns or 'Pesos_JSON' in df_gabaritos.columns or 'Questoes_Detalhes_JSON' in df_gabaritos.columns) and 'Conteudo_Gabarito' in df_gabaritos.columns:
-                for index, row in df_gabaritos.iterrows():
-                    if not str(row['Conteudo_Gabarito']).strip(): # Apenas se Conteudo_Gabarito estiver vazio
-                        content_dict = {}
-                        if 'Gabarito_JSON' in df_gabaritos.columns and str(row['Gabarito_JSON']).strip():
-                            try: content_dict['gabarito'] = json.loads(str(row['Gabarito_JSON']))
-                            except json.JSONDecodeError: pass
-                        if 'Pesos_JSON' in df_gabaritos.columns and str(row['Pesos_JSON']).strip():
-                            try: content_dict['pesos'] = json.loads(str(row['Pesos_JSON']))
-                            except json.JSONDecodeError: pass
-                        if 'Questoes_Detalhes_JSON' in df_gabaritos.columns and str(row['Questoes_Detalhes_JSON']).strip():
-                            try: content_dict['detalhes'] = json.loads(str(row['Questoes_Detalhes_JSON']))
-                            except json.JSONDecodeError: pass
-                        if content_dict:
-                            df_gabaritos.at[index, 'Conteudo_Gabarito'] = json.dumps(content_dict)
-            
-            # Remove as colunas JSON antigas após a consolidação (se existirem)
-            df_gabaritos.drop(columns=['Gabarito_JSON', 'Pesos_JSON', 'Questoes_Detalhes_JSON'], errors='ignore', inplace=True)
+            # Nenhuma lógica de consolidação ou renomeação de colunas antigas é necessária com a nova estrutura
             
             return df_gabaritos
         except gspread.exceptions.WorksheetNotFound:
-            # Se a aba não existir, cria-a com o cabeçalho correto
-            wks_gav = sh.add_worksheet(title="Gabaritos", rows="1000", cols=len(REQUIRED_GABARITOS_COLS))
-            wks_gav.append_row(REQUIRED_GABARITOS_COLS)
+            # Se a aba não existir, inicializa-a
+            inicializar_aba_gabaritos()
+            # Após a inicialização, ela conterá apenas o cabeçalho, então retorna um DataFrame vazio
             return pd.DataFrame(columns=REQUIRED_GABARITOS_COLS)
     except Exception as e:
         st.error(f"Erro ao carregar gabaritos da planilha: {e}")
@@ -128,10 +130,10 @@ def excluir_todas_minhas_avaliacoes(professor_logado):
         df_remaining = df_gabaritos[df_gabaritos['Professor_Criador'] != professor_logado]
         
         sh = conectar_google_sheets()
-        wks_gav = sh.worksheet("Gabaritos") # Alterado o nome da aba para "Gabaritos"
+        wks_gav = sh.worksheet("Gabaritos") # Nome da aba correto
         
-        # Obtém o cabeçalho atual da planilha (que deve ser o REQUIRED_GABARITOS_COLS)
-        original_header = wks_gav.row_values(1)
+        # O cabeçalho deve ser o REQUIRED_GABARITOS_COLS
+        original_header = REQUIRED_GABARITOS_COLS # Usa a constante diretamente
         
         # Limpa toda a planilha
         wks_gav.clear()
@@ -153,7 +155,7 @@ def excluir_todas_minhas_avaliacoes(professor_logado):
         st.rerun()
         
     except gspread.exceptions.WorksheetNotFound:
-        st.info("A planilha 'Gabaritos' não existe ou está vazia. Nenhuma avaliação para excluir.") # Alterado o nome da aba
+        st.info("A planilha 'Gabaritos' não existe ou está vazia. Nenhuma avaliação para excluir.")
     except Exception as e:
         st.error(f"Erro ao excluir avaliações em massa: {e}")
 
@@ -2779,3 +2781,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
