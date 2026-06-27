@@ -1443,10 +1443,11 @@ else:
                             st.write(f"**Professor Criador:** {selected_row['Professor_Criador']}")
                             st.write(f"**Data de Criação:** {selected_row['Data_Criacao']}")
 
-                            st.markdown("#### Questões e Gabarito Oficial")
+                            st.markdown("---")
+                            st.markdown("### 🖨️ Pré-visualização da Prova Completa")
+                            
                             questoes_detalhes = json.loads(selected_row['Questoes_Detalhes_JSON'])
                             
-                            # Reconstruir o HTML da prova completa para visualização/impressão
                             html_questoes = ""
                             html_linhas_gabarito = ""
                             html_gabarito_professor = ""
@@ -1600,7 +1601,6 @@ else:
                             </body>
                             </html>
                             """
-                            st.markdown("### 🖨️ Pré-visualização da Prova Completa")
                             st.components.v1.html(html_prova, height=600, scrolling=True)
                             
                             st.divider()
@@ -2580,6 +2580,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
