@@ -1285,8 +1285,15 @@ else:
                 try:
                     sh = conectar_google_sheets()
                     wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
-                    dados_gabaritos = wks_gav.get_all_records()
-                    df_gabaritos = pd.DataFrame(dados_gabaritos)
+                    # Get all values to find the exact row index for deletion
+                    all_sheet_values = wks_gav.get_all_values()
+                    
+                    if len(all_sheet_values) > 1: # Check if there's data beyond the header
+                        df_gabaritos = pd.DataFrame(all_sheet_values[1:], columns=all_sheet_values[0])
+                        # Add a column for the actual sheet row number (1-based, starting from 2 for data rows)
+                        df_gabaritos['Sheet_Row_Index'] = range(2, len(all_sheet_values) + 1)
+                    else:
+                        df_gabaritos = pd.DataFrame()
                 except Exception as e:
                     df_gabaritos = pd.DataFrame()
                     st.error(f"Erro ao conectar ao banco de dados de avaliações: {e}")
@@ -1310,6 +1317,9 @@ else:
                         id_selecionado = avaliacao_selecionada_str.split(' - ')[0]
                         prova_alvo = df_gabaritos[df_gabaritos['ID_Prova'] == id_selecionado].iloc[0]
                         
+                        # Store the actual sheet row index for deletion
+                        sheet_row_to_delete = prova_alvo['Sheet_Row_Index']
+
                         # Reconstroi os dados da prova a partir do JSON armazenado
                         # import json (já deve estar no topo do arquivo)
                         questoes_detalhes_raw = prova_alvo.get('Questoes_Detalhes', '[]') # Garante que sempre haverá uma string JSON válida
@@ -1433,6 +1443,22 @@ else:
                         """
                         st.markdown("### 🖨️ Pré-visualização da Avaliação")
                         st.components.v1.html(html_prova_visualizar, height=600, scrolling=True)
+
+                        # NEW: Delete button for master admin
+                        if st.session_state.get('is_master_admin', False):
+                            st.markdown("---")
+                            st.subheader("🗑️ Gerenciar Avaliação")
+                            if st.button(f"❌ Excluir Avaliação ID: {id_selecionado}", type="secondary", use_container_width=True):
+                                try:
+                                    wks_gav.delete_rows(sheet_row_to_delete)
+                                    st.success(f"✅ Avaliação ID {id_selecionado} excluída com sucesso!")
+                                    st.cache_data.clear()
+                                    time.sleep(1.5)
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao excluir avaliação: {e}")
+                    else:
+                        st.info("ℹ️ Nenhuma avaliação foi criada ainda. Use a aba 'Criar' para começar.")
                 else:
                     st.info("ℹ️ Nenhuma avaliação foi criada ainda. Use a aba 'Criar' para começar.")
 
@@ -2421,4 +2447,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
