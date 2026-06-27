@@ -1191,7 +1191,7 @@ else:
                 else:
                     st.warning(f"⚠️ Soma incorreta: totalizando {soma_valores_atual:.2f} de {nota_maxima:.2f} pontos.")
                 
-                if st.button("📄 Gerar e Exportar Folha de Prova com Cartão-Resposta", type="primary", use_container_width=True):
+                if st.button("Gerar e exportar prova", type="primary", use_container_width=True):
                     if round(soma_valores_atual, 2) != round(nota_maxima, 2):
                         st.error("❌ Ajuste a soma dos valores das questões antes de prosseguir.")
                     else:
@@ -2800,6 +2800,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
