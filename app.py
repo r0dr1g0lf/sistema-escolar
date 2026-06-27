@@ -1286,8 +1286,27 @@ else:
                 try:
                     sh = conectar_google_sheets()
                     wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
+                    
+                    # Garante que o cabeçalho da planilha esteja atualizado antes de ler os registros
+                    expected_header = ['ID_Prova', 'Disciplina', 'Professor', 'Total_Questoes', 'Valor_Por_Questao', 'Valor_Total_Prova', 'Data_Criacao', 'Gabarito_Completo', 'Questoes_Detalhes']
+                    current_header = wks_gav.row_values(1)
+                    if current_header != expected_header:
+                        wks_gav.update('A1', [expected_header])
+                        # Se o cabeçalho foi atualizado, é bom limpar o cache para recarregar os dados corretamente
+                        st.cache_data.clear()
+                        # E recarregar a página para que o DataFrame seja construído com o novo cabeçalho
+                        st.rerun()
+
                     dados_gabaritos = wks_gav.get_all_records()
                     df_gabaritos = pd.DataFrame(dados_gabaritos)
+                    
+                    # Garante que a coluna 'Questoes_Detalhes' exista, mesmo para registros antigos
+                    if 'Questoes_Detalhes' not in df_gabaritos.columns:
+                        df_gabaritos['Questoes_Detalhes'] = '[]' # Valor padrão JSON de lista vazia
+                    # Garante que a coluna 'Valor_Por_Questao' exista, mesmo para registros antigos
+                    if 'Valor_Por_Questao' not in df_gabaritos.columns:
+                        df_gabaritos['Valor_Por_Questao'] = '{}' # Valor padrão JSON de objeto vazio
+
                 except Exception as e:
                     df_gabaritos = pd.DataFrame()
                     st.error(f"Erro ao conectar ao banco de dados de avaliações: {e}")
@@ -2335,6 +2354,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
