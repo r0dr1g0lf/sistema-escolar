@@ -1292,13 +1292,6 @@ else:
                         df_gabaritos = pd.DataFrame(all_sheet_values[1:], columns=all_sheet_values[0])
                         # Add a column for the actual sheet row number (1-based, starting from 2 for data rows)
                         df_gabaritos['Sheet_Row_Index'] = range(2, len(all_sheet_values) + 1)
-                        
-                        # Explicitly convert numeric columns to Python native types to prevent JSON serialization errors
-                        if 'Total_Questoes' in df_gabaritos.columns:
-                            df_gabaritos['Total_Questoes'] = df_gabaritos['Total_Questoes'].apply(lambda x: int(x) if pd.notna(x) and str(x).strip().isdigit() else 0)
-                        if 'Valor_Total_Prova' in df_gabaritos.columns:
-                            df_gabaritos['Valor_Total_Prova'] = df_gabaritos['Valor_Total_Prova'].apply(lambda x: float(x) if pd.notna(x) and str(x).strip().replace('.', '', 1).isdigit() else 0.0)
-                        
                     else:
                         df_gabaritos = pd.DataFrame()
                 except Exception as e:
@@ -1325,7 +1318,7 @@ else:
                         prova_alvo = df_gabaritos[df_gabaritos['ID_Prova'] == id_selecionado].iloc[0]
                         
                         # Store the actual sheet row index for deletion
-                        sheet_row_to_delete = prova_alvo['Sheet_Row_Index']
+                        sheet_row_to_delete = int(prova_alvo['Sheet_Row_Index']) # Convert to standard int
 
                         # Reconstroi os dados da prova a partir do JSON armazenado
                         # import json (já deve estar no topo do arquivo)
