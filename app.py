@@ -1411,6 +1411,9 @@ else:
                             for col in ['Nota_Maxima', 'Total_Questoes', 'Professor_Criador', 'Gabarito_JSON', 'Pesos_JSON', 'Questoes_Detalhes_JSON']:
                                 if col not in df_gabaritos.columns:
                                     df_gabaritos[col] = ''
+                            
+                            # Adiciona um índice da linha original na planilha para facilitar exclusões
+                            df_gabaritos['Sheet_Row_Index'] = range(2, len(df_gabaritos) + 2)
                         else:
                             st.info("Nenhuma avaliação foi criada ainda.")
                             df_gabaritos = pd.DataFrame()
@@ -1841,23 +1844,14 @@ else:
                                         try:
                                             sh = conectar_google_sheets()
                                             wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
-                                            all_sheet_values = wks_gav.get_all_values()
-                                            header = all_sheet_values[0]
-                                            data_rows = all_sheet_values[1:]
+                                            
+                                            # Use o DataFrame df_gabaritos já carregado e processado
+                                            my_evaluations = df_gabaritos[df_gabaritos['Professor_Criador'].astype(str) == prof_nome]
 
-                                            prof_criador_col_idx = -1
-                                            try:
-                                                prof_criador_col_idx = header.index('Professor_Criador')
-                                            except ValueError:
-                                                st.error("Coluna 'Professor_Criador' não encontrada na planilha de gabaritos.")
-                                                st.stop()
-
-                                            rows_to_delete_indices = []
-                                            for i, row in enumerate(data_rows):
-                                                if len(row) > prof_criador_col_idx and row[prof_criador_col_idx] == prof_nome:
-                                                    rows_to_delete_indices.append(i + 2)
+                                            rows_to_delete_indices = my_evaluations['Sheet_Row_Index'].tolist()
 
                                             if rows_to_delete_indices:
+                                                # Exclui as linhas em ordem reversa para evitar problemas de deslocamento
                                                 for row_idx in sorted(rows_to_delete_indices, reverse=True):
                                                     wks_gav.delete_rows(row_idx)
                                                 st.success(f"✅ Todas as {len(rows_to_delete_indices)} avaliações criadas por {prof_nome} foram excluídas com sucesso!")
@@ -2784,6 +2778,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
