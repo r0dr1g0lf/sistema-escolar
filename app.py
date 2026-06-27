@@ -1457,40 +1457,50 @@ else:
                             id_unidade = id_prova_gerado % 10
                             
                             for q in questoes_detalhes:
+                                # Acessa os dados da questão de forma segura com .get()
+                                q_numero = q.get('numero', 0)
+                                q_valor = float(q.get('valor', 0.0))
+                                q_enunciado = q.get('enunciado', '')
+                                q_alt_a = q.get('A', '')
+                                q_alt_b = q.get('B', '')
+                                q_alt_c = q.get('C', '')
+                                q_alt_d = q.get('D', '')
+                                q_correta = q.get('correta', '')
+
                                 html_questoes += f"""
                                 <div class="question-block">
-                                    <p class="question-title"><b>Questão {q['numero']} ({float(q['valor']):.2f} pts)</b></p>
-                                    <p class="enunciado">{q['enunciado']}</p>
+                                    <p class="question-title"><b>Questão {q_numero} ({q_valor:.2f} pts)</b></p>
+                                    <p class="enunciado">{q_enunciado}</p>
                                     <div class="alternatives">
-                                        <p><b>A)</b> {q['A']}</p>
-                                        <p><b>B)</b> {q['B']}</p>
-                                        <p><b>C)</b> {q['C']}</p>
-                                        <p><b>D)</b> {q['D']}</p>
+                                        <p><b>A)</b> {q_alt_a}</p>
+                                        <p><b>B)</b> {q_alt_b}</p>
+                                        <p><b>C)</b> {q_alt_c}</p>
+                                        <p><b>D)</b> {q_alt_d}</p>
                                     </div>
                                 </div>
                                 """
                                 html_linhas_gabarito += f"""
                                 <div class="gabarito-row">
-                                    <span class="gabarito-num">{str(q['numero']).zfill(2)}</span>
+                                    <span class="gabarito-num">{str(q_numero).zfill(2)}</span>
                                     <span class="gabarito-bubble">A</span>
                                     <span class="gabarito-bubble">B</span>
                                     <span class="gabarito-bubble">C</span>
                                     <span class="gabarito-bubble">D</span>
                                 </div>
                                 """
-                                c_a = "filled" if q['correta'] == "A" else ""
-                                c_b = "filled" if q['correta'] == "B" else ""
-                                c_c = "filled" if q['correta'] == "C" else ""
-                                c_d = "filled" if q['correta'] == "D" else ""
+                                c_a = "filled" if q_correta == "A" else ""
+                                c_b = "filled" if q_correta == "B" else ""
+                                c_c = "filled" if q_correta == "C" else ""
+                                c_d = "filled" if q_correta == "D" else ""
                                 
                                 html_gabarito_professor += f"""
                                 <div class="gabarito-row">
-                                    <span class="gabarito-num">{str(q['numero']).zfill(2)}</span>
+                                    <span class="gabarito-num">{str(q_numero).zfill(2)}</span>
                                     <span class="gabarito-bubble {c_a}">A</span>
                                     <span class="gabarito-bubble {c_b}">B</span>
                                     <span class="gabarito-bubble {c_c}">C</span>
                                     <span class="gabarito-bubble {c_d}">D</span>
-                                    <span class="gabarito-points">({float(q['valor']):.2f} pts)</span>
+                                    <span class="gabarito-points">({q_valor:.2f} pts)</span>
                                 </div>
                                 """
                             
@@ -2774,4 +2784,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
