@@ -64,16 +64,23 @@ def inicializar_aba_gabaritos():
         sh = conectar_google_sheets()
         try:
             wks_gav = sh.worksheet("Gabaritos")
-            # Limpa toda a aba
-            wks_gav.clear()
+            existing_header = wks_gav.row_values(1)
+            if not existing_header: # Se a primeira linha estiver vazia, adiciona o cabeçalho
+                wks_gav.append_row(REQUIRED_GABARITOS_COLS)
+                st.success("Aba 'Gabaritos' cabeçalho adicionado.")
+                st.cache_data.clear()
+            elif existing_header != REQUIRED_GABARITOS_COLS:
+                # Se o cabeçalho existir mas estiver incorreto, atualiza a primeira linha
+                last_col_letter = chr(ord('A') + len(REQUIRED_GABARITOS_COLS) - 1)
+                wks_gav.update(f'A1:{last_col_letter}1', [REQUIRED_GABARITOS_COLS])
+                st.warning("Aba 'Gabaritos' cabeçalho corrigido. Verifique a integridade dos dados.")
+                st.cache_data.clear()
         except gspread.exceptions.WorksheetNotFound:
-            # Se a aba não existir, cria-a
+            # Se a aba não existir, cria-a e adiciona o cabeçalho
             wks_gav = sh.add_worksheet(title="Gabaritos", rows="1000", cols=len(REQUIRED_GABARITOS_COLS))
-        
-        # Insere o cabeçalho correto na primeira linha
-        wks_gav.append_row(REQUIRED_GABARITOS_COLS)
-        st.success("Aba 'Gabaritos' inicializada/resetada com o cabeçalho padrão.")
-        st.cache_data.clear() # Limpa o cache para garantir que a próxima leitura pegue o novo cabeçalho
+            wks_gav.append_row(REQUIRED_GABARITOS_COLS)
+            st.success("Aba 'Gabaritos' criada com o cabeçalho padrão.")
+            st.cache_data.clear()
     except Exception as e:
         st.error(f"Erro ao inicializar a aba 'Gabaritos': {e}")
 
@@ -85,7 +92,7 @@ def carregar_gabaritos_planilha():
             wks_gav = sh.worksheet("Gabaritos")
             all_values = wks_gav.get_all_values()
             if not all_values or len(all_values[0]) != len(REQUIRED_GABARITOS_COLS) or all_values[0] != REQUIRED_GABARITOS_COLS:
-                # Se a aba estiver vazia ou o cabeçalho estiver incorreto, re-inicializa
+                # Se a aba estiver vazia ou o cabeçalho estiver incorreto, re-inicializa (corrige o cabeçalho)
                 inicializar_aba_gabaritos()
                 # Após re-inicialização, recarrega os valores
                 wks_gav = sh.worksheet("Gabaritos") # Re-obtém a worksheet após potencial recriação
@@ -127,7 +134,7 @@ def excluir_todas_minhas_avaliacoes(professor_logado):
 
         # Filtra as linhas onde Professor_Criador é diferente do professor_logado
         # 'Professor_Criador' é garantido pela função carregar_gabaritos_planilha()
-        df_remaining = df_gabaritos[df_gabaritos['Professor_Criador'] != professor_logado]
+        df_remaining = df_gabaritos[df_gabaritos['Professor_Criador'].astype(str).str.strip().str.upper() != professor_logado.strip().upper()]
         
         sh = conectar_google_sheets()
         wks_gav = sh.worksheet("Gabaritos") # Nome da aba correto
