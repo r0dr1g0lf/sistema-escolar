@@ -1447,6 +1447,42 @@ else:
                 # Abre a câmera imediatamente em tela para captura
                 img_file = st.camera_input("Capturar Cartão Resposta", key="camera_correcao_automatica")
                 
+                # Funções de simulação para demonstração (substituir por lógica OpenCV real)
+                def simular_respostas_aluno(num_questoes):
+                    import random
+                    opcoes = ["A", "B", "C", "D"]
+                    respostas = {}
+                    for i in range(1, num_questoes + 1):
+                        # Simula algumas respostas corretas, algumas erradas, algumas em branco
+                        if random.random() < 0.7: # 70% chance de responder
+                            respostas[i] = random.choice(opcoes)
+                        else:
+                            respostas[i] = None # Resposta em branco
+                    return respostas
+
+                def calcular_nota(gabarito_oficial, pesos_questoes, respostas_aluno):
+                    nota_obtida = 0.0
+                    respostas_detalhadas = {}
+                    for q_num, resposta_correta in gabarito_oficial.items():
+                        peso = pesos_questoes.get(str(q_num), 0.0) # Garante que a chave seja string
+                        resposta_aluno = respostas_aluno.get(q_num)
+                        
+                        if resposta_aluno == resposta_correta:
+                            nota_obtida += peso
+                            status = "Correta"
+                        elif resposta_aluno is None:
+                            status = "Em Branco"
+                        else:
+                            status = "Incorreta"
+                        
+                        respostas_detalhadas[q_num] = {
+                            "Resposta Aluno": resposta_aluno,
+                            "Resposta Correta": resposta_correta,
+                            "Status": status,
+                            "Pontos": peso if status == "Correta" else 0.0
+                        }
+                    return nota_obtida, respostas_detalhadas
+                
                 # Estrutura lógica de processamento
                 if img_file is not None or id_detectado:
                     st.info("🔄 Processando dados da avaliação...")
@@ -1480,13 +1516,55 @@ else:
                                 st.error(f"❌ Nenhuma avaliação com o ID '{id_detectado}' foi localizada no banco de dados.")
                             else:
                                 dados_da_prova = prova_alvo.iloc[0]
-                                st.success(f"🎯 Prova Identificada com Sucesso! | Disciplina: {dados_da_prova.get('Disciplina')} | Turma: {dados_da_prova.get('Turma')}")
                                 
-                                # --- DAQUI PARA BAIXO O SISTEMA CONTINUA A PROCESSAR AS RESPOSTAS DO CARTÃO ---
-                                st.write("Analisando respostas do aluno...")
+                                # Carrega gabarito e pesos da prova
+                                gabarito_oficial_json = json.loads(dados_da_prova['Gabarito_Completo'])
+                                pesos_questoes_json = json.loads(dados_da_prova['Valor_Por_Questao'])
+                                total_questoes = dados_da_prova['Total_Questoes']
+                                nota_maxima_prova = dados_da_prova['Valor_Total_Prova']
+
+                                # Converte chaves de string para int para o gabarito_oficial_json
+                                gabarito_oficial_convertido = {int(k): v for k, v in gabarito_oficial_json.items()}
+                                pesos_questoes_convertido = {int(k): v for k, v in pesos_questoes_json.items()}
+
+                                st.success(f"🎯 Prova Identificada com Sucesso! | Disciplina: {dados_da_prova.get('Disciplina')} | Professor: {dados_da_prova.get('Professor')}")
                                 
-                                # Aqui o seu código OpenCV existente roda usando os dados_da_prova['Gabarito'] 
-                                # para calcular a nota e salvar o resultado automaticamente...
+                                # --- SIMULAÇÃO DE LEITURA DO CARTÃO RESPOSTA ---
+                                st.write("Simulando leitura do cartão resposta do aluno...")
+                                
+                                # Placeholder para o nome do aluno e turma (seria extraído da imagem ou inputado)
+                                aluno_simulado = st.text_input("Nome do Aluno:", key="aluno_simulado_nome", value="Aluno Teste")
+                                turma_simulada = st.selectbox("Turma do Aluno:", options=sorted(df_alunos['Turma'].unique().astype(str)), key="aluno_simulado_turma")
+
+                                # Simula as respostas do aluno
+                                respostas_aluno_simuladas = simular_respostas_aluno(total_questoes)
+                                
+                                # Calcula a nota
+                                nota_obtida, detalhes_respostas = calcular_nota(gabarito_oficial_convertido, pesos_questoes_convertido, respostas_aluno_simuladas)
+                                
+                                st.markdown("---")
+                                st.subheader("✅ Resultado da Correção")
+                                st.metric(label="Nota Final", value=f"{nota_obtida:.2f} / {nota_maxima_prova:.2f}")
+                                
+                                st.markdown("#### Detalhes das Respostas:")
+                                for q_num, detalhes in detalhes_respostas.items():
+                                    st.write(f"**Questão {q_num}:** Resposta Aluno: {detalhes['Resposta Aluno'] if detalhes['Resposta Aluno'] else 'Em Branco'} | Correta: {detalhes['Resposta Correta']} | Status: {detalhes['Status']} | Pontos: {detalhes['Pontos']:.2f}")
+
+                                # Salva o resultado no histórico da sessão
+                                if st.button("Salvar Correção no Histórico", use_container_width=True):
+                                    st.session_state['historico_correcoes'].append({
+                                        "Data/Hora": datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
+                                        "Aluno": aluno_simulado,
+                                        "Turma": turma_simulada,
+                                        "Disciplina": dados_da_prova.get('Disciplina'),
+                                        "ID Prova": id_detectado,
+                                        "Nota Obtida": nota_obtida,
+                                        "Nota Máxima": nota_maxima_prova,
+                                        "Detalhes": detalhes_respostas
+                                    })
+                                    st.success("Correção salva no histórico!")
+                                    time.sleep(1)
+                                    st.rerun()
 
             elif aba_av_escolhida == "Histórico de Notas":
                 st.subheader("📋 Histórico Completo de Provas Corrigidas")
@@ -2343,6 +2421,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
 
