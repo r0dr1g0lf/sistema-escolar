@@ -1356,23 +1356,24 @@ else:
                             try:
                                 wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
                             except gspread.exceptions.WorksheetNotFound:
-                                wks_gav = sh.add_worksheet(title="Gabaritos_Avaliacoes", rows="1000", cols="9")
-                                wks_gav.append_row(["ID_Prova", "Disciplina", "Nota_Maxima", "Total_Questoes", "Gabarito_JSON", "Pesos_JSON", "Professor_Criador", "Data_Criacao", "Questoes_Detalhes_JSON"])
+                                wks_gav = sh.add_worksheet(title="Gabaritos_Avaliacoes", rows="1000", cols="7")
+                                wks_gav.append_row(["ID_Prova", "Disciplina", "Nota_Maxima", "Total_Questoes", "Professor_Criador", "Data_Criacao", "Gabarito_JSON"])
 
-                            gabarito_json = json.dumps(st.session_state['gabarito_oficial'])
-                            pesos_json = json.dumps(st.session_state['pesos_questoes'])
-                            questoes_detalhes_json = json.dumps(questoes_dados) # Salva os detalhes completos das questões
+                            conteudo_gabarito_completo = {
+                                "gabarito_oficial": st.session_state['gabarito_oficial'],
+                                "pesos_questoes": st.session_state['pesos_questoes'],
+                                "questoes_detalhes": questoes_dados
+                            }
+                            gabarito_json_final = json.dumps(conteudo_gabarito_completo)
 
                             nova_avaliacao = [
                                 str(id_prova_gerado).zfill(2),
                                 disciplina_sel_av,
                                 float(nota_maxima),
                                 int(num_questoes),
-                                gabarito_json,
-                                pesos_json,
                                 prof_nome,
                                 data_atual.strftime("%d/%m/%Y"),
-                                questoes_detalhes_json # Adiciona os detalhes completos das questões
+                                gabarito_json_final
                             ]
                             wks_gav.append_row(nova_avaliacao)
                             st.success(f"🎉 Avaliação e Cartão-Resposta com ID {str(id_prova_gerado).zfill(2)} Gerados e SALVOS com Sucesso!")
@@ -2778,6 +2779,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
