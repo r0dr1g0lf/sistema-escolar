@@ -1286,27 +1286,8 @@ else:
                 try:
                     sh = conectar_google_sheets()
                     wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
-                    
-                    # Garante que o cabeçalho da planilha esteja atualizado antes de ler os registros
-                    expected_header = ['ID_Prova', 'Disciplina', 'Professor', 'Total_Questoes', 'Valor_Por_Questao', 'Valor_Total_Prova', 'Data_Criacao', 'Gabarito_Completo', 'Questoes_Detalhes']
-                    current_header = wks_gav.row_values(1)
-                    if current_header != expected_header:
-                        wks_gav.update('A1', [expected_header])
-                        # Se o cabeçalho foi atualizado, é bom limpar o cache para recarregar os dados corretamente
-                        st.cache_data.clear()
-                        # E recarregar a página para que o DataFrame seja construído com o novo cabeçalho
-                        st.rerun()
-
                     dados_gabaritos = wks_gav.get_all_records()
                     df_gabaritos = pd.DataFrame(dados_gabaritos)
-                    
-                    # Garante que a coluna 'Questoes_Detalhes' exista, mesmo para registros antigos
-                    if 'Questoes_Detalhes' not in df_gabaritos.columns:
-                        df_gabaritos['Questoes_Detalhes'] = '[]' # Valor padrão JSON de lista vazia
-                    # Garante que a coluna 'Valor_Por_Questao' exista, mesmo para registros antigos
-                    if 'Valor_Por_Questao' not in df_gabaritos.columns:
-                        df_gabaritos['Valor_Por_Questao'] = '{}' # Valor padrão JSON de objeto vazio
-
                 except Exception as e:
                     df_gabaritos = pd.DataFrame()
                     st.error(f"Erro ao conectar ao banco de dados de avaliações: {e}")
@@ -1331,8 +1312,17 @@ else:
                         prova_alvo = df_gabaritos[df_gabaritos['ID_Prova'] == id_selecionado].iloc[0]
                         
                         # Reconstroi os dados da prova a partir do JSON armazenado
-                        import json
-                        questoes_dados_visualizar = json.loads(prova_alvo['Questoes_Detalhes'])
+                        # import json (já deve estar no topo do arquivo)
+                        questoes_detalhes_raw = prova_alvo.get('Questoes_Detalhes', '[]') # Garante que sempre haverá uma string JSON válida
+                        if questoes_detalhes_raw.strip(): # Verifica se a string não está vazia ou só com espaços
+                            try:
+                                questoes_dados_visualizar = json.loads(questoes_detalhes_raw)
+                            except json.JSONDecodeError:
+                                st.error(f"Erro ao carregar detalhes das questões para ID {id_selecionado}. Dados corrompidos na planilha.")
+                                questoes_dados_visualizar = [] # Fallback para lista vazia em caso de erro
+                        else:
+                            questoes_dados_visualizar = [] # Se a string estiver vazia, retorna lista vazia
+                        
                         disciplina_sel_av_visualizar = prova_alvo['Disciplina']
                         nome_professor_cabecalho_visualizar = prova_alvo['Professor']
                         id_prova_gerado_visualizar = prova_alvo['ID_Prova']
