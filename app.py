@@ -84,7 +84,6 @@ def inicializar_aba_gabaritos():
     except Exception as e:
         st.error(f"Erro ao inicializar a aba 'Gabaritos': {e}")
 
-@st.cache_data(ttl=120)
 def carregar_gabaritos_planilha():
     try:
         sh = conectar_google_sheets()
@@ -2801,4 +2800,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
