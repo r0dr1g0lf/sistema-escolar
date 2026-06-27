@@ -1446,18 +1446,166 @@ else:
                             st.markdown("#### Questões e Gabarito Oficial")
                             questoes_detalhes = json.loads(selected_row['Questoes_Detalhes_JSON'])
                             
+                            # Reconstruir o HTML da prova completa para visualização/impressão
+                            html_questoes = ""
+                            html_linhas_gabarito = ""
+                            html_gabarito_professor = ""
+                            
+                            id_prova_gerado = int(selected_row['ID_Prova'])
+                            id_dezena = id_prova_gerado // 10
+                            id_unidade = id_prova_gerado % 10
+                            
                             for q in questoes_detalhes:
-                                st.markdown(f"##### Questão {q['numero']} ({float(q['valor']):.2f} pts)")
-                                st.write(f"**Enunciado:** {q['enunciado']}")
-                                st.write(f"**A)** {q['A']}")
-                                st.write(f"**B)** {q['B']}")
-                                st.write(f"**C)** {q['C']}")
-                                st.write(f"**D)** {q['D']}")
-                                st.success(f"**Resposta Correta:** {q['correta']}")
-                                st.markdown("---")
+                                html_questoes += f"""
+                                <div class="question-block">
+                                    <p class="question-title"><b>Questão {q['numero']} ({float(q['valor']):.2f} pts)</b></p>
+                                    <p class="enunciado">{q['enunciado']}</p>
+                                    <div class="alternatives">
+                                        <p><b>A)</b> {q['A']}</p>
+                                        <p><b>B)</b> {q['B']}</p>
+                                        <p><b>C)</b> {q['C']}</p>
+                                        <p><b>D)</b> {q['D']}</p>
+                                    </div>
+                                </div>
+                                """
+                                html_linhas_gabarito += f"""
+                                <div class="gabarito-row">
+                                    <span class="gabarito-num">{str(q['numero']).zfill(2)}</span>
+                                    <span class="gabarito-bubble">A</span>
+                                    <span class="gabarito-bubble">B</span>
+                                    <span class="gabarito-bubble">C</span>
+                                    <span class="gabarito-bubble">D</span>
+                                </div>
+                                """
+                                c_a = "filled" if q['correta'] == "A" else ""
+                                c_b = "filled" if q['correta'] == "B" else ""
+                                c_c = "filled" if q['correta'] == "C" else ""
+                                c_d = "filled" if q['correta'] == "D" else ""
+                                
+                                html_gabarito_professor += f"""
+                                <div class="gabarito-row">
+                                    <span class="gabarito-num">{str(q['numero']).zfill(2)}</span>
+                                    <span class="gabarito-bubble {c_a}">A</span>
+                                    <span class="gabarito-bubble {c_b}">B</span>
+                                    <span class="gabarito-bubble {c_c}">C</span>
+                                    <span class="gabarito-bubble {c_d}">D</span>
+                                    <span class="gabarito-points">({float(q['valor']):.2f} pts)</span>
+                                </div>
+                                """
+                            
+                            html_id_bolinhas = ""
+                            for num in range(10):
+                                d_fill = "filled" if num == id_dezena else ""
+                                u_fill = "filled" if num == id_unidade else ""
+                                html_id_bolinhas += f"""
+                                <div class="gabarito-row" style="margin-bottom: 3px;">
+                                    <span class="id-label-num">{num}</span>
+                                    <span class="gabarito-bubble {d_fill}" style="width:18px; height:18px; line-height:18px; font-size:8pt;"></span>
+                                    <span class="gabarito-bubble {u_fill}" style="width:18px; height:18px; line-height:18px; font-size:8pt;"></span>
+                                </div>
+                                """
+                            
+                            html_prova = f"""
+                            <!DOCTYPE html>
+                            <html>
+                            <head>
+                            <meta charset="utf-8">
+                            <style>
+                                @media print {{
+                                    body {{ 
+                                        margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 11pt; color: #000; 
+                                        -webkit-print-color-adjust: exact !important; 
+                                        print-color-adjust: exact !important; 
+                                    }}
+                                    .print-container {{ width: 100%; padding: 15mm; box-sizing: border-box; }}
+                                    .no-print {{ display: none !important; }}
+                                    .page-break {{ page-break-before: always; }}
+                                }}
+                                body {{ 
+                                    font-family: Arial, sans-serif; background-color: #fafafa; padding: 10px; 
+                                    -webkit-print-color-adjust: exact !important; 
+                                    print-color-adjust: exact !important; 
+                                }}
+                                .print-container {{ max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border: 1px solid #ccc; }}
+                                .header-table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
+                                .header-table td {{ border: 1px solid #000; padding: 8px; font-size: 11pt; }}
+                                .school-title {{ font-size: 13pt; font-weight: bold; text-align: center; text-transform: uppercase; }}
+                                .question-block {{ margin-bottom: 15px; page-break-inside: avoid; }}
+                                .enunciado {{ margin-bottom: 8px; text-align: justify; white-space: pre-wrap; }}
+                                .alternatives p {{ margin: 3px 0; }}
+                                
+                                .cartao-resposta-box {{ border: 4px solid #000; padding: 25px; margin-top: 20px; background: #fff; position: relative; max-width: 480px; margin-left: auto; margin-right: auto; page-break-inside: avoid; }}
+                                .anchor-marker {{ width: 20px; height: 20px; background-color: #000 !important; background: #000 !important; position: absolute; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }}
+                                .tl {{ top: 5px; left: 5px; }} .tr {{ top: 5px; right: 5px; }}
+                                .bl {{ bottom: 5px; left: 5px; }} .br {{ bottom: 5px; right: 5px; }}
+                                .cartao-title {{ text-align: center; font-weight: bold; font-size: 14pt; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }}
+                                
+                                .container-id-prova {{ border: 2px solid #000; padding: 8px; width: 140px; margin: 0 auto 20px auto; background: #fff; text-align: center; }}
+                                .id-title {{ font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px; }}
+                                .id-cols {{ display: flex; justify-content: space-around; font-size: 8pt; font-weight: bold; margin-bottom: 5px; }}
+                                .id-label-num {{ font-size: 9pt; font-weight: bold; margin-right: 8px; width: 12px; display: inline-block; }}
+                                
+                                .gabarito-row {{ display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }}
+                                .gabarito-num {{ font-weight: bold; font-size: 12pt; margin-right: 15px; width: 25px; text-align: right; }}
+                                .gabarito-bubble {{ display: inline-block; width: 24px; height: 24px; border: 2px solid #000; border-radius: 50%; text-align: center; line-height: 24px; font-weight: bold; font-size: 10pt; margin: 0 6px; color: #333; }}
+                                .gabarito-bubble.filled {{ background-color: #000 !important; background: #000 !important; color: #fff !important; border-color: #000 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }}
+                                .gabarito-points {{ font-size: 10pt; color: #555; margin-left: 15px; width: 70px; text-align: left; }}
+                                .btn-print {{ display: block; width: 100%; padding: 12px; background-color: #2e7d32; color: white; border: none; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; margin-bottom: 20px; text-transform: uppercase; }}
+                                .prof-section {{ border: 4px dashed #777; margin-top: 50px; padding: 20px; background-color: #fff; page-break-before: always; }}
+                            </style>
+                            </head>
+                            <body>
+                                <button class="btn-print no-print" onclick="window.print()">🖨️ Imprimir Prova e Cartões de Resposta (A4)</button>
+                                
+                                <div class="print-container">
+                                    <table class="header-table">
+                                        <tr><td colspan="3" class="school-title">Escola Estadual Profª Diva Alves de Lima</td></tr>
+                                        <tr>
+                                            <td width="50%"><b>Aluno(a):</b> _________________________________________________</td>
+                                            <td width="25%"><b>Turma:</b> __________________</td>
+                                            <td width="25%"><b>Nota:</b> _________</td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="2"><b>Disciplina:</b> {selected_row['Disciplina']} <span style="font-size: 11pt; margin-left: 15px;">| <b>Professor:</b> {selected_row['Professor_Criador']}</span></td>
+                                            <td><b>Data:</b> ____/____/______</td>
+                                        </tr>
+                                    </table>
+                                    
+                                    {html_questoes}
+                                    
+                                    <div class="page-break"></div>
+                                    
+                                    <div class="cartao-resposta-box">
+                                        <div class="anchor-marker tl"></div><div class="anchor-marker tr"></div>
+                                        <div class="anchor-marker bl"></div><div class="anchor-marker br"></div>
+                                        <div class="cartao-title">FOLHA DE RESPOSTAS OFICIAL</div>
+                                        <p style="font-size:9pt; text-align:center; margin-top:0px; margin-bottom:15px;">Use caneta azul ou preta para marcar as respostas.</p>
+                                        
+                                        <div class="container-id-prova">
+                                            <div class="id-title">ID DA AVALIAÇÃO</div>
+                                            <div class="id-cols"><span>D</span><span>U</span></div>
+                                            {html_id_bolinhas}
+                                        </div>
+                                        
+                                        {html_linhas_gabarito}
+                                    </div>
+                                    
+                                    <div class="prof-section">
+                                        <div class="cartao-title" style="color: #000;">📌 GABARITO DE CONFERÊNCIA DIGITAL (ID: {str(id_prova_gerado).zfill(2)})</div>
+                                        <p style="font-size:9.5pt; text-align:center; margin-top:0px; margin-bottom:25px; font-weight: bold; color: #444;">Mapa exato de leitura das 4 âncoras para validação da câmera do dispositivo.</p>
+                                        {html_gabarito_professor}
+                                    </div>
+                                </div>
+                                <script>setTimeout(function() {{ window.print(); }}, 600);</script>
+                            </body>
+                            </html>
+                            """
+                            st.markdown("### 🖨️ Pré-visualização da Prova Completa")
+                            st.components.v1.html(html_prova, height=600, scrolling=True)
+                            
+                            st.divider()
                             
                             if st.session_state.get('is_master_admin', False):
-                                st.divider()
                                 st.subheader("Ações Administrativas")
                                 if st.button(f"❌ Excluir Avaliação ID: {selected_row['ID_Prova']}", key=f"delete_av_{selected_row['ID_Prova']}"):
                                     try:
@@ -2432,6 +2580,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
