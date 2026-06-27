@@ -1368,11 +1368,23 @@ else:
                             }
                             conteudo_gabarito_final_json = json.dumps(conteudo_gabarito_completo)
 
+                            # Conversão segura para nota_maxima
+                            try:
+                                nota_maxima_safe = float(nota_maxima)
+                            except (ValueError, TypeError):
+                                nota_maxima_safe = 0.0
+
+                            # Conversão segura para num_questoes
+                            try:
+                                num_questoes_safe = int(num_questoes)
+                            except (ValueError, TypeError):
+                                num_questoes_safe = 0
+
                             nova_avaliacao = [
                                 str(id_prova_gerado).zfill(2),
                                 disciplina_sel_av,
-                                float(nota_maxima),
-                                int(num_questoes),
+                                nota_maxima_safe,
+                                num_questoes_safe,
                                 prof_nome,
                                 data_atual.strftime("%d/%m/%Y"),
                                 conteudo_gabarito_final_json
@@ -1385,7 +1397,7 @@ else:
                             st.rerun()
 
                         except Exception as e:
-                            st.error(f"Erro ao salvar avaliação: {e}")
+                            st.error(f"Erro detalhado ao salvar: {e}")
 
             elif aba_av_escolhida == "Ver avaliações":
                 st.subheader("🔍 Visualizar Avaliações Criadas")
