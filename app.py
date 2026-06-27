@@ -1086,8 +1086,6 @@ else:
                         st.error("❌ Ajuste a soma dos valores das questões antes de prosseguir.")
                     else:
                         import random
-                        import json # Certifique-se de que 'json' está importado no topo do arquivo
-
                         # Conecta ao Google Sheets e garante que a aba e o cabeçalho existam
                         sh = conectar_google_sheets()
                         try:
@@ -2344,10 +2342,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
-
-
-
-
 
