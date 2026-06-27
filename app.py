@@ -1086,16 +1086,48 @@ else:
                         st.error("❌ Ajuste a soma dos valores das questões antes de prosseguir.")
                     else:
                         import random
-                        id_prova_gerado = random.randint(1, 99)
-                        id_dezena = id_prova_gerado // 10
-                        id_unidade = id_prova_gerado % 10
+                        import json # Certifique-se de que 'json' está importado no topo do arquivo
+
+                        # Conecta ao Google Sheets e garante que a aba e o cabeçalho existam
+                        sh = conectar_google_sheets()
+                        try:
+                            wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
+                        except gspread.exceptions.WorksheetNotFound:
+                            wks_gav = sh.add_worksheet(title="Gabaritos_Avaliacoes", rows="1000", cols="8")
+                            
+                        expected_header = ['ID_Prova', 'Disciplina', 'Professor', 'Total_Questoes', 'Valor_Por_Questao', 'Valor_Total_Prova', 'Data_Criacao', 'Gabarito_Completo']
+                        current_header = wks_gav.row_values(1)
+                        if current_header != expected_header:
+                            wks_gav.update('A1', [expected_header])
+
+                        # Gera um ID único de 4 dígitos para a prova
+                        existing_ids = [str(r[0]) for r in wks_gav.get_all_values()[1:] if r and r[0]]
+                        id_prova_gerado = random.randint(1000, 9999) # ID de 4 dígitos
+                        while str(id_prova_gerado) in existing_ids:
+                            id_prova_gerado = random.randint(1000, 9999)
                         
+                        # Atualiza o session_state com o ID único e outros dados da prova
                         st.session_state['id_avaliacao_ativa'] = id_prova_gerado
                         st.session_state['gabarito_oficial'] = {q['numero']: q['correta'] for q in questoes_dados}
                         st.session_state['pesos_questoes'] = {q['numero']: q['valor'] for q in questoes_dados}
                         st.session_state['total_questoes_ativa'] = int(num_questoes)
                         st.session_state['nota_maxima_ativa'] = float(nota_maxima)
                         st.session_state['disciplina_ativa'] = disciplina_sel_av
+
+                        # Prepara os dados para salvar na planilha
+                        new_row_data = [
+                            str(id_prova_gerado),
+                            disciplina_sel_av,
+                            nome_professor_cabecalho,
+                            int(num_questoes),
+                            json.dumps(st.session_state['pesos_questoes']), # Armazena pesos por questão como JSON
+                            float(nota_maxima),
+                            datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
+                            json.dumps(st.session_state['gabarito_oficial']) # Armazena gabarito como JSON
+                        ]
+                        
+                        # Salva os dados na planilha
+                        wks_gav.append_row(new_row_data)
                         
                         html_questoes = ""
                         html_linhas_gabarito = ""
@@ -1139,17 +1171,13 @@ else:
                             </div>
                             """
                         
-                        html_id_bolinhas = ""
-                        for num in range(10):
-                            d_fill = "filled" if num == id_dezena else ""
-                            u_fill = "filled" if num == id_unidade else ""
-                            html_id_bolinhas += f"""
-                            <div class="gabarito-row" style="margin-bottom: 3px;">
-                                <span class="id-label-num">{num}</span>
-                                <span class="gabarito-bubble {d_fill}" style="width:18px; height:18px; line-height:18px; font-size:8pt;"></span>
-                                <span class="gabarito-bubble {u_fill}" style="width:18px; height:18px; line-height:18px; font-size:8pt;"></span>
-                            </div>
-                            """
+                        # Adaptação do bloco de ID para exibir o ID de 4 dígitos como texto
+                        html_id_display_block = f"""
+                        <div class="container-id-prova">
+                            <div class="id-title">ID DA AVALIAÇÃO</div>
+                            <p style="font-size: 18pt; font-weight: bold; margin: 10px 0;">{str(id_prova_gerado).zfill(4)}</p>
+                        </div>
+                        """
                         
                         html_prova = f"""
                         <!DOCTYPE html>
@@ -1227,17 +1255,13 @@ else:
                                     <div class="cartao-title">FOLHA DE RESPOSTAS OFICIAL</div>
                                     <p style="font-size:9pt; text-align:center; margin-top:0px; margin-bottom:15px;">Use caneta azul ou preta para marcar as respostas.</p>
                                     
-                                    <div class="container-id-prova">
-                                        <div class="id-title">ID DA AVALIAÇÃO</div>
-                                        <div class="id-cols"><span>D</span><span>U</span></div>
-                                        {html_id_bolinhas}
-                                    </div>
+                                    {html_id_display_block}
                                     
                                     {html_linhas_gabarito}
                                 </div>
                                 
                                 <div class="prof-section">
-                                    <div class="cartao-title" style="color: #000;">📌 GABARITO DE CONFERÊNCIA DIGITAL (ID: {str(id_prova_gerado).zfill(2)})</div>
+                                    <div class="cartao-title" style="color: #000;">📌 GABARITO DE CONFERÊNCIA DIGITAL (ID: {str(id_prova_gerado).zfill(4)})</div>
                                     <p style="font-size:9.5pt; text-align:center; margin-top:0px; margin-bottom:25px; font-weight: bold; color: #444;">Mapa exato de leitura das 4 âncoras para validação da câmera do dispositivo.</p>
                                     {html_gabarito_professor}
                                 </div>
@@ -1248,7 +1272,10 @@ else:
                         """
                         st.markdown("### 🖨️ Pré-visualização")
                         st.components.v1.html(html_prova, height=600, scrolling=True)
-                        st.success(f"🎉 Avaliação e Cartão-Resposta com ID {str(id_prova_gerado).zfill(2)} Gerados com Sucesso!")
+                        st.success(f"🎉 Avaliação e Cartão-Resposta com ID {str(id_prova_gerado).zfill(4)} Gerados com Sucesso!")
+                        st.cache_data.clear()
+                        time.sleep(2)
+                        st.rerun()
 
             # --- SUB-ABA: CORREÇÃO DE AVALIAÇÕES ---
             elif aba_av_escolhida == "Correção":
@@ -2157,4 +2184,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
