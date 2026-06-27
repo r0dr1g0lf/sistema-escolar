@@ -1017,7 +1017,7 @@ else:
         # SE FOR ADMIN MASTER: Carrega o sistema completo de forma segura
         else:
             st.title("📝 Sistema de Gestão de Avaliações")
-            aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Correção", "Histórico de Notas"], horizontal=True)
+            aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Visualizar", "Correção", "Histórico de Notas"], horizontal=True)
             st.markdown("---")
             
             if aba_av_escolhida == "Criar":
@@ -1093,9 +1093,9 @@ else:
                         try:
                             wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
                         except gspread.exceptions.WorksheetNotFound:
-                            wks_gav = sh.add_worksheet(title="Gabaritos_Avaliacoes", rows="1000", cols="8")
+                            wks_gav = sh.add_worksheet(title="Gabaritos_Avaliacoes", rows="1000", cols="9") # Changed cols to 9
                             
-                        expected_header = ['ID_Prova', 'Disciplina', 'Professor', 'Total_Questoes', 'Valor_Por_Questao', 'Valor_Total_Prova', 'Data_Criacao', 'Gabarito_Completo']
+                        expected_header = ['ID_Prova', 'Disciplina', 'Professor', 'Total_Questoes', 'Valor_Por_Questao', 'Valor_Total_Prova', 'Data_Criacao', 'Gabarito_Completo', 'Questoes_Detalhes'] # Added 'Questoes_Detalhes'
                         current_header = wks_gav.row_values(1)
                         if current_header != expected_header:
                             wks_gav.update('A1', [expected_header])
@@ -1123,7 +1123,8 @@ else:
                             json.dumps(st.session_state['pesos_questoes']), # Armazena pesos por questão como JSON
                             float(nota_maxima),
                             datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
-                            json.dumps(st.session_state['gabarito_oficial']) # Armazena gabarito como JSON
+                            json.dumps(st.session_state['gabarito_oficial']), # Armazena gabarito como JSON
+                            json.dumps(questoes_dados) # Armazena detalhes completos das questões como JSON
                         ]
                         
                         # Salva os dados na planilha
@@ -1276,6 +1277,156 @@ else:
                         st.cache_data.clear()
                         time.sleep(2)
                         st.rerun()
+
+            # --- SUB-ABA: VISUALIZAR AVALIAÇÕES ---
+            elif aba_av_escolhida == "Visualizar":
+                st.subheader("👁️ Visualizar Avaliações Criadas")
+                st.write("Selecione uma avaliação para ver seu conteúdo e gabarito.")
+
+                try:
+                    sh = conectar_google_sheets()
+                    wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
+                    dados_gabaritos = wks_gav.get_all_records()
+                    df_gabaritos = pd.DataFrame(dados_gabaritos)
+                except Exception as e:
+                    df_gabaritos = pd.DataFrame()
+                    st.error(f"Erro ao conectar ao banco de dados de avaliações: {e}")
+                
+                if not df_gabaritos.empty:
+                    df_gabaritos['ID_Prova'] = df_gabaritos['ID_Prova'].astype(str).str.strip()
+                    
+                    # Cria opções legíveis para o selectbox
+                    opcoes_avaliacoes = [""] + [
+                        f"{row['ID_Prova']} - {row['Disciplina']} - {row['Data_Criacao'].split(' ')[0]}"
+                        for _, row in df_gabaritos.iterrows()
+                    ]
+                    
+                    avaliacao_selecionada_str = st.selectbox(
+                        "Selecione a Avaliação para Visualizar:",
+                        options=opcoes_avaliacoes,
+                        key="visualizar_avaliacao_sel"
+                    )
+
+                    if avaliacao_selecionada_str:
+                        id_selecionado = avaliacao_selecionada_str.split(' - ')[0]
+                        prova_alvo = df_gabaritos[df_gabaritos['ID_Prova'] == id_selecionado].iloc[0]
+                        
+                        # Reconstroi os dados da prova a partir do JSON armazenado
+                        import json
+                        questoes_dados_visualizar = json.loads(prova_alvo['Questoes_Detalhes'])
+                        disciplina_sel_av_visualizar = prova_alvo['Disciplina']
+                        nome_professor_cabecalho_visualizar = prova_alvo['Professor']
+                        id_prova_gerado_visualizar = prova_alvo['ID_Prova']
+                        nota_maxima_visualizar = prova_alvo['Valor_Total_Prova']
+
+                        html_questoes_visualizar = ""
+                        html_gabarito_professor_visualizar = ""
+                        
+                        for q in questoes_dados_visualizar:
+                            html_questoes_visualizar += f"""
+                            <div class="question-block">
+                                <p class="question-title"><b>Questão {q['numero']} ({q['valor']:.2f} pts)</b></p>
+                                <p class="enunciado">{q['enunciado']}</p>
+                                <div class="alternatives">
+                                    <p><b>A)</b> {q['A']}</p>
+                                    <p><b>B)</b> {q['B']}</p>
+                                    <p><b>C)</b> {q['C']}</p>
+                                    <p><b>D)</b> {q['D']}</p>
+                                </div>
+                            </div>
+                            """
+                            c_a = "filled" if q['correta'] == "A" else ""
+                            c_b = "filled" if q['correta'] == "B" else ""
+                            c_c = "filled" if q['correta'] == "C" else ""
+                            c_d = "filled" if q['correta'] == "D" else ""
+                            
+                            html_gabarito_professor_visualizar += f"""
+                            <div class="gabarito-row">
+                                <span class="gabarito-num">{str(q['numero']).zfill(2)}</span>
+                                <span class="gabarito-bubble {c_a}">A</span>
+                                <span class="gabarito-bubble {c_b}">B</span>
+                                <span class="gabarito-bubble {c_c}">C</span>
+                                <span class="gabarito-bubble {c_d}">D</span>
+                                <span class="gabarito-points">({q['valor']:.2f} pts)</span>
+                            </div>
+                            """
+                        
+                        html_id_display_block_visualizar = f"""
+                        <div class="container-id-prova">
+                            <div class="id-title">ID DA AVALIAÇÃO</div>
+                            <p style="font-size: 18pt; font-weight: bold; margin: 10px 0;">{str(id_prova_gerado_visualizar).zfill(4)}</p>
+                        </div>
+                        """
+                        
+                        html_prova_visualizar = f"""
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                        <meta charset="utf-8">
+                        <style>
+                            body {{ 
+                                font-family: Arial, sans-serif; background-color: #fafafa; padding: 10px; 
+                                -webkit-print-color-adjust: exact !important; 
+                                print-color-adjust: exact !important; 
+                            }}
+                            .print-container {{ max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border: 1px solid #ccc; }}
+                            .header-table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
+                            .header-table td {{ border: 1px solid #000; padding: 8px; font-size: 11pt; }}
+                            .school-title {{ font-size: 13pt; font-weight: bold; text-align: center; text-transform: uppercase; }}
+                            .question-block {{ margin-bottom: 15px; page-break-inside: avoid; }}
+                            .enunciado {{ margin-bottom: 8px; text-align: justify; white-space: pre-wrap; }}
+                            .alternatives p {{ margin: 3px 0; }}
+                            
+                            .cartao-resposta-box {{ border: 4px solid #000; padding: 25px; margin-top: 20px; background: #fff; position: relative; max-width: 480px; margin-left: auto; margin-right: auto; page-break-inside: avoid; }}
+                            .anchor-marker {{ width: 20px; height: 20px; background-color: #000 !important; background: #000 !important; position: absolute; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }}
+                            .tl {{ top: 5px; left: 5px; }} .tr {{ top: 5px; right: 5px; }}
+                            .bl {{ bottom: 5px; left: 5px; }} .br {{ bottom: 5px; right: 5px; }}
+                            .cartao-title {{ text-align: center; font-weight: bold; font-size: 14pt; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }}
+                            
+                            .container-id-prova {{ border: 2px solid #000; padding: 8px; width: 140px; margin: 0 auto 20px auto; background: #fff; text-align: center; }}
+                            .id-title {{ font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px; }}
+                            .id-cols {{ display: flex; justify-content: space-around; font-size: 8pt; font-weight: bold; margin-bottom: 5px; }}
+                            .id-label-num {{ font-size: 9pt; font-weight: bold; margin-right: 8px; width: 12px; display: inline-block; }}
+                            
+                            .gabarito-row {{ display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }}
+                            .gabarito-num {{ font-weight: bold; font-size: 12pt; margin-right: 15px; width: 25px; text-align: right; }}
+                            .gabarito-bubble {{ display: inline-block; width: 24px; height: 24px; border: 2px solid #000; border-radius: 50%; text-align: center; line-height: 24px; font-weight: bold; font-size: 10pt; margin: 0 6px; color: #333; }}
+                            .gabarito-bubble.filled {{ background-color: #000 !important; background: #000 !important; color: #fff !important; border-color: #000 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }}
+                            .gabarito-points {{ font-size: 10pt; color: #555; margin-left: 15px; width: 70px; text-align: left; }}
+                            .btn-print {{ display: block; width: 100%; padding: 12px; background-color: #2e7d32; color: white; border: none; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; margin-bottom: 20px; text-transform: uppercase; }}
+                            .prof-section {{ border: 4px dashed #777; margin-top: 50px; padding: 20px; background-color: #fff; page-break-before: always; }}
+                        </style>
+                        </head>
+                        <body>
+                            <div class="print-container">
+                                <table class="header-table">
+                                    <tr><td colspan="3" class="school-title">Escola Estadual Profª Diva Alves de Lima</td></tr>
+                                    <tr>
+                                        <td width="50%"><b>Aluno(a):</b> _________________________________________________</td>
+                                        <td width="25%"><b>Turma:</b> __________________</td>
+                                        <td width="25%"><b>Nota:</b> _________</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="2"><b>Disciplina:</b> {disciplina_sel_av_visualizar} <span style="font-size: 11pt; margin-left: 15px;">| <b>Professor:</b> {nome_professor_cabecalho_visualizar}</span></td>
+                                        <td><b>Data:</b> ____/____/______</td>
+                                    </tr>
+                                </table>
+                                
+                                {html_questoes_visualizar}
+                                
+                                <div class="prof-section">
+                                    <div class="cartao-title" style="color: #000;">📌 GABARITO DE CONFERÊNCIA DIGITAL (ID: {str(id_prova_gerado_visualizar).zfill(4)})</div>
+                                    <p style="font-size:9.5pt; text-align:center; margin-top:0px; margin-bottom:25px; font-weight: bold; color: #444;">Mapa exato de leitura das 4 âncoras para validação da câmera do dispositivo.</p>
+                                    {html_gabarito_professor_visualizar}
+                                </div>
+                            </div>
+                        </body>
+                        </html>
+                        """
+                        st.markdown("### 🖨️ Pré-visualização da Avaliação")
+                        st.components.v1.html(html_prova_visualizar, height=600, scrolling=True)
+                else:
+                    st.info("ℹ️ Nenhuma avaliação foi criada ainda. Use a aba 'Criar' para começar.")
 
             # --- SUB-ABA: CORREÇÃO DE AVALIAÇÕES ---
             elif aba_av_escolhida == "Correção":
@@ -2184,6 +2335,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
