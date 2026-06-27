@@ -1646,6 +1646,12 @@ else:
                                     # Load existing data into the form
                                     edit_data = st.session_state.current_evaluation_for_edit
                                     
+                                    # Ensure essential keys are present in edit_data, even if empty from source
+                                    # This prevents KeyError if selected_row.to_dict() somehow missed a key
+                                    for key in ['Nota_Maxima', 'Total_Questoes', 'Professor_Criador', 'Disciplina', 'Gabarito_JSON', 'Pesos_JSON', 'Questoes_Detalhes_JSON']:
+                                        if key not in edit_data:
+                                            edit_data[key] = '' # Default to empty string
+                                    
                                     with st.form(key=f"edit_form_av_{selected_row['ID_Prova']}", clear_on_submit=False):
                                         # Discipline
                                         if 'user_data' in st.session_state and st.session_state.user_data.get('Disciplina'):
@@ -1783,6 +1789,11 @@ else:
                                                         
                                                         # Get current row values to ensure all columns are updated correctly
                                                         current_row_values = wks_gav.row_values(row_to_update_idx)
+                                                        
+                                                        # Ensure current_row_values has enough elements to match the header
+                                                        # This prevents IndexError if new columns were added to header but not all rows have data
+                                                        if len(current_row_values) < len(header):
+                                                            current_row_values.extend([''] * (len(header) - len(current_row_values)))
                                                         
                                                         # Update specific columns using col_map
                                                         col_map = {name: idx for idx, name in enumerate(header)}
@@ -2763,14 +2774,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
-
-
-
-
-
-
-
-
 
