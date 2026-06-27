@@ -1664,9 +1664,13 @@ else:
                                         
                                         col_edit_cfg1, col_edit_cfg2 = st.columns(2)
                                         with col_edit_cfg1:
-                                            edit_nota_maxima = st.number_input("Nota Máxima:", min_value=1.0, max_value=100.0, value=float(edit_data['Nota_Maxima']), step=0.5, key=f"edit_nota_maxima_{selected_row['ID_Prova']}")
+                                            # Safely convert Nota_Maxima to float, defaulting to 10.0 if empty or invalid
+                                            initial_nota_maxima_val = float(str(edit_data.get('Nota_Maxima', '10.0')).strip() or '10.0')
+                                            edit_nota_maxima = st.number_input("Nota Máxima:", min_value=1.0, max_value=100.0, value=initial_nota_maxima_val, step=0.5, key=f"edit_nota_maxima_{selected_row['ID_Prova']}")
                                         with col_edit_cfg2:
-                                            edit_num_questoes = st.number_input("Total de Questões:", min_value=1, max_value=20, value=int(edit_data['Total_Questoes']), step=1, key=f"edit_num_questoes_{selected_row['ID_Prova']}")
+                                            # Safely convert Total_Questoes to int, defaulting to 5 if empty or invalid
+                                            initial_num_questoes_val = int(str(edit_data.get('Total_Questoes', '5')).strip() or '5')
+                                            edit_num_questoes = st.number_input("Total de Questões:", min_value=1, max_value=20, value=initial_num_questoes_val, step=1, key=f"edit_num_questoes_{selected_row['ID_Prova']}")
                                         
                                         st.info(f"ℹ️ Configure os valores individuais. A soma deve totalizar exatamente **{edit_nota_maxima:.2f}** pontos.")
                                         st.markdown("### 📋 Edição das Questões")
@@ -1700,7 +1704,10 @@ else:
                                                 with col_edit_enum:
                                                     edit_enunciado = st.text_area(f"Enunciado da Questão {i+1}:", value=q_data.get("enunciado", ""), key=f"edit_enunciado_av_{selected_row['ID_Prova']}_{i}", placeholder="Texto da questão...")
                                                 with col_edit_val:
-                                                    edit_valor_questao = st.number_input(f"Valor (Pts):", min_value=0.0, max_value=float(edit_nota_maxima), value=float(q_data.get("valor", valor_sugerido_edit)), step=0.1, key=f"edit_valor_av_{selected_row['ID_Prova']}_{i}")
+                                                    # Safely convert q_data.get("valor") to float
+                                                    current_q_valor = q_data.get("valor")
+                                                    initial_q_valor_val = float(str(current_q_valor).strip() or str(valor_sugerido_edit))
+                                                    edit_valor_questao = st.number_input(f"Valor (Pts):", min_value=0.0, max_value=float(edit_nota_maxima), value=initial_q_valor_val, step=0.1, key=f"edit_valor_av_{selected_row['ID_Prova']}_{i}")
                                                 
                                                 soma_valores_edit_atual += edit_valor_questao
                                                 
@@ -2756,6 +2763,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
