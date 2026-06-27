@@ -56,7 +56,7 @@ def carregar_agendamentos():
     except Exception as e:
         return pd.DataFrame(), None
 
-# Nova constante para as colunas obrigatórias na aba 'Gabaritos'
+# Constante para as colunas obrigatórias na aba 'Gabaritos' (mantida para compatibilidade com outras partes do código)
 REQUIRED_GABARITOS_COLS = ['ID_Prova', 'Disciplina', 'Nota_Maxima', 'Total_Questoes', 'Professor_Criador', 'Data_Criacao', 'Gabarito_JSON']
 
 def inicializar_aba_gabaritos():
@@ -164,6 +164,44 @@ def excluir_todas_minhas_avaliacoes(professor_logado):
         st.info("A planilha 'Gabaritos' não existe ou está vazia. Nenhuma avaliação para excluir.")
     except Exception as e:
         st.error(f"Erro ao excluir avaliações em massa: {e}")
+
+# Função para inicializar a aba 'Banco_Provas'
+def inicializar_banco_provas_sheet():
+    try:
+        sh = conectar_google_sheets()
+        try:
+            sh.worksheet("Banco_Provas")
+        except gspread.exceptions.WorksheetNotFound:
+            wks = sh.add_worksheet(title="Banco_Provas", rows="1000", cols="20")
+            wks.append_row(['ID_Prova', 'Disciplina', 'Nota_Maxima', 'Total_Questoes', 'Professor', 'Data', 'Gabarito'])
+            st.success("Aba 'Banco_Provas' criada com o cabeçalho padrão.")
+            st.cache_data.clear()
+    except Exception as e:
+        st.error(f"Erro ao inicializar a aba 'Banco_Provas': {e}")
+
+# Função para salvar dados na nova aba 'Banco_Provas'
+def salvar_no_banco_provas(id_prova, disciplina, nota_max, total_questoes, professor, data, gabarito_json_data):
+    try:
+        sh = conectar_google_sheets()
+        wks = sh.worksheet("Banco_Provas")
+        
+        nova_linha = [
+            str(id_prova).zfill(2),
+            disciplina,
+            float(nota_max),
+            int(total_questoes),
+            professor,
+            data.strftime("%d/%m/%Y"),
+            json.dumps(gabarito_json_data)
+        ]
+        wks.append_row(nova_linha)
+        st.success(f"🎉 Avaliação e Cartão-Resposta com ID {str(id_prova).zfill(2)} Gerados e SALVOS com Sucesso no Banco de Provas!")
+        st.cache_data.clear()
+        st.session_state['necessita_recarga'] = True
+        time.sleep(1.5)
+        st.rerun()
+    except Exception as e:
+        st.error(f"Erro ao salvar avaliação no Banco de Provas: {e}")
 
 def verificar_conflito(equipamento, data_uso, turno, horario):
     df_ag, _ = carregar_agendamentos()
@@ -2800,3 +2838,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
