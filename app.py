@@ -1607,65 +1607,241 @@ else:
                             
                             if st.session_state.get('is_master_admin', False):
                                 st.subheader("Ações Administrativas")
-                                if st.button(f"❌ Excluir Avaliação ID: {selected_row['ID_Prova']}", key=f"delete_av_{selected_row['ID_Prova']}"):
-                                    try:
-                                        all_sheet_values = wks_gav.get_all_values()
-                                        header = all_sheet_values[0]
-                                        data_rows = all_sheet_values[1:]
-                                        
-                                        row_to_delete_idx = -1
-                                        for i, row in enumerate(data_rows):
-                                            if row[header.index('ID_Prova')] == selected_row['ID_Prova']:
-                                                row_to_delete_idx = i + 2
-                                                break
-                                        
-                                        if row_to_delete_idx != -1:
-                                            wks_gav.delete_rows(row_to_delete_idx)
-                                            st.success(f"Avaliação ID {selected_row['ID_Prova']} excluída com sucesso!")
-                                            st.cache_data.clear()
-                                            time.sleep(1.5)
-                                            st.rerun()
-                                        else:
-                                            st.error("Erro: Avaliação não encontrada na planilha para exclusão.")
-                                    except Exception as e:
-                                        st.error(f"Erro ao excluir avaliação: {e}")
-
-                                st.markdown("---")
-                                st.subheader("Exclusão em Massa")
-                                st.warning(f"⚠️ Esta ação excluirá TODAS as avaliações criadas por **{prof_nome}**.")
-                                if st.button(f"🚨 EXCLUIR TODAS AS MINHAS AVALIAÇÕES ({prof_nome})", key="delete_all_my_evals", type="primary"):
-                                    try:
-                                        sh = conectar_google_sheets()
-                                        wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
-                                        all_sheet_values = wks_gav.get_all_values()
-                                        header = all_sheet_values[0]
-                                        data_rows = all_sheet_values[1:]
-
-                                        prof_criador_col_idx = -1
+                                
+                                col_edit_del_btn1, col_edit_del_btn2 = st.columns(2)
+                                with col_edit_del_btn1:
+                                    if st.button(f"✏️ Editar Avaliação ID: {selected_row['ID_Prova']}", key=f"edit_av_{selected_row['ID_Prova']}", use_container_width=True):
+                                        st.session_state.editing_evaluation_id = selected_row['ID_Prova']
+                                        st.session_state.current_evaluation_for_edit = selected_row.to_dict() # Store all data for editing
+                                        st.rerun()
+                                with col_edit_del_btn2:
+                                    if st.button(f"❌ Excluir Avaliação ID: {selected_row['ID_Prova']}", key=f"delete_av_{selected_row['ID_Prova']}", use_container_width=True):
                                         try:
-                                            prof_criador_col_idx = header.index('Professor_Criador')
-                                        except ValueError:
-                                            st.error("Coluna 'Professor_Criador' não encontrada na planilha de gabaritos.")
-                                            st.stop()
+                                            all_sheet_values = wks_gav.get_all_values()
+                                            header = all_sheet_values[0]
+                                            data_rows = all_sheet_values[1:]
+                                            
+                                            row_to_delete_idx = -1
+                                            for i, row in enumerate(data_rows):
+                                                if row[header.index('ID_Prova')] == selected_row['ID_Prova']:
+                                                    row_to_delete_idx = i + 2
+                                                    break
+                                            
+                                            if row_to_delete_idx != -1:
+                                                wks_gav.delete_rows(row_to_delete_idx)
+                                                st.success(f"Avaliação ID {selected_row['ID_Prova']} excluída com sucesso!")
+                                                st.cache_data.clear()
+                                                time.sleep(1.5)
+                                                st.rerun()
+                                            else:
+                                                st.error("Erro: Avaliação não encontrada na planilha para exclusão.")
+                                        except Exception as e:
+                                            st.error(f"Erro ao excluir avaliação: {e}")
 
-                                        rows_to_delete_indices = []
-                                        for i, row in enumerate(data_rows):
-                                            if len(row) > prof_criador_col_idx and row[prof_criador_col_idx] == prof_nome:
-                                                rows_to_delete_indices.append(i + 2)
-
-                                        if rows_to_delete_indices:
-                                            for row_idx in sorted(rows_to_delete_indices, reverse=True):
-                                                wks_gav.delete_rows(row_idx)
-                                            st.success(f"✅ Todas as {len(rows_to_delete_indices)} avaliações criadas por {prof_nome} foram excluídas com sucesso!")
-                                            st.cache_data.clear()
-                                            time.sleep(1.5)
-                                            st.rerun()
+                                # Conditional rendering for the edit form
+                                if st.session_state.get('editing_evaluation_id') == selected_row['ID_Prova']:
+                                    st.markdown("---")
+                                    st.subheader(f"✍️ Editando Avaliação ID: {selected_row['ID_Prova']}")
+                                    
+                                    # Load existing data into the form
+                                    edit_data = st.session_state.current_evaluation_for_edit
+                                    
+                                    with st.form(key=f"edit_form_av_{selected_row['ID_Prova']}", clear_on_submit=False):
+                                        # Discipline
+                                        if 'user_data' in st.session_state and st.session_state.user_data.get('Disciplina'):
+                                            disc_professor = st.session_state.user_data.get('Disciplina')
+                                            disciplinas_av_edit = [disc_professor]
                                         else:
-                                            st.info(f"Nenhuma avaliação encontrada criada por {prof_nome} para exclusão.")
-                                    except Exception as e:
-                                        st.error(f"Erro ao excluir avaliações em massa: {e}")
-                    else:
-                        st.info("Nenhuma avaliação cadastrada ainda.")
+                                            disciplinas_av_edit = sorted(df_discs['Disciplina'].unique().astype(str)) if not df_discs.empty else ["Geografia", "História", "Português", "Matemática"]
+                                        
+                                        # Find the index of the current discipline for default value
+                                        try:
+                                            default_disc_index = disciplinas_av_edit.index(edit_data['Disciplina'])
+                                        except ValueError:
+                                            default_disc_index = 0 # Fallback if not found
+                                            
+                                        edit_disciplina_sel_av = st.selectbox("Disciplina:", disciplinas_av_edit, index=default_disc_index, key=f"edit_disciplina_sel_av_{selected_row['ID_Prova']}")
+                                        
+                                        col_edit_cfg1, col_edit_cfg2 = st.columns(2)
+                                        with col_edit_cfg1:
+                                            edit_nota_maxima = st.number_input("Nota Máxima:", min_value=1.0, max_value=100.0, value=float(edit_data['Nota_Maxima']), step=0.5, key=f"edit_nota_maxima_{selected_row['ID_Prova']}")
+                                        with col_edit_cfg2:
+                                            edit_num_questoes = st.number_input("Total de Questões:", min_value=1, max_value=20, value=int(edit_data['Total_Questoes']), step=1, key=f"edit_num_questoes_{selected_row['ID_Prova']}")
+                                        
+                                        st.info(f"ℹ️ Configure os valores individuais. A soma deve totalizar exatamente **{edit_nota_maxima:.2f}** pontos.")
+                                        st.markdown("### 📋 Edição das Questões")
+                                        
+                                        # Load existing questions or create placeholders if num_questoes changed
+                                        existing_questoes_details = json.loads(edit_data['Questoes_Detalhes_JSON'])
+                                        
+                                        # Ensure we have enough questions in the list for the loop
+                                        # If edit_num_questoes is larger, add empty dicts
+                                        # If smaller, truncate
+                                        if len(existing_questoes_details) < edit_num_questoes:
+                                            for _ in range(edit_num_questoes - len(existing_questoes_details)):
+                                                existing_questoes_details.append({
+                                                    "numero": len(existing_questoes_details) + 1,
+                                                    "enunciado": "",
+                                                    "valor": 0.0,
+                                                    "correta": "A",
+                                                    "A": "", "B": "", "C": "", "D": ""
+                                                })
+                                        elif len(existing_questoes_details) > edit_num_questoes:
+                                            existing_questoes_details = existing_questoes_details[:edit_num_questoes]
+                                            
+                                        edited_questoes_dados = []
+                                        soma_valores_edit_atual = 0.0
+                                        valor_sugerido_edit = round(edit_nota_maxima / int(edit_num_questoes), 2)
+                                        
+                                        for i in range(int(edit_num_questoes)):
+                                            q_data = existing_questoes_details[i]
+                                            with st.expander(f"📝 Questão {i+1}", expanded=True):
+                                                col_edit_enum, col_edit_val = st.columns([4, 1])
+                                                with col_edit_enum:
+                                                    edit_enunciado = st.text_area(f"Enunciado da Questão {i+1}:", value=q_data.get("enunciado", ""), key=f"edit_enunciado_av_{selected_row['ID_Prova']}_{i}", placeholder="Texto da questão...")
+                                                with col_edit_val:
+                                                    edit_valor_questao = st.number_input(f"Valor (Pts):", min_value=0.0, max_value=float(edit_nota_maxima), value=float(q_data.get("valor", valor_sugerido_edit)), step=0.1, key=f"edit_valor_av_{selected_row['ID_Prova']}_{i}")
+                                                
+                                                soma_valores_edit_atual += edit_valor_questao
+                                                
+                                                col_edit_alt_esq, col_edit_alt_dir = st.columns(2)
+                                                with col_edit_alt_esq:
+                                                    edit_alt_a = st.text_input(f"Alternativa A:", value=q_data.get("A", ""), key=f"edit_alt_a_av_{selected_row['ID_Prova']}_{i}", placeholder="Texto A")
+                                                    edit_alt_b = st.text_input(f"Alternativa B:", value=q_data.get("B", ""), key=f"edit_alt_b_av_{selected_row['ID_Prova']}_{i}", placeholder="Texto B")
+                                                with col_edit_alt_dir:
+                                                    edit_alt_c = st.text_input(f"Alternativa C:", value=q_data.get("C", ""), key=f"edit_alt_c_av_{selected_row['ID_Prova']}_{i}", placeholder="Texto C")
+                                                    edit_alt_d = st.text_input(f"Alternativa D:", value=q_data.get("D", ""), key=f"edit_alt_d_av_{selected_row['ID_Prova']}_{i}", placeholder="Texto D")
+                                                
+                                                # Find the index of the current correct option for default value
+                                                options_radio = ["A", "B", "C", "D"]
+                                                try:
+                                                    default_correct_index = options_radio.index(q_data.get("correta", "A"))
+                                                except ValueError:
+                                                    default_correct_index = 0 # Fallback if not found
+                                                    
+                                                edit_opcao_correta = st.radio(f"Alternativa CORRETA da Questão {i+1}?", options=options_radio, index=default_correct_index, key=f"edit_correta_av_{selected_row['ID_Prova']}_{i}", horizontal=True)
+                                                
+                                                edited_questoes_dados.append({
+                                                    "numero": i+1,
+                                                    "enunciado": edit_enunciado,
+                                                    "valor": edit_valor_questao,
+                                                    "correta": edit_opcao_correta,
+                                                    "A": edit_alt_a,
+                                                    "B": edit_alt_b,
+                                                    "C": edit_alt_c,
+                                                    "D": edit_alt_d
+                                                })
+                                        
+                                        st.markdown("---")
+                                        
+                                        if round(soma_valores_edit_atual, 2) == round(edit_nota_maxima, 2):
+                                            st.success(f"✅ Soma correta: {soma_valores_edit_atual:.2f} / {edit_nota_maxima:.2f} pontos.")
+                                        else:
+                                            st.warning(f"⚠️ Soma incorreta: totalizando {soma_valores_edit_atual:.2f} de {edit_nota_maxima:.2f} pontos.")
+                                        
+                                        col_edit_save, col_edit_cancel = st.columns(2)
+                                        with col_edit_save:
+                                            btn_save_edit = st.form_submit_button("💾 Salvar Alterações da Avaliação", type="primary", use_container_width=True)
+                                        with col_edit_cancel:
+                                            btn_cancel_edit = st.form_submit_button("↩️ Cancelar Edição", use_container_width=True)
+                                            
+                                        if btn_save_edit:
+                                            if round(soma_valores_edit_atual, 2) != round(edit_nota_maxima, 2):
+                                                st.error("❌ Ajuste a soma dos valores das questões antes de salvar.")
+                                            else:
+                                                try:
+                                                    sh = conectar_google_sheets()
+                                                    wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
+                                                    
+                                                    # Find the row index of the evaluation to update
+                                                    all_sheet_values = wks_gav.get_all_values()
+                                                    header = all_sheet_values[0]
+                                                    data_rows = all_sheet_values[1:]
+                                                    
+                                                    row_to_update_idx = -1
+                                                    id_prova_col_idx = header.index('ID_Prova')
+                                                    for i, row in enumerate(data_rows):
+                                                        if row[id_prova_col_idx] == selected_row['ID_Prova']:
+                                                            row_to_update_idx = i + 2 # +1 for 0-index to 1-index, +1 for header row
+                                                            break
+                                                    
+                                                    if row_to_update_idx != -1:
+                                                        # Prepare updated JSON strings
+                                                        updated_gabarito_oficial = {q['numero']: q['correta'] for q in edited_questoes_dados}
+                                                        updated_pesos_questoes = {q['numero']: q['valor'] for q in edited_questoes_dados}
+                                                        
+                                                        gabarito_json_updated = json.dumps(updated_gabarito_oficial)
+                                                        pesos_json_updated = json.dumps(updated_pesos_questoes)
+                                                        questoes_detalhes_json_updated = json.dumps(edited_questoes_dados)
+                                                        
+                                                        # Get current row values to ensure all columns are updated correctly
+                                                        current_row_values = wks_gav.row_values(row_to_update_idx)
+                                                        
+                                                        # Update specific columns using col_map
+                                                        col_map = {name: idx for idx, name in enumerate(header)}
+                                                        
+                                                        current_row_values[col_map['Disciplina']] = edit_disciplina_sel_av
+                                                        current_row_values[col_map['Nota_Maxima']] = str(edit_nota_maxima)
+                                                        current_row_values[col_map['Total_Questoes']] = str(edit_num_questoes)
+                                                        current_row_values[col_map['Gabarito_JSON']] = gabarito_json_updated
+                                                        current_row_values[col_map['Pesos_JSON']] = pesos_json_updated
+                                                        current_row_values[col_map['Questoes_Detalhes_JSON']] = questoes_detalhes_json_updated
+                                                        
+                                                        # Update the entire row
+                                                        wks_gav.update(f'A{row_to_update_idx}:{chr(ord("A") + len(header) - 1)}{row_to_update_idx}', [current_row_values])
+                                                        
+                                                        st.success(f"🎉 Avaliação ID {selected_row['ID_Prova']} atualizada com sucesso!")
+                                                        st.session_state.editing_evaluation_id = None # Exit edit mode
+                                                        st.session_state.current_evaluation_for_edit = None
+                                                        st.cache_data.clear()
+                                                        time.sleep(1.5)
+                                                        st.rerun()
+                                                    else:
+                                                        st.error("Erro: Avaliação não encontrada na planilha para atualização.")
+                                                except Exception as e:
+                                                    st.error(f"Erro ao salvar alterações: {e}")
+                                        
+                                        if btn_cancel_edit:
+                                            st.session_state.editing_evaluation_id = None # Exit edit mode
+                                            st.session_state.current_evaluation_for_edit = None
+                                            st.rerun()
+                                else: # If not in edit mode, show mass deletion
+                                    st.markdown("---")
+                                    st.subheader("Exclusão em Massa")
+                                    st.warning(f"⚠️ Esta ação excluirá TODAS as avaliações criadas por **{prof_nome}**.")
+                                    if st.button(f"🚨 EXCLUIR TODAS AS MINHAS AVALIAÇÕES ({prof_nome})", key="delete_all_my_evals", type="primary"):
+                                        try:
+                                            sh = conectar_google_sheets()
+                                            wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
+                                            all_sheet_values = wks_gav.get_all_values()
+                                            header = all_sheet_values[0]
+                                            data_rows = all_sheet_values[1:]
+
+                                            prof_criador_col_idx = -1
+                                            try:
+                                                prof_criador_col_idx = header.index('Professor_Criador')
+                                            except ValueError:
+                                                st.error("Coluna 'Professor_Criador' não encontrada na planilha de gabaritos.")
+                                                st.stop()
+
+                                            rows_to_delete_indices = []
+                                            for i, row in enumerate(data_rows):
+                                                if len(row) > prof_criador_col_idx and row[prof_criador_col_idx] == prof_nome:
+                                                    rows_to_delete_indices.append(i + 2)
+
+                                            if rows_to_delete_indices:
+                                                for row_idx in sorted(rows_to_delete_indices, reverse=True):
+                                                    wks_gav.delete_rows(row_idx)
+                                                st.success(f"✅ Todas as {len(rows_to_delete_indices)} avaliações criadas por {prof_nome} foram excluídas com sucesso!")
+                                                st.cache_data.clear()
+                                                time.sleep(1.5)
+                                                st.rerun()
+                                            else:
+                                                st.info(f"Nenhuma avaliação encontrada criada por {prof_nome} para exclusão.")
+                                        except Exception as e:
+                                            st.error(f"Erro ao excluir avaliações em massa: {e}")
+                            else: # If not admin
+                                st.info("Nenhuma avaliação cadastrada ainda.")
 
                 except Exception as e:
                     st.error(f"Erro ao carregar avaliações: {e}")
@@ -2580,6 +2756,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
