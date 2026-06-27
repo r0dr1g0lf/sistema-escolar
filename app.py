@@ -1373,13 +1373,14 @@ else:
                                 disciplina_sel_av,
                                 float(nota_maxima),
                                 int(num_questoes),
-                                conteudo_gabarito_final_json,
                                 prof_nome,
-                                data_atual.strftime("%d/%m/%Y")
+                                data_atual.strftime("%d/%m/%Y"),
+                                conteudo_gabarito_final_json
                             ]
                             wks_gav.append_row(nova_avaliacao)
                             st.success(f"🎉 Avaliação e Cartão-Resposta com ID {str(id_prova_gerado).zfill(2)} Gerados e SALVOS com Sucesso!")
                             st.cache_data.clear()
+                            st.session_state['necessita_recarga'] = True
                             time.sleep(1.5)
                             st.rerun()
 
