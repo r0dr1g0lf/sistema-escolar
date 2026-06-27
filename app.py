@@ -1354,26 +1354,26 @@ else:
                         try:
                             sh = conectar_google_sheets()
                             try:
-                                wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
+                                wks_gav = sh.worksheet("Gabaritos")
                             except gspread.exceptions.WorksheetNotFound:
-                                wks_gav = sh.add_worksheet(title="Gabaritos_Avaliacoes", rows="1000", cols="7")
-                                wks_gav.append_row(["ID_Prova", "Disciplina", "Nota_Maxima", "Total_Questoes", "Professor_Criador", "Data_Criacao", "Gabarito_JSON"])
+                                wks_gav = sh.add_worksheet(title="Gabaritos", rows="1000", cols=len(REQUIRED_GABARITOS_COLS))
+                                wks_gav.append_row(REQUIRED_GABARITOS_COLS)
 
                             conteudo_gabarito_completo = {
                                 "gabarito_oficial": st.session_state['gabarito_oficial'],
                                 "pesos_questoes": st.session_state['pesos_questoes'],
                                 "questoes_detalhes": questoes_dados
                             }
-                            gabarito_json_final = json.dumps(conteudo_gabarito_completo)
+                            conteudo_gabarito_final_json = json.dumps(conteudo_gabarito_completo)
 
                             nova_avaliacao = [
                                 str(id_prova_gerado).zfill(2),
                                 disciplina_sel_av,
                                 float(nota_maxima),
                                 int(num_questoes),
+                                conteudo_gabarito_final_json,
                                 prof_nome,
-                                data_atual.strftime("%d/%m/%Y"),
-                                gabarito_json_final
+                                data_atual.strftime("%d/%m/%Y")
                             ]
                             wks_gav.append_row(nova_avaliacao)
                             st.success(f"🎉 Avaliação e Cartão-Resposta com ID {str(id_prova_gerado).zfill(2)} Gerados e SALVOS com Sucesso!")
@@ -2779,6 +2779,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
