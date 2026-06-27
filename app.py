@@ -1457,31 +1457,22 @@ else:
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Erro ao excluir avaliação: {e}")
-
-                                # NEW: Button to delete all evaluations by the logged-in professor
-                                st.markdown("---")
-                                st.subheader("🚨 Excluir TODAS as Avaliações do Professor Logado")
-                                if st.button("💥 Excluir TODAS as Minhas Avaliações", type="danger", use_container_width=True):
-                                    try:
-                                        # Filter evaluations by the current logged-in professor
-                                        professor_logado = st.session_state.user_data['Professor']
-                                        minhas_avaliacoes = df_gabaritos[df_gabaritos['Professor'] == professor_logado]
-
-                                        if not minhas_avaliacoes.empty:
-                                            # Get the sheet row indices in reverse order for safe deletion
-                                            indices_para_deletar = sorted(minhas_avaliacoes['Sheet_Row_Index'].tolist(), reverse=True)
-                                            
-                                            for idx in indices_para_deletar:
-                                                wks_gav.delete_rows(idx)
-                                            
-                                            st.success(f"✅ Todas as {len(indices_para_deletar)} avaliações criadas por {professor_logado} foram excluídas com sucesso!")
-                                            st.cache_data.clear()
-                                            time.sleep(1.5)
-                                            st.rerun()
-                                        else:
-                                            st.info(f"ℹ️ Não há avaliações criadas por {professor_logado} para excluir.")
-                                    except Exception as e:
-                                        st.error(f"Erro ao excluir todas as avaliações: {e}")
+                            
+                            st.divider()
+                            st.subheader("🚨 Exclusão em Massa de Avaliações")
+                            st.warning("⚠️ Esta ação irá APAGAR TODAS as avaliações cadastradas no sistema. Esta operação é irreversível.")
+                            confirmar_exclusao_total = st.checkbox("Confirmo que desejo excluir TODAS as avaliações.")
+                            if st.button("💥 Excluir Todas as Avaliações", type="primary", use_container_width=True, disabled=not confirmar_exclusao_total):
+                                try:
+                                    # Limpa todas as linhas mantendo apenas o cabeçalho (linha 1)
+                                    wks_gav.resize(rows=1)
+                                    wks_gav.resize(rows=1000) # Opcional: Redimensiona para um tamanho padrão após a limpeza
+                                    st.success("💥 Todas as avaliações foram excluídas com sucesso!")
+                                    st.cache_data.clear()
+                                    time.sleep(1.5)
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao excluir todas as avaliações: {e}")
                     else:
                         st.info("ℹ️ Nenhuma avaliação foi criada ainda. Use a aba 'Criar' para começar.")
                 else:
@@ -2472,10 +2463,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
-
-
-
-
 
