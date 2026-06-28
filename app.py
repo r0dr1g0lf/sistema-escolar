@@ -1171,14 +1171,13 @@ else:
                             </div>
                             """
                         
-                        # Adaptação do bloco de ID para exibir o ID de 4 dígitos como texto
                         html_id_display_block = f"""
-                        <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; margin-bottom: 20px; border: 2px solid #000; padding: 8px; background: #fff;">
-                            <div style="text-align: center;">
-                                <div style="font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px;">ID DA AVALIAÇÃO</div>
-                                <p style="font-size: 18pt; font-weight: bold; margin: 10px 0;">{str(id_prova_gerado).zfill(4)}</p>
-                            </div>
-                            <svg id="barcode-{id_prova_gerado}" style="width: 100%; max-width: 200px; height: 50px;"></svg>
+                        <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap" rel="stylesheet">
+                        <div style="text-align: center; margin-bottom: 20px; border: 2px solid #000; padding: 8px; background: #fff;">
+                            <div style="font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px;">ID DA AVALIAÇÃO</div>
+                            <p style="font-family: 'Libre Barcode 39', sans-serif; font-size: 80px; text-align: center; margin: 0;">
+                                *{str(id_prova_gerado).zfill(4)}*
+                            </p>
                         </div>
                         """
                         
@@ -1373,12 +1372,12 @@ else:
                             """
                         
                         html_id_display_block_visualizar = f"""
-                        <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 20px; border: 2px solid #000; padding: 8px; background: #fff;">
-                            <div class="barcode-text">*{id_prova_gerado_visualizar}*</div>
-                            <div style="text-align: center;">
-                                <div style="font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px;">ID DA AVALIAÇÃO</div>
-                                <p style="font-size: 18pt; font-weight: bold; margin: 10px 0;">{str(id_prova_gerado_visualizar).zfill(4)}</p>
-                            </div>
+                        <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap" rel="stylesheet">
+                        <div style="text-align: center; margin-bottom: 20px; border: 2px solid #000; padding: 8px; background: #fff;">
+                            <div style="font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px;">ID DA AVALIAÇÃO</div>
+                            <p style="font-family: 'Libre Barcode 39', sans-serif; font-size: 80px; text-align: center; margin: 0;">
+                                *{str(id_prova_gerado_visualizar).zfill(4)}*
+                            </p>
                         </div>
                         """
                         
