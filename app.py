@@ -1187,7 +1187,15 @@ else:
                         <html>
                         <head>
                         <meta charset="utf-8">
+                        <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap" rel="stylesheet">
                         <style>
+                            .barcode-text {
+                                font-family: 'Libre Barcode 39', sans-serif !important;
+                                font-size: 65px !important;
+                                text-align: center;
+                                margin: 15px 0;
+                                display: block;
+                            }
                             @media print {{
                                 body {{ 
                                     margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 11pt; color: #000; 
@@ -2504,6 +2512,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
