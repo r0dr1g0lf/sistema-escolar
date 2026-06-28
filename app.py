@@ -1172,10 +1172,16 @@ else:
                             """
                         
                         # Adaptação do bloco de ID para exibir o ID de 4 dígitos como texto
+                        # Geração da URL do QR Code
+                        url_qrcode = f"https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl={id_prova_gerado}"
+
                         html_id_display_block = f"""
-                        <div class="container-id-prova">
-                            <div class="id-title">ID DA AVALIAÇÃO</div>
-                            <p style="font-size: 18pt; font-weight: bold; margin: 10px 0;">{str(id_prova_gerado).zfill(4)}</p>
+                        <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 20px; border: 2px solid #000; padding: 8px; background: #fff;">
+                            <img src="{url_qrcode}" alt="QR Code ID da Prova" style="width: 80px; height: 80px; border: 1px solid #ccc;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px;">ID DA AVALIAÇÃO</div>
+                                <p style="font-size: 18pt; font-weight: bold; margin: 10px 0;">{str(id_prova_gerado).zfill(4)}</p>
+                            </div>
                         </div>
                         """
                         
@@ -1214,7 +1220,7 @@ else:
                             .bl {{ bottom: 5px; left: 5px; }} .br {{ bottom: 5px; right: 5px; }}
                             .cartao-title {{ text-align: center; font-weight: bold; font-size: 14pt; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }}
                             
-                            .container-id-prova {{ border: 2px solid #000; padding: 8px; width: 140px; margin: 0 auto 20px auto; background: #fff; text-align: center; }}
+                            /* Estilo do container-id-prova foi movido inline para flexbox */
                             .id-title {{ font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px; }}
                             .id-cols {{ display: flex; justify-content: space-around; font-size: 8pt; font-weight: bold; margin-bottom: 5px; }}
                             .id-label-num {{ font-size: 9pt; font-weight: bold; margin-right: 8px; width: 12px; display: inline-block; }}
@@ -2463,4 +2469,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
