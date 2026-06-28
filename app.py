@@ -1621,7 +1621,7 @@ else:
                 scanned_id_from_camera = None
 
                 # Abre a câmera oficial do Streamlit (garante que o botão de tirar foto funcione)
-                foto_registro = st.camera_input("Tire a foto do código de barras da prova")
+                foto_registro = st.camera_input("Tire a foto do código de barras da prova", media_stream_constraints={"video": {"facingMode": {"exact": "environment"}}})
 
                 if foto_registro is not None:
                     try:
@@ -2597,4 +2597,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
