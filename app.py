@@ -1616,7 +1616,58 @@ else:
                 st.write(f"Aluno: **{st.session_state.selected_aluno_av}** | Turma: **{st.session_state.selected_turma_av}**")
                 
                 id_manual_input = st.text_input("🔢 Digite o ID da Avaliação (ou use a câmera abaixo):", key="id_prova_manual_input", placeholder="Ex: 1001")
+                st.markdown("""
+<style>
+/* Force landscape-like fill for the video element within st.camera_input */
+[data-testid="stCameraInput-video-container"] video {
+    object-fit: cover; /* Fills the container, cropping if necessary */
+    width: 100%;
+    height: 100%;
+    /* If the camera stream is portrait by default and needs rotation for landscape view, uncomment below */
+    /* transform: rotate(90deg); */
+    /* transform-origin: center center; */
+}
+
+/* Container for the camera input and the overlay */
+.camera-with-overlay {
+    position: relative;
+    width: 100%; /* Ensure it takes full width */
+    /* Height will be determined by the st.camera_input component */
+    margin-bottom: 1rem; /* Add some space below */
+}
+
+/* The barcode scanner guide overlay */
+.barcode-scanner-guide {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 60%; /* Adjust size of the green rectangle */
+    height: 30%; /* Adjust size of the green rectangle */
+    transform: translate(-50%, -50%);
+    border: 2px solid rgba(0, 255, 0, 0.7); /* Green semi-transparent border */
+    background-color: rgba(0, 255, 0, 0.1); /* Green semi-transparent fill */
+    pointer-events: none; /* Allow clicks to pass through to the camera */
+    z-index: 10; /* Ensure it's above the video */
+}
+
+/* Red horizontal guide line */
+.barcode-scanner-guide::before {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 2px; /* Thin red line */
+    background-color: red;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+}
+</style>
+""", unsafe_allow_html=True)
+
+                st.markdown('<div class="camera-with-overlay">', unsafe_allow_html=True)
                 img_id_scan = st.camera_input("📸 Capturar Barcode do ID da Prova", key="camera_id_scan")
+                st.markdown('<div class="barcode-scanner-guide"></div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
                 scanned_id_from_camera = None
                 if img_id_scan is not None:
@@ -2584,6 +2635,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
