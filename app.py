@@ -1174,23 +1174,6 @@ else:
                             """
                         
                         # Adaptação do bloco de ID para exibir o ID de 4 dígitos como texto
-                        # Função para gerar QR Code em base64
-                        def gerar_qr_code_base64(data):
-                            import qrcode
-                            from io import BytesIO
-                            qr = qrcode.QRCode(
-                                version=1,
-                                error_correction=qrcode.constants.ERROR_CORRECT_L,
-                                box_size=10,
-                                border=4,
-                            )
-                            qr.add_data(str(data))
-                            qr.make(fit=True)
-                            img = qr.make_image(fill_color="black", back_color="white")
-                            buffered = BytesIO()
-                            img.save(buffered, format="PNG")
-                            return base64.b64encode(buffered.getvalue()).decode()
-
                         qr_base64 = gerar_qr_code_base64(id_prova_gerado)
                         html_id_display_block = f"""
                         <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 20px; border: 2px solid #000; padding: 8px; background: #fff;">
@@ -1536,6 +1519,8 @@ else:
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Erro ao excluir todas as avaliações: {e}")
+                    else:
+                        st.info("ℹ️ Nenhuma avaliação foi criada ainda. Use a aba 'Criar' para começar.")
                 else:
                     st.info("ℹ️ Nenhuma avaliação foi criada ainda. Use a aba 'Criar' para começar.")
 
@@ -2524,6 +2509,3 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
-
