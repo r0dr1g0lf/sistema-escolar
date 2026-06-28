@@ -1375,19 +1375,46 @@ else:
                             </div>
                             """
                         
+                        url_qrcode_visualizar = f"https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl={id_prova_gerado_visualizar}"
+
                         html_id_display_block_visualizar = f"""
-                        <div class="container-id-prova">
-                            <div class="id-title">ID DA AVALIAÇÃO</div>
-                            <p style="font-size: 18pt; font-weight: bold; margin: 10px 0;">{str(id_prova_gerado_visualizar).zfill(4)}</p>
+                        <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 20px; border: 2px solid #000; padding: 8px; background: #fff;">
+                            <img src="{url_qrcode_visualizar}" alt="QR Code ID da Prova" style="width: 80px; height: 80px; border: 1px solid #ccc;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px;">ID DA AVALIAÇÃO</div>
+                                <p style="font-size: 18pt; font-weight: bold; margin: 10px 0;">{str(id_prova_gerado_visualizar).zfill(4)}</p>
+                            </div>
                         </div>
                         """
                         
+                        html_linhas_gabarito_visualizar = ""
+                        for q in questoes_dados_visualizar:
+                            html_linhas_gabarito_visualizar += f"""
+                            <div class="gabarito-row">
+                                <span class="gabarito-num">{str(q['numero']).zfill(2)}</span>
+                                <span class="gabarito-bubble">A</span>
+                                <span class="gabarito-bubble">B</span>
+                                <span class="gabarito-bubble">C</span>
+                                <span class="gabarito-bubble">D</span>
+                            </div>
+                            """
+
                         html_prova_visualizar = f"""
                         <!DOCTYPE html>
                         <html>
                         <head>
                         <meta charset="utf-8">
                         <style>
+                            @media print {{
+                                body {{ 
+                                    margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 11pt; color: #000; 
+                                    -webkit-print-color-adjust: exact !important; 
+                                    print-color-adjust: exact !important; 
+                                }}
+                                .print-container {{ width: 100%; padding: 15mm; box-sizing: border-box; }}
+                                .no-print {{ display: none !important; }}
+                                .page-break {{ page-break-before: always; }}
+                            }}
                             body {{ 
                                 font-family: Arial, sans-serif; background-color: #fafafa; padding: 10px; 
                                 -webkit-print-color-adjust: exact !important; 
@@ -1407,7 +1434,7 @@ else:
                             .bl {{ bottom: 5px; left: 5px; }} .br {{ bottom: 5px; right: 5px; }}
                             .cartao-title {{ text-align: center; font-weight: bold; font-size: 14pt; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }}
                             
-                            .container-id-prova {{ border: 2px solid #000; padding: 8px; width: 140px; margin: 0 auto 20px auto; background: #fff; text-align: center; }}
+                            /* Estilo do container-id-prova foi movido inline para flexbox */
                             .id-title {{ font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px; }}
                             .id-cols {{ display: flex; justify-content: space-around; font-size: 8pt; font-weight: bold; margin-bottom: 5px; }}
                             .id-label-num {{ font-size: 9pt; font-weight: bold; margin-right: 8px; width: 12px; display: inline-block; }}
@@ -1437,6 +1464,19 @@ else:
                                 </table>
                                 
                                 {html_questoes_visualizar}
+                                
+                                <div class="page-break"></div>
+                                
+                                <div class="cartao-resposta-box">
+                                    <div class="anchor-marker tl"></div><div class="anchor-marker tr"></div>
+                                    <div class="anchor-marker bl"></div><div class="anchor-marker br"></div>
+                                    <div class="cartao-title">FOLHA DE RESPOSTAS OFICIAL</div>
+                                    <p style="font-size:9pt; text-align:center; margin-top:0px; margin-bottom:15px;">Use caneta azul ou preta para marcar as respostas.</p>
+                                    
+                                    {html_id_display_block_visualizar}
+                                    
+                                    {html_linhas_gabarito_visualizar}
+                                </div>
                                 
                                 <div class="prof-section">
                                     <div class="cartao-title" style="color: #000;">📌 GABARITO DE CONFERÊNCIA DIGITAL (ID: {str(id_prova_gerado_visualizar).zfill(4)})</div>
@@ -2469,6 +2509,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
