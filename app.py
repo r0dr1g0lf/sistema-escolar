@@ -999,6 +999,9 @@ else:
         # Inicializa a lista de histórico global na memória caso não exista
         if 'historico_correcoes' not in st.session_state:
             st.session_state['historico_correcoes'] = []
+        # NEW: Initialize print trigger for visualization
+        if 'trigger_print_visualizar' not in st.session_state:
+            st.session_state['trigger_print_visualizar'] = False
 
         # Captura dinamicamente o nome do professor logado para o cabeçalho
         if 'user_data' in st.session_state and st.session_state.user_data.get('Nome'):
@@ -1392,6 +1395,12 @@ else:
                                 <span class="gabarito-bubble">D</span>
                             </div>
                             """
+                        
+                        # Add the print script if triggered
+                        print_script = ""
+                        if st.session_state.trigger_print_visualizar:
+                            print_script = "<script>setTimeout(function() { window.print(); }, 600);</script>"
+                            st.session_state.trigger_print_visualizar = False # Reset after use
 
                         html_prova_visualizar = f"""
                         <!DOCTYPE html>
@@ -1478,11 +1487,17 @@ else:
                                     {html_gabarito_professor_visualizar}
                                 </div>
                             </div>
+                            {print_script}
                         </body>
                         </html>
                         """
                         st.markdown("### 🖨️ Pré-visualização da Avaliação")
                         st.components.v1.html(html_prova_visualizar, height=600, scrolling=True)
+
+                        # Add the Streamlit print button
+                        if st.button("🖨️ Imprimir Avaliação e Gabarito", use_container_width=True, key="btn_print_visualizar"):
+                            st.session_state.trigger_print_visualizar = True
+                            st.rerun()
 
                         # NEW: Delete button for master admin
                         if st.session_state.get('is_master_admin', False):
@@ -2502,4 +2517,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
