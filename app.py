@@ -1624,49 +1624,62 @@ else:
                 import numpy as np
                 from pyzbar.pyzbar import decode
 
+                # Inicializa a variável para o restante do sistema não quebrar
+                scanned_id_from_camera = None
+
                 if 'foto_codigo_barras' not in st.session_state:
                     st.session_state['foto_codigo_barras'] = None
 
-                # Renderiza a câmera usando components.html diretamente
+                # Renderiza a câmera com envio forçado via formulário
                 html_camera = """
-<div style="position: relative; width: 100%; max-width: 500px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden;">
-    <video id="vid" autoplay playsinline style="width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block;"></video>
-    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; border: 4px solid rgba(0,0,0,0.4); pointer-events: none;">
-        <div style="position: absolute; top: 35%; left: 10%; right: 10%; height: 30%; border: 2px solid #00ff00; border-radius: 4px;">
-            <div style="position: absolute; top: 50%; left: 0; width: 100%; height: 2px; background: #ff0000;"></div>
+<form id="scanner-form" style="text-align: center; margin: 0; padding: 0;">
+    <div style="position: relative; width: 100%; max-width: 500px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden;">
+        <video id="vid" autoplay playsinline style="width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block;"></video>
+        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; border: 4px solid rgba(0,0,0,0.4); pointer-events: none;">
+            <div style="position: absolute; top: 35%; left: 10%; right: 10%; height: 30%; border: 2px solid #00ff00; border-radius: 4px;">
+                <div style="position: absolute; top: 50%; left: 0; width: 100%; height: 2px; background: #ff0000;"></div>
+            </div>
         </div>
     </div>
-</div>
-<div style="text-align: center; margin-top: 10px;">
-    <button id="snap" style="background: #ff4b4b; color: #fff; border: none; padding: 12px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 80%; font-weight: bold;">📸 Capturar Código de Barras</button>
-</div>
-<canvas id="canv" style="display: none;"></canvas>
+    <div style="margin-top: 10px;">
+        <button type="submit" id="snap" style="background: #ff4b4b; color: #fff; border: none; padding: 12px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 80%; font-weight: bold;">📸 Capturar Código de Barras</button>
+    </div>
+    <canvas id="canv" style="display: none;"></canvas>
+</form>
+
 <script>
-    const v = document.getElementById('vid'), b = document.getElementById('snap'), c = document.getElementById('canv');
+    const v = document.getElementById('vid'), f = document.getElementById('scanner-form'), c = document.getElementById('canv');
+    
+    // Ativa a câmera traseira
     navigator.mediaDevices.getUserMedia({video: {facingMode: {ideal: "environment"}, width: {ideal: 1280}, height: {ideal: 720}}})
         .then(s => { v.srcObject = s; v.play(); })
         .catch(e => console.error(e));
         
-    b.addEventListener('click', () => {
-        const ctx = c.getContext('2d'); c.width = v.videoWidth; c.height = v.videoHeight;
+    // Captura o envio do formulário
+    f.addEventListener('submit', (e) => {
+        e.preventDefault(); // Impede o recarregamento padrão do html puro
+        
+        const ctx = c.getContext('2d'); 
+        c.width = v.videoWidth; 
+        c.height = v.videoHeight;
         ctx.drawImage(v, 0, 0, c.width, c.height);
+        
         const dataUrl = c.toDataURL('image/jpeg');
         
+        // Envia o dado de forma estrita para o Streamlit acordar
         Streamlit.setComponentValue(dataUrl);
     });
 </script>
 """
 
-                # Executa o componente e captura o valor real em formato string (e não o DeltaGenerator)
-                valor_retornado = components.html(html_camera, height=380)
+                # Executa o componente
+                valor_retornado = components.html(html_camera, height=390)
 
-                # Garante que só vamos tratar o dado se ele for uma string de texto contendo a imagem
-                scanned_id_from_camera = None # Inicializa a variável para evitar NameError
-
-                if isinstance(valor_retornado, str) and valor_retornado.startswith("data:image"):
+                # Se o usuário clicou, o valor_retornado deixa de ser None e passa a ser a string da imagem
+                if valor_retornado and isinstance(valor_retornado, str) and valor_retornado.startswith("data:image"):
                     st.session_state['foto_codigo_barras'] = valor_retornado
 
-                # Processa a imagem salva
+                # Processamento da Imagem pelo Python
                 if st.session_state['foto_codigo_barras']:
                     try:
                         img_b64 = st.session_state['foto_codigo_barras']
@@ -1682,21 +1695,16 @@ else:
                         if codigos_detectados:
                             id_detectado = codigos_detectados[0].data.decode('utf-8').replace('*', '').strip()
                             st.success(f"✅ Avaliação identificada: ID {id_detectado}")
-                            
-                            # Cria a ponte com a variável que o restante do sistema espera
                             st.session_state['id_prova_atual'] = id_detectado
                             scanned_id_from_camera = id_detectado
-                            
                             st.session_state['foto_codigo_barras'] = None
                             st.rerun()
                         else:
                             st.warning("⚠️ Código de barras não detectado na foto. Alinhe na linha vermelha e tente novamente.")
                             st.session_state['foto_codigo_barras'] = None
-                            scanned_id_from_camera = None
                     except Exception as e:
                         st.error(f"Erro no processamento: {e}")
-                        st.session_state['foto_codigo_barras'] = None
-                        scanned_id_from_camera = None # Garante que seja None em caso de erro
+                        st.session_state['foto_codigo_barras'] = None # Garante que seja None em caso de erro
 
                 detected_id = id_manual_input if id_manual_input else scanned_id_from_camera
 
@@ -2648,4 +2656,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
