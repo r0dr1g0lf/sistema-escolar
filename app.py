@@ -7,14 +7,6 @@ import time
 import io
 import pytz
 import json # Adicionado para corrigir NameError
-import base64
-import qrcode
-
-def gerar_qr_code_base64(conteudo):
-    qr = qrcode.make(conteudo)
-    buffer = io.BytesIO()
-    qr.save(buffer, format="PNG")
-    return base64.b64encode(buffer.getvalue()).decode('utf-8').replace('\n', '').strip()
 
 # Configuração do fuso horário correto de Roraima
 fuso_roraima = pytz.timezone('America/Boa_Vista')
@@ -1180,10 +1172,12 @@ else:
                             """
                         
                         # Adaptação do bloco de ID para exibir o ID de 4 dígitos como texto
-                        qr_base64 = gerar_qr_code_base64(id_prova_gerado)
+                        # Geração da URL do QR Code
+                        url_qrcode = f"https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl={id_prova_gerado}"
+
                         html_id_display_block = f"""
                         <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 20px; border: 2px solid #000; padding: 8px; background: #fff;">
-                            <img src="data:image/png;base64,{qr_base64}" alt="QR Code ID da Prova" style="width: 80px; height: 80px; border: 1px solid #ccc;">
+                            <img src="{url_qrcode}" alt="QR Code ID da Prova" style="width: 80px; height: 80px; border: 1px solid #ccc;">
                             <div style="text-align: center;">
                                 <div style="font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px;">ID DA AVALIAÇÃO</div>
                                 <p style="font-size: 18pt; font-weight: bold; margin: 10px 0;">{str(id_prova_gerado).zfill(4)}</p>
@@ -2515,3 +2509,9 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
+
+
+
+
