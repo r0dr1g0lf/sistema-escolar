@@ -1177,7 +1177,7 @@ else:
 
                         html_id_display_block = f"""
                         <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 20px; border: 2px solid #000; padding: 8px; background: #fff;">
-                            <img src="{url_qrcode}" alt="QR Code ID da Prova" style="width: 80px; height: 80px; border: 1px solid #ccc;">
+                            
                             <div style="text-align: center;">
                                 <div style="font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px;">ID DA AVALIAÇÃO</div>
                                 <p style="font-size: 18pt; font-weight: bold; margin: 10px 0;">{str(id_prova_gerado).zfill(4)}</p>
@@ -2509,6 +2509,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
