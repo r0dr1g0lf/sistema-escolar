@@ -1526,10 +1526,37 @@ else:
 
             # --- SUB-ABA: CORREÇÃO DE AVALIAÇÕES ---
         elif aba_av_escolhida == "Correção":
+            # Initialize session state for correction flow if not already set
+            if 'correcao_step' not in st.session_state:
+                st.session_state.correcao_step = "scan_id" # Default to scanning ID
+            if 'selected_turma_av' not in st.session_state:
+                st.session_state.selected_turma_av = None
+            if 'selected_aluno_av' not in st.session_state:
+                st.session_state.selected_aluno_av = None
+            if 'id_prova_scanned' not in st.session_state:
+                st.session_state.id_prova_scanned = None
+            if 'prova_data' not in st.session_state:
+                st.session_state.prova_data = None
+            if 'respostas_aluno_simuladas' not in st.session_state:
+                st.session_state.respostas_aluno_simuladas = None
+            if 'nota_obtida' not in st.session_state:
+                st.session_state.nota_obtida = None
+            if 'detalhes_respostas' not in st.session_state:
+                st.session_state.detalhes_respostas = None
+
+            # Helper function to reset correction state
+            def reset_correcao_state():
+                st.session_state.correcao_step = "scan_id" # Reset to ID scanning for the current student
+                st.session_state.id_prova_scanned = None
+                st.session_state.prova_data = None
+                st.session_state.respostas_aluno_simuladas = None
+                st.session_state.nota_obtida = None
+                st.session_state.detalhes_respostas = None
+
             st.subheader("📸 Leitura Automatizada e Correção por ID")
-            st.write("Selecione a turma e o aluno, depois aponte o cartão-resposta para a câmera ou bipe/digite o ID da avaliação.")
+            st.write("Este módulo permite a correção de avaliações em duas etapas: primeiro a identificação da prova, depois a leitura das respostas do aluno.")
             
-            # Lógica para carregar turmas e alunos (similar a Registro/Ocorrências)
+            # Lógica para carregar turmas e alunos (sempre visível)
             if st.session_state.get('is_master_admin', False):
                 todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str))
             else:
@@ -1543,14 +1570,16 @@ else:
                 alunos_da_turma_av = df_alunos[df_alunos['Turma'].astype(str) == turma_sel_av]['Nome_Aluno'].tolist()
                 aluno_sel_av = st.selectbox("2. Aluno", sorted(alunos_da_turma_av), key="aluno_av_correcao")
 
+            # Check for changes in student/turma selection and reset state if needed
+            # This ensures that if a new student is selected, the process restarts from ID scan.
+            if turma_sel_av != st.session_state.selected_turma_av or aluno_sel_av != st.session_state.selected_aluno_av:
+                st.session_state.selected_turma_av = turma_sel_av
+                st.session_state.selected_aluno_av = aluno_sel_av
+                reset_correcao_state() # Reset everything related to the exam, but keep student selected
+                st.rerun() # Rerun to update UI based on new student selection
+
             st.markdown("---")
 
-            # Campo para receber o ID bipado via leitor de código de barras/digitado de forma rápida
-            id_detectado = st.text_input("🔢 ID da Avaliação (Bipado ou Detectado):", key="id_prova_bipado", placeholder="Ex: 1001")
-            
-            # Abre a câmera imediatamente em tela para captura
-            img_file = st.camera_input("Capturar Cartão Resposta", key="camera_correcao_automatica")
-            
             # Funções de simulação para demonstração (substituir por lógica OpenCV real)
             def simular_respostas_aluno(num_questoes):
                 import random
@@ -1568,7 +1597,7 @@ else:
                 nota_obtida = 0.0
                 respostas_detalhadas = {}
                 for q_num, resposta_correta in gabarito_oficial.items():
-                    peso = pesos_questoes.get(str(q_num), 0.0)
+                    peso = pesos_questoes.get(str(q_num), 0.0) # Ensure key is string for dict lookup
                     resposta_aluno = respostas_aluno.get(q_num)
                     
                     if resposta_aluno == resposta_correta:
@@ -1587,21 +1616,29 @@ else:
                     }
                 return nota_obtida, respostas_detalhadas
             
-            # Estrutura lógica de processamento
-            if (img_file is not None or id_detectado) and aluno_sel_av and turma_sel_av:
-                st.info("🔄 Processando dados da avaliação...")
+            # Main correction flow based on session state step
+            if not st.session_state.selected_aluno_av or not st.session_state.selected_turma_av:
+                st.info("⚠️ Por favor, selecione a Turma e o Aluno para iniciar a correção.")
+            elif st.session_state.correcao_step == "scan_id":
+                st.subheader("Passo 1: Identificar Avaliação (ID da Prova)")
+                st.write(f"Aluno: **{st.session_state.selected_aluno_av}** | Turma: **{st.session_state.selected_turma_av}**")
                 
-                # Se uma imagem foi capturada e o ID ainda não foi digitado, tentamos extrair o ID da prova do cabeçalho
-                if img_file is not None and not id_detectado:
-                    # [Lógica do OpenCV/ZBar ou processamento de imagem para ler as bolinhas de ID ou QR Code]
-                    # Exemplo fictício da variável que seu leitor extrai da imagem:
-                    # id_detectado = extrair_id_da_imagem(img_file)
-                    pass
+                id_manual_input = st.text_input("🔢 Digite o ID da Avaliação (ou use a câmera abaixo):", key="id_prova_manual_input", placeholder="Ex: 1001")
+                img_id_scan = st.camera_input("📸 Capturar Barcode do ID da Prova", key="camera_id_scan")
 
-                if not id_detectado:
-                    st.warning("⚠️ Não foi possível identificar o ID da prova automaticamente na imagem. Digite o ID no campo acima para prosseguir.")
-                else:
-                    # Carrega dinamicamente a base de dados de gabaritos para encontrar a prova correspondente ao ID
+                scanned_id_from_camera = None
+                if img_id_scan is not None:
+                    # Placeholder for actual barcode scanning logic
+                    st.info("Simulando leitura de barcode... (Integração OpenCV/ZBar necessária aqui)")
+                    # For demonstration, let's assume a fixed ID if camera is used without manual input
+                    if not id_manual_input: # Only use simulated ID if manual input is empty
+                        scanned_id_from_camera = "1001" # Placeholder for actual barcode read
+
+                detected_id = id_manual_input if id_manual_input else scanned_id_from_camera
+
+                if detected_id:
+                    st.session_state.id_prova_scanned = detected_id
+                    # Load exam data
                     try:
                         sh = conectar_google_sheets()
                         wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
@@ -1609,65 +1646,88 @@ else:
                         df_gabaritos = pd.DataFrame(dados_gabaritos)
                     except Exception as e:
                         df_gabaritos = pd.DataFrame()
-                        st.error(f"Erro ao conectar ao banco de dados: {e}")
+                        st.error(f"Erro ao conectar ao banco de dados de gabaritos: {e}")
 
                     if not df_gabaritos.empty:
-                        # Garante que a comparação seja feita como string limpa
                         df_gabaritos['ID_Prova'] = df_gabaritos['ID_Prova'].astype(str).str.strip()
-                        prova_alvo = df_gabaritos[df_gabaritos['ID_Prova'] == str(id_detectado).strip()]
+                        prova_alvo = df_gabaritos[df_gabaritos['ID_Prova'] == str(st.session_state.id_prova_scanned).strip()]
                         
                         if prova_alvo.empty:
-                            st.error(f"❌ Nenhuma avaliação com o ID '{id_detectado}' foi localizada no banco de dados.")
+                            st.error(f"❌ Nenhuma avaliação com o ID '{st.session_state.id_prova_scanned}' foi localizada no banco de dados.")
+                            st.session_state.id_prova_scanned = None # Reset for re-scan
                         else:
-                            dados_da_prova = prova_alvo.iloc[0]
-                            
-                            # Carrega gabarito e pesos da prova
-                            gabarito_oficial_json = json.loads(dados_da_prova['Gabarito_Completo'])
-                            pesos_questoes_json = json.loads(dados_da_prova['Valor_Por_Questao'])
-                            total_questoes = dados_da_prova['Total_Questoes']
-                            nota_maxima_prova = dados_da_prova['Valor_Total_Prova']
+                            st.session_state.prova_data = prova_alvo.iloc[0]
+                            st.success(f"🎯 Prova ID **{st.session_state.id_prova_scanned}** identificada! Disciplina: {st.session_state.prova_data.get('Disciplina')} | Professor: {st.session_state.prova_data.get('Professor')}")
+                            st.session_state.correcao_step = "scan_answers"
+                            st.rerun()
+                else:
+                    st.info("Aguardando o ID da avaliação (digite ou escaneie o barcode).")
 
-                            # Converte chaves de string para int para o gabarito_oficial_json
-                            gabarito_oficial_convertido = {int(k): v for k, v in gabarito_oficial_json.items()}
-                            pesos_questoes_convertido = {int(k): v for k, v in pesos_questoes_json.items()}
+            elif st.session_state.correcao_step == "scan_answers":
+                st.subheader("Passo 2: Capturar Respostas do Aluno")
+                st.write(f"Aluno: **{st.session_state.selected_aluno_av}** | Turma: **{st.session_state.selected_turma_av}** | Prova ID: **{st.session_state.id_prova_scanned}**")
+                st.write(f"Disciplina: {st.session_state.prova_data.get('Disciplina')} | Professor: {st.session_state.prova_data.get('Professor')}")
 
-                            st.success(f"🎯 Prova Identificada com Sucesso! | Disciplina: {dados_da_prova.get('Disciplina')} | Professor: {dados_da_prova.get('Professor')}")
-                            
-                            # --- SIMULAÇÃO DE LEITURA DO CARTÃO RESPOSTA ---
-                            st.write(f"Simulando leitura do cartão resposta para **{aluno_sel_av}** da turma **{turma_sel_av}**...")
-                            
-                            # Simula as respostas do aluno
-                            respostas_aluno_simuladas = simular_respostas_aluno(total_questoes)
-                            
-                            # Calcula a nota
-                            nota_obtida, detalhes_respostas = calcular_nota(gabarito_oficial_convertido, pesos_questoes_convertido, respostas_aluno_simuladas)
-                            
-                            st.markdown("---")
-                            st.subheader("✅ Resultado da Correção")
-                            st.metric(label="Nota Final", value=f"{nota_obtida:.2f} / {nota_maxima_prova:.2f}")
-                            
-                            st.markdown("#### Detalhes das Respostas:")
-                            for q_num, detalhes in detalhes_respostas.items():
-                                st.write(f"**Questão {q_num}:** Resposta Aluno: {detalhes['Resposta Aluno'] if detalhes['Resposta Aluno'] else 'Em Branco'} | Correta: {detalhes['Resposta Correta']} | Status: {detalhes['Status']} | Pontos: {detalhes['Pontos']:.2f}")
+                img_answer_scan = st.camera_input("📸 Capturar Cartão Resposta do Aluno", key="camera_answer_scan")
 
-                            # Salva o resultado no histórico da sessão
-                            if st.button("Salvar Correção no Histórico", use_container_width=True):
-                                st.session_state['historico_correcoes'].append({
-                                    "Data/Hora": datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
-                                    "Aluno": aluno_sel_av,
-                                    "Turma": turma_sel_av,
-                                    "Disciplina": dados_da_prova.get('Disciplina'),
-                                    "ID Prova": id_detectado,
-                                    "Nota Obtida": nota_obtida,
-                                    "Nota Máxima": nota_maxima_prova,
-                                    "Detalhes": detalhes_respostas
-                                })
-                                st.success("Correção salva no histórico!")
-                                time.sleep(1)
-                                st.rerun()
-            else:
-                if not aluno_sel_av or not turma_sel_av:
-                    st.warning("⚠️ Por favor, selecione a Turma e o Aluno antes de prosseguir com a correção.")
+                if img_answer_scan is not None:
+                    st.info("🔄 Processando respostas do cartão...")
+                    
+                    # Load gabarito and weights from session state
+                    gabarito_oficial_json = json.loads(st.session_state.prova_data['Gabarito_Completo'])
+                    pesos_questoes_json = json.loads(st.session_state.prova_data['Valor_Por_Questao'])
+                    total_questoes = st.session_state.prova_data['Total_Questoes']
+
+                    gabarito_oficial_convertido = {int(k): v for k, v in gabarito_oficial_json.items()}
+                    pesos_questoes_convertido = {int(k): v for k, v in pesos_questoes_json.items()}
+
+                    # --- SIMULAÇÃO DE LEITURA DO CARTÃO RESPOSTA ---
+                    # Here you would integrate OpenCV/image processing to read the bubbles from img_answer_scan
+                    st.write("Simulando leitura das respostas do aluno... (Integração OpenCV/Image Processing necessária aqui)")
+                    st.session_state.respostas_aluno_simuladas = simular_respostas_aluno(total_questoes)
+                    
+                    # Calcula a nota
+                    st.session_state.nota_obtida, st.session_state.detalhes_respostas = calcular_nota(
+                        gabarito_oficial_convertido, pesos_questoes_convertido, st.session_state.respostas_aluno_simuladas
+                    )
+                    
+                    st.session_state.correcao_step = "display_results"
+                    st.rerun()
+                else:
+                    st.info("Aguardando a captura do cartão resposta do aluno.")
+
+            elif st.session_state.correcao_step == "display_results":
+                st.subheader("✅ Resultado da Correção")
+                st.write(f"Aluno: **{st.session_state.selected_aluno_av}** | Turma: **{st.session_state.selected_turma_av}** | Prova ID: **{st.session_state.id_prova_scanned}**")
+                st.write(f"Disciplina: {st.session_state.prova_data.get('Disciplina')} | Professor: {st.session_state.prova_data.get('Professor')}")
+
+                st.metric(label="Nota Final", value=f"{st.session_state.nota_obtida:.2f} / {st.session_state.prova_data['Valor_Total_Prova']:.2f}")
+                
+                st.markdown("#### Detalhes das Respostas:")
+                for q_num, detalhes in st.session_state.detalhes_respostas.items():
+                    st.write(f"**Questão {q_num}:** Resposta Aluno: {detalhes['Resposta Aluno'] if detalhes['Resposta Aluno'] else 'Em Branco'} | Correta: {detalhes['Resposta Correta']} | Status: {detalhes['Status']} | Pontos: {detalhes['Pontos']:.2f}")
+
+                col_save, col_reset = st.columns(2)
+                with col_save:
+                    if st.button("Salvar Correção no Histórico", use_container_width=True):
+                        st.session_state['historico_correcoes'].append({
+                            "Data/Hora": datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
+                            "Aluno": st.session_state.selected_aluno_av,
+                            "Turma": st.session_state.selected_turma_av,
+                            "Disciplina": st.session_state.prova_data.get('Disciplina'),
+                            "ID Prova": st.session_state.id_prova_scanned,
+                            "Nota Obtida": st.session_state.nota_obtida,
+                            "Nota Máxima": st.session_state.prova_data['Valor_Total_Prova'],
+                            "Detalhes": st.session_state.detalhes_respostas
+                        })
+                        st.success("Correção salva no histórico!")
+                        time.sleep(1)
+                        reset_correcao_state()
+                        st.rerun()
+                with col_reset:
+                    if st.button("Corrigir Outra Avaliação", use_container_width=True, type="secondary"):
+                        reset_correcao_state()
+                        st.rerun()
 
         elif aba_av_escolhida == "Histórico de Notas":
             st.subheader("📋 Histórico Completo de Provas Corrigidas")
@@ -2524,6 +2584,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
