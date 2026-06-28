@@ -1172,16 +1172,10 @@ else:
                             """
                         
                         # Adaptação do bloco de ID para exibir o ID de 4 dígitos como texto
-                        # Geração da URL do QR Code
-                        url_qrcode = f"https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl={id_prova_gerado}"
-
                         html_id_display_block = f"""
-                        <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 20px; border: 2px solid #000; padding: 8px; background: #fff;">
-                            
-                            <div style="text-align: center;">
-                                <div style="font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px;">ID DA AVALIAÇÃO</div>
-                                <p style="font-size: 18pt; font-weight: bold; margin: 10px 0;">{str(id_prova_gerado).zfill(4)}</p>
-                            </div>
+                        <div style="text-align: center; margin-bottom: 20px; border: 2px solid #000; padding: 8px; background: #fff;">
+                            <div style="font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px;">ID DA AVALIAÇÃO</div>
+                            <p style="font-size: 18pt; font-weight: bold; margin: 10px 0;">{str(id_prova_gerado).zfill(4)}</p>
                         </div>
                         """
                         
@@ -2509,6 +2503,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
