@@ -1683,26 +1683,31 @@ else:
                             id_detectado = codigos_detectados[0].data.decode('utf-8').replace('*', '').strip()
                             st.success(f"✅ Avaliação identificada: ID {id_detectado}")
                             
-                            # Cria a ponte com a variável que o restante do sistema espera
-                            st.session_state['id_prova_atual'] = id_detectado
-                            scanned_id_from_camera = id_detectado
+                            # Armazena o ID detectado diretamente na variável de estado de sessão persistente
+                            st.session_state.id_prova_scanned = id_detectado
                             
-                            st.session_state['foto_codigo_barras'] = None
-                            st.rerun()
+                            st.session_state['foto_codigo_barras'] = None # Limpa os dados da imagem para não reprocessar
+                            st.rerun() # Força um rerun para processar o ID detectado
                         else:
                             st.warning("⚠️ Código de barras não detectado na foto. Alinhe na linha vermelha e tente novamente.")
-                            st.session_state['foto_codigo_barras'] = None
-                            scanned_id_from_camera = None
+                            st.session_state['foto_codigo_barras'] = None # Limpa os dados da imagem se nenhum código for encontrado
                     except Exception as e:
                         st.error(f"Erro no processamento: {e}")
                         st.session_state['foto_codigo_barras'] = None
-                        scanned_id_from_camera = None # Garante que seja None em caso de erro
 
-                detected_id = id_manual_input if id_manual_input else scanned_id_from_camera
+                # Determina o ID a ser usado para carregar os dados da prova.
+                # Prioriza o ID já escaneado e armazenado no estado da sessão.
+                # Se não houver, verifica a entrada manual.
+                id_to_process = None
+                if st.session_state.id_prova_scanned:
+                    id_to_process = st.session_state.id_prova_scanned
+                elif id_manual_input:
+                    id_to_process = id_manual_input
 
-                if detected_id:
-                    st.session_state.id_prova_scanned = detected_id
-                    # Load exam data
+                if id_to_process:
+                    # Garante que o ID esteja consistentemente armazenado para o próximo passo
+                    st.session_state.id_prova_scanned = id_to_process 
+                    # Carrega os dados da prova
                     try:
                         sh = conectar_google_sheets()
                         wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
@@ -1718,7 +1723,7 @@ else:
                         
                         if prova_alvo.empty:
                             st.error(f"❌ Nenhuma avaliação com o ID '{st.session_state.id_prova_scanned}' foi localizada no banco de dados.")
-                            st.session_state.id_prova_scanned = None # Reset for re-scan
+                            st.session_state.id_prova_scanned = None # Reseta para permitir novo escaneamento
                         else:
                             st.session_state.prova_data = prova_alvo.iloc[0]
                             st.success(f"🎯 Prova ID **{st.session_state.id_prova_scanned}** identificada! Disciplina: {st.session_state.prova_data.get('Disciplina')} | Professor: {st.session_state.prova_data.get('Professor')}")
