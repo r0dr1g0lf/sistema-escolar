@@ -1618,24 +1618,17 @@ else:
                 id_manual_input = st.text_input("🔢 Digite o ID da Avaliação (ou use a câmera abaixo):", key="id_prova_manual_input", placeholder="Ex: 1001")
 
                 import streamlit as st
+                import streamlit.components.v1 as components
                 import base64
-                
-                opencv_disponivel = False
-                try:
-                    import cv2
-                    import numpy as np
-                    from pyzbar.pyzbar import decode
-                    opencv_disponivel = True
-                except ImportError:
-                    st.warning("A biblioteca OpenCV (cv2) não está instalada. A funcionalidade de leitura de código de barras pela câmera não estará disponível.")
+                import cv2
+                import numpy as np
+                from pyzbar.pyzbar import decode
 
-                # Inicializa a variável de controle no sistema se não existir
                 if 'foto_codigo_barras' not in st.session_state:
                     st.session_state['foto_codigo_barras'] = None
 
-                # Renderiza a câmera e captura o retorno
-                # A câmera HTML pode ser renderizada mesmo sem OpenCV, mas o processamento será condicional.
-                dados_camera = st.components.v1.html("""
+                # Renderiza a câmera usando components.html diretamente
+                html_camera = """
 <div style="position: relative; width: 100%; max-width: 500px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden;">
     <video id="vid" autoplay playsinline style="width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block;"></video>
     <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; border: 4px solid rgba(0,0,0,0.4); pointer-events: none;">
@@ -1659,24 +1652,20 @@ else:
         ctx.drawImage(v, 0, 0, c.width, c.height);
         const dataUrl = c.toDataURL('image/jpeg');
         
-        // Envia o valor para o Streamlit
         Streamlit.setComponentValue(dataUrl);
-        
-        // Força o Streamlit a recarregar a página e processar o Python imediatamente
-        setTimeout(() => {
-            window.parent.postMessage({type: 'streamlit:setComponentValue'}, '*');
-        }, 100);
     });
 </script>
-""", height=380)
+"""
 
-                # Se o componente retornou dados novos, salva no estado da sessão
-                if dados_camera:
-                    st.session_state['foto_codigo_barras'] = dados_camera
+                # Executa o componente e captura o valor real em formato string (e não o DeltaGenerator)
+                valor_retornado = components.html(html_camera, height=380)
 
-                scanned_id_from_camera = None
-                # Processa a imagem se ela existir no estado da sessão E se OpenCV estiver disponível
-                if st.session_state['foto_codigo_barras'] and opencv_disponivel:
+                # Garante que só vamos tratar o dado se ele for uma string de texto contendo a imagem
+                if isinstance(valor_retornado, str) and valor_retornado.startswith("data:image"):
+                    st.session_state['foto_codigo_barras'] = valor_retornado
+
+                # Processa a imagem salva
+                if st.session_state['foto_codigo_barras']:
                     try:
                         img_b64 = st.session_state['foto_codigo_barras']
                         if "," in img_b64:
@@ -1691,19 +1680,15 @@ else:
                         if codigos_detectados:
                             id_detectado = codigos_detectados[0].data.decode('utf-8').replace('*', '').strip()
                             st.success(f"✅ Avaliação identificada: ID {id_detectado}")
-                            scanned_id_from_camera = id_detectado # Set this for the combined logic below
-                            # Limpa o estado da foto para a próxima leitura
+                            st.session_state['id_prova_atual'] = id_detectado
                             st.session_state['foto_codigo_barras'] = None
-                            # No need for st.rerun() here, as the combined logic will handle it.
+                            st.rerun()
                         else:
                             st.warning("⚠️ Código de barras não detectado na foto. Alinhe na linha vermelha e tente novamente.")
                             st.session_state['foto_codigo_barras'] = None
                     except Exception as e:
                         st.error(f"Erro no processamento: {e}")
                         st.session_state['foto_codigo_barras'] = None
-                elif st.session_state['foto_codigo_barras'] and not opencv_disponivel:
-                    st.error("Não foi possível processar a imagem: A biblioteca OpenCV não está disponível.")
-                    st.session_state['foto_codigo_barras'] = None # Clear to avoid repeated errors
 
                 detected_id = id_manual_input if id_manual_input else scanned_id_from_camera
 
@@ -2655,6 +2640,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
