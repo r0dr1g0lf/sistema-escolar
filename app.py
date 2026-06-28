@@ -1622,9 +1622,17 @@ else:
                 if img_id_scan is not None:
                     # Placeholder for actual barcode scanning logic
                     st.info("Simulando leitura de barcode... (Integração OpenCV/ZBar necessária aqui)")
-                    # For demonstration, let's assume a fixed ID if camera is used without manual input
-                    if not id_manual_input: # Only use simulated ID if manual input is empty
-                        scanned_id_from_camera = "1001" # Placeholder for actual barcode read
+                    # Em um cenário real, se a decodificação do código de barras falhar:
+                    # if not decoded_barcode_value:
+                    #     st.warning("Código de barras não detectado. Ajuste o foco ou a iluminação.")
+                    #     scanned_id_from_camera = None
+                    # else:
+                    #     scanned_id_from_camera = decoded_barcode_value
+
+                    # Para demonstração, se não houver entrada manual, simula falha na leitura da câmera
+                    if not id_manual_input:
+                        st.warning("Código de barras não detectado. Ajuste o foco ou a iluminação.")
+                        scanned_id_from_camera = None # Mantém como None se a câmera "falhar" e não houver input manual
 
                 detected_id = id_manual_input if id_manual_input else scanned_id_from_camera
 
@@ -2576,6 +2584,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
