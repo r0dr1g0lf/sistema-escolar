@@ -1619,15 +1619,22 @@ else:
 
                 import streamlit as st
                 import base64
-                import cv2
-                import numpy as np
-                from pyzbar.pyzbar import decode
+                
+                opencv_disponivel = False
+                try:
+                    import cv2
+                    import numpy as np
+                    from pyzbar.pyzbar import decode
+                    opencv_disponivel = True
+                except ImportError:
+                    st.warning("A biblioteca OpenCV (cv2) não está instalada. A funcionalidade de leitura de código de barras pela câmera não estará disponível.")
 
                 # Inicializa a variável de controle no sistema se não existir
                 if 'foto_codigo_barras' not in st.session_state:
                     st.session_state['foto_codigo_barras'] = None
 
                 # Renderiza a câmera e captura o retorno
+                # A câmera HTML pode ser renderizada mesmo sem OpenCV, mas o processamento será condicional.
                 dados_camera = st.components.v1.html("""
 <div style="position: relative; width: 100%; max-width: 500px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden;">
     <video id="vid" autoplay playsinline style="width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block;"></video>
@@ -1668,8 +1675,8 @@ else:
                     st.session_state['foto_codigo_barras'] = dados_camera
 
                 scanned_id_from_camera = None
-                # Processa a imagem se ela existir no estado da sessão
-                if st.session_state['foto_codigo_barras']:
+                # Processa a imagem se ela existir no estado da sessão E se OpenCV estiver disponível
+                if st.session_state['foto_codigo_barras'] and opencv_disponivel:
                     try:
                         img_b64 = st.session_state['foto_codigo_barras']
                         if "," in img_b64:
@@ -1694,6 +1701,9 @@ else:
                     except Exception as e:
                         st.error(f"Erro no processamento: {e}")
                         st.session_state['foto_codigo_barras'] = None
+                elif st.session_state['foto_codigo_barras'] and not opencv_disponivel:
+                    st.error("Não foi possível processar a imagem: A biblioteca OpenCV não está disponível.")
+                    st.session_state['foto_codigo_barras'] = None # Clear to avoid repeated errors
 
                 detected_id = id_manual_input if id_manual_input else scanned_id_from_camera
 
@@ -2645,6 +2655,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
