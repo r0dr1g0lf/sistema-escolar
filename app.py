@@ -7,6 +7,8 @@ import time
 import io
 import pytz
 import json # Adicionado para corrigir NameError
+import requests # Adicionado para gerar QR Code
+import base64 # Adicionado para gerar QR Code
 
 # Configuração do fuso horário correto de Roraima
 fuso_roraima = pytz.timezone('America/Boa_Vista')
@@ -15,6 +17,16 @@ fuso_roraima = pytz.timezone('America/Boa_Vista')
 data_atual = datetime.now(fuso_roraima).date()
 
 SHEET_ID = "153ohv6YsmfOZHjoLpb8He2VM2P-DYTVGh9zDVNRBdS0"
+
+def get_qrcode_base64(data_to_encode):
+    url = f"https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl={data_to_encode}"
+    try:
+        response = requests.get(url)
+        response.raise_for_status() # Raise an exception for HTTP errors
+        return f"data:image/png;base64,{base64.b64encode(response.content).decode('utf-8')}"
+    except requests.exceptions.RequestException as e:
+        st.error(f"Erro ao gerar QR Code: {e}")
+        return "" # Return empty string or a placeholder image base64
 
 def conectar_google_sheets():
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -2509,6 +2521,9 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
+
 
 
 
