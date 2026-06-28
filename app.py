@@ -1661,6 +1661,8 @@ else:
                 valor_retornado = components.html(html_camera, height=380)
 
                 # Garante que só vamos tratar o dado se ele for uma string de texto contendo a imagem
+                scanned_id_from_camera = None # Inicializa a variável para evitar NameError
+
                 if isinstance(valor_retornado, str) and valor_retornado.startswith("data:image"):
                     st.session_state['foto_codigo_barras'] = valor_retornado
 
@@ -1680,15 +1682,21 @@ else:
                         if codigos_detectados:
                             id_detectado = codigos_detectados[0].data.decode('utf-8').replace('*', '').strip()
                             st.success(f"✅ Avaliação identificada: ID {id_detectado}")
+                            
+                            # Cria a ponte com a variável que o restante do sistema espera
                             st.session_state['id_prova_atual'] = id_detectado
+                            scanned_id_from_camera = id_detectado
+                            
                             st.session_state['foto_codigo_barras'] = None
                             st.rerun()
                         else:
                             st.warning("⚠️ Código de barras não detectado na foto. Alinhe na linha vermelha e tente novamente.")
                             st.session_state['foto_codigo_barras'] = None
+                            scanned_id_from_camera = None
                     except Exception as e:
                         st.error(f"Erro no processamento: {e}")
                         st.session_state['foto_codigo_barras'] = None
+                        scanned_id_from_camera = None # Garante que seja None em caso de erro
 
                 detected_id = id_manual_input if id_manual_input else scanned_id_from_camera
 
@@ -2640,10 +2648,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
-
-
-
-
 
