@@ -1617,16 +1617,11 @@ else:
                 
                 id_manual_input = st.text_input("🔢 Digite o ID da Avaliação (ou use a câmera abaixo):", key="id_prova_manual_input", placeholder="Ex: 1001")
 
-import streamlit as st
-import cv2
-import numpy as np
-from pyzbar.pyzbar import decode
+                # Inicializa a variável para o restante do sistema não quebrar
+                scanned_id_from_camera = None
 
-# Inicializa a variável para o restante do sistema não quebrar
-scanned_id_from_camera = None
-
-# Injeta CSS para customizar o componente nativo do Streamlit
-st.markdown("""
+                # Injeta CSS para customizar o componente nativo do Streamlit
+                st.markdown("""
 <style>
     /* Força o container da câmera a ter proporção horizontal 16:9 */
     [data-testid="stCameraInput"] {
@@ -1653,30 +1648,30 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Abre a câmera nativa do Streamlit (ele gerencia o botão e o clique perfeitamente)
-foto_registro = st.camera_input("Alinhe o código de barras na linha vermelha")
+                # Abre a câmera nativa do Streamlit (ele gerencia o botão e o clique perfeitamente)
+                foto_registro = st.camera_input("Alinhe o código de barras na linha vermelha")
 
-# Se o professor tirar a foto usando o botão nativo
-if foto_registro is not None:
-    try:
-        # Converte o arquivo de foto nativo diretamente para o formato do OpenCV
-        bytes_data = foto_registro.getvalue()
-        np_img = np.frombuffer(bytes_data, dtype=np.uint8)
-        img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
+                # Se o professor tirar a foto usando o botão nativo
+                if foto_registro is not None:
+                    try:
+                        # Converte o arquivo de foto nativo diretamente para o formato do OpenCV
+                        bytes_data = foto_registro.getvalue()
+                        np_img = np.frombuffer(bytes_data, dtype=np.uint8)
+                        img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
 
-        # Faz a leitura do código de barras
-        codigos_detectados = decode(img)
+                        # Faz a leitura do código de barras
+                        codigos_detectados = decode(img)
 
-        if codigos_detectados:
-            id_detectado = codigos_detectados[0].data.decode('utf-8').replace('*', '').strip()
-            st.success(f"✅ Avaliação identificada: ID {id_detectado}")
-            st.session_state['id_prova_atual'] = id_detectado
-            scanned_id_from_camera = id_detectado
-            st.rerun()
-        else:
-            st.warning("⚠️ Código de barras não detectado na foto. Centralize bem na linha vermelha e evite reflexos.")
-    except Exception as e:
-        st.error(f"Erro no processamento da imagem: {e}")
+                        if codigos_detectados:
+                            id_detectado = codigos_detectados[0].data.decode('utf-8').replace('*', '').strip()
+                            st.success(f"✅ Avaliação identificada: ID {id_detectado}")
+                            st.session_state['id_prova_atual'] = id_detectado
+                            scanned_id_from_camera = id_detectado
+                            st.rerun()
+                        else:
+                            st.warning("⚠️ Código de barras não detectado na foto. Centralize bem na linha vermelha e evite reflexos.")
+                    except Exception as e:
+                        st.error(f"Erro no processamento da imagem: {e}")
 
                 detected_id = id_manual_input if id_manual_input else scanned_id_from_camera
 
@@ -2628,6 +2623,8 @@ if foto_registro is not None:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
