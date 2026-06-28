@@ -1519,8 +1519,7 @@ else:
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Erro ao excluir todas as avaliações: {e}")
-                    else:
-                        st.info("ℹ️ Nenhuma avaliação foi criada ainda. Use a aba 'Criar' para começar.")
+                    # REMOVIDO: else block que exibia a mensagem de "Nenhuma avaliação criada" quando havia avaliações, mas nenhuma selecionada.
                 else:
                     st.info("ℹ️ Nenhuma avaliação foi criada ainda. Use a aba 'Criar' para começar.")
 
@@ -2509,3 +2508,5 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
