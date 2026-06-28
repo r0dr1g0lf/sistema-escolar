@@ -1004,35 +1004,22 @@ else:
             st.session_state['trigger_print_visualizar'] = False
 
         # Captura dinamicamente o nome do professor logado para o cabeçalho
-        if 'user_data' in st.session_state and st.session_state.user_data.get('Nome'):
-            nome_professor_cabecalho = st.session_state.user_data.get('Nome')
+        if 'user_data' in st.session_state and st.session_state.user_data.get('Professor'):
+            nome_professor_cabecalho = st.session_state.user_data.get('Professor')
         else:
             nome_professor_cabecalho = st.session_state.get('username', 'Administrador')
 
-        # SE NÃO FOR ADMIN MASTER: Mostra apenas a mensagem de em construção
-        if not st.session_state.get('is_master_admin', False):
-            st.title("📝 Sistema de Gestão de Avaliações")
-            st.warning("🚧 **Esta função está em desenvolvimento!** Brevemente, professores e administradores poderão criar e corrigir avaliações de forma automatizada por aqui. Fique atento às novidades!")
-            
-            if st.button("Voltar para o Início", use_container_width=True):
-                st.session_state.pagina = "Registro"
-                st.rerun()
-                
-        # SE FOR ADMIN MASTER: Carrega o sistema completo de forma segura
-        else:
-            st.title("📝 Sistema de Gestão de Avaliações")
-            aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Visualizar", "Correção", "Histórico de Notas"], horizontal=True)
-            st.markdown("---")
-            
-            if aba_av_escolhida == "Criar":
+        st.title("📝 Sistema de Gestão de Avaliações")
+        aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Visualizar", "Correção", "Histórico de Notas"], horizontal=True)
+        st.markdown("---")
+        
+        if aba_av_escolhida == "Criar":
+            if st.session_state.get('is_master_admin', False):
                 st.subheader("✨ Elaborar Nova Avaliação e Gabarito")
                 
-                if 'user_data' in st.session_state and st.session_state.user_data.get('Disciplina'):
-                    disc_professor = st.session_state.user_data.get('Disciplina')
-                    disciplinas_av = [disc_professor]
-                    st.success(f"📚 Disciplina identificada pelo seu perfil: **{disc_professor}**")
-                else:
-                    disciplinas_av = sorted(df_discs['Disciplina'].unique().astype(str)) if not df_discs.empty else ["Geografia", "História", "Português", "Matemática"]
+                # For master admin, show all available disciplines
+                disciplinas_av = sorted(df_discs['Disciplina'].unique().astype(str)) if not df_discs.empty else ["Geografia", "História", "Português", "Matemática"]
+                st.info("📚 Como administrador, você pode criar avaliações para qualquer disciplina.")
                 
                 col_cfg1, col_cfg2 = st.columns(2)
                 with col_cfg1:
@@ -1095,16 +1082,16 @@ else:
                         try:
                             wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
                         except gspread.exceptions.WorksheetNotFound:
-                            wks_gav = sh.add_worksheet(title="Gabaritos_Avaliacoes", rows="1000", cols="9") # Changed cols to 9
+                            wks_gav = sh.add_worksheet(title="Gabaritos_Avaliacoes", rows="1000", cols="9")
                             
-                        expected_header = ['ID_Prova', 'Disciplina', 'Professor', 'Total_Questoes', 'Valor_Por_Questao', 'Valor_Total_Prova', 'Data_Criacao', 'Gabarito_Completo', 'Questoes_Detalhes'] # Added 'Questoes_Detalhes'
+                        expected_header = ['ID_Prova', 'Disciplina', 'Professor', 'Total_Questoes', 'Valor_Por_Questao', 'Valor_Total_Prova', 'Data_Criacao', 'Gabarito_Completo', 'Questoes_Detalhes']
                         current_header = wks_gav.row_values(1)
                         if current_header != expected_header:
                             wks_gav.update('A1', [expected_header])
 
                         # Gera um ID único de 4 dígitos para a prova
                         existing_ids = [str(r[0]) for r in wks_gav.get_all_values()[1:] if r and r[0]]
-                        id_prova_gerado = random.randint(1000, 9999) # ID de 4 dígitos
+                        id_prova_gerado = random.randint(1000, 9999)
                         while str(id_prova_gerado) in existing_ids:
                             id_prova_gerado = random.randint(1000, 9999)
                         
@@ -1122,11 +1109,11 @@ else:
                             disciplina_sel_av,
                             nome_professor_cabecalho,
                             int(num_questoes),
-                            json.dumps(st.session_state['pesos_questoes']), # Armazena pesos por questão como JSON
+                            json.dumps(st.session_state['pesos_questoes']),
                             float(nota_maxima),
                             datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
-                            json.dumps(st.session_state['gabarito_oficial']), # Armazena gabarito como JSON
-                            json.dumps(questoes_dados) # Armazena detalhes completos das questões como JSON
+                            json.dumps(st.session_state['gabarito_oficial']),
+                            json.dumps(questoes_dados)
                         ]
                         
                         # Salva os dados na planilha
@@ -1281,9 +1268,12 @@ else:
                         st.cache_data.clear()
                         time.sleep(2)
                         st.rerun()
+            else:
+                st.info("ℹ️ A criação de novas avaliações é uma funcionalidade exclusiva para administradores.")
 
             # --- SUB-ABA: VISUALIZAR AVALIAÇÕES ---
-            elif aba_av_escolhida == "Visualizar":
+        elif aba_av_escolhida == "Visualizar":
+            if st.session_state.get('is_master_admin', False):
                 st.subheader("👁️ Visualizar Avaliações Criadas")
                 st.write("Selecione uma avaliação para ver seu conteúdo e gabarito.")
 
@@ -1327,15 +1317,15 @@ else:
 
                         # Reconstroi os dados da prova a partir do JSON armazenado
                         # import json (já deve estar no topo do arquivo)
-                        questoes_detalhes_raw = prova_alvo.get('Questoes_Detalhes', '[]') # Garante que sempre haverá uma string JSON válida
-                        if questoes_detalhes_raw.strip(): # Verifica se a string não está vazia ou só com espaços
+                        questoes_detalhes_raw = prova_alvo.get('Questoes_Detalhes', '[]')
+                        if questoes_detalhes_raw.strip():
                             try:
                                 questoes_dados_visualizar = json.loads(questoes_detalhes_raw)
                             except json.JSONDecodeError:
                                 st.error(f"Erro ao carregar detalhes das questões para ID {id_selecionado}. Dados corrompidos na planilha.")
-                                questoes_dados_visualizar = [] # Fallback para lista vazia em caso de erro
+                                questoes_dados_visualizar = []
                         else:
-                            questoes_dados_visualizar = [] # Se a string estiver vazia, retorna lista vazia
+                            questoes_dados_visualizar = []
                         
                         disciplina_sel_av_visualizar = prova_alvo['Disciplina']
                         nome_professor_cabecalho_visualizar = prova_alvo['Professor']
@@ -1400,7 +1390,7 @@ else:
                         print_script = ""
                         if st.session_state.trigger_print_visualizar:
                             print_script = "<script>setTimeout(function() { window.print(); }, 600);</script>"
-                            st.session_state.trigger_print_visualizar = False # Reset after use
+                            st.session_state.trigger_print_visualizar = False
 
                         html_prova_visualizar = f"""
                         <!DOCTYPE html>
@@ -1521,7 +1511,7 @@ else:
                                 try:
                                     # Limpa todas as linhas mantendo apenas o cabeçalho (linha 1)
                                     wks_gav.resize(rows=1)
-                                    wks_gav.resize(rows=1000) # Opcional: Redimensiona para um tamanho padrão após a limpeza
+                                    wks_gav.resize(rows=1000)
                                     st.success("💥 Todas as avaliações foram excluídas com sucesso!")
                                     st.cache_data.clear()
                                     time.sleep(1.5)
@@ -1531,162 +1521,179 @@ else:
 
                 else:
                     st.info("ℹ️ Nenhuma avaliação foi criada ainda. Use a aba 'Criar' para começar.")
+            else:
+                st.info("ℹ️ A visualização e gerenciamento de avaliações criadas é uma funcionalidade exclusiva para administradores.")
 
             # --- SUB-ABA: CORREÇÃO DE AVALIAÇÕES ---
-            elif aba_av_escolhida == "Correção":
-                st.subheader("📸 Leitura Automatizada e Correção por ID")
-                st.write("Aponte o cartão-resposta para a câmera ou bipe/digite o ID da avaliação.")
+        elif aba_av_escolhida == "Correção":
+            st.subheader("📸 Leitura Automatizada e Correção por ID")
+            st.write("Selecione a turma e o aluno, depois aponte o cartão-resposta para a câmera ou bipe/digite o ID da avaliação.")
+            
+            # Lógica para carregar turmas e alunos (similar a Registro/Ocorrências)
+            if st.session_state.get('is_master_admin', False):
+                todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str))
+            else:
+                turmas_vinc_av = str(st.session_state.user_data.get('Turmas', "")).split(", ")
+                todas_turmas_av = sorted([t.strip() for t in turmas_vinc_av if t.strip()])
                 
-                # Campo para receber o ID bipado via leitor de código de barras/digitado de forma rápida
-                id_detectado = st.text_input("🔢 ID da Avaliação (Bipado ou Detectado):", key="id_prova_bipado", placeholder="Ex: 1001")
-                
-                # Abre a câmera imediatamente em tela para captura
-                img_file = st.camera_input("Capturar Cartão Resposta", key="camera_correcao_automatica")
-                
-                # Funções de simulação para demonstração (substituir por lógica OpenCV real)
-                def simular_respostas_aluno(num_questoes):
-                    import random
-                    opcoes = ["A", "B", "C", "D"]
-                    respostas = {}
-                    for i in range(1, num_questoes + 1):
-                        # Simula algumas respostas corretas, algumas erradas, algumas em branco
-                        if random.random() < 0.7: # 70% chance de responder
-                            respostas[i] = random.choice(opcoes)
-                        else:
-                            respostas[i] = None # Resposta em branco
-                    return respostas
+            col_av_t1, col_av_t2 = st.columns([1, 4])
+            with col_av_t1:
+                turma_sel_av = st.selectbox("1. Turma do Aluno", todas_turmas_av, key="turma_aluno_av_correcao")
+            with col_av_t2:
+                alunos_da_turma_av = df_alunos[df_alunos['Turma'].astype(str) == turma_sel_av]['Nome_Aluno'].tolist()
+                aluno_sel_av = st.selectbox("2. Aluno", sorted(alunos_da_turma_av), key="aluno_av_correcao")
 
-                def calcular_nota(gabarito_oficial, pesos_questoes, respostas_aluno):
-                    nota_obtida = 0.0
-                    respostas_detalhadas = {}
-                    for q_num, resposta_correta in gabarito_oficial.items():
-                        peso = pesos_questoes.get(str(q_num), 0.0) # Garante que a chave seja string
-                        resposta_aluno = respostas_aluno.get(q_num)
-                        
-                        if resposta_aluno == resposta_correta:
-                            nota_obtida += peso
-                            status = "Correta"
-                        elif resposta_aluno is None:
-                            status = "Em Branco"
-                        else:
-                            status = "Incorreta"
-                        
-                        respostas_detalhadas[q_num] = {
-                            "Resposta Aluno": resposta_aluno,
-                            "Resposta Correta": resposta_correta,
-                            "Status": status,
-                            "Pontos": peso if status == "Correta" else 0.0
-                        }
-                    return nota_obtida, respostas_detalhadas
-                
-                # Estrutura lógica de processamento
-                if img_file is not None or id_detectado:
-                    st.info("🔄 Processando dados da avaliação...")
-                    
-                    # Se uma imagem foi capturada e o ID ainda não foi digitado, tentamos extrair o ID da prova do cabeçalho
-                    if img_file is not None and not id_detectado:
-                        # [Lógica do OpenCV/ZBar ou processamento de imagem para ler as bolinhas de ID ou QR Code]
-                        # Exemplo fictício da variável que seu leitor extrai da imagem:
-                        # id_detectado = extrair_id_da_imagem(img_file)
-                        pass
+            st.markdown("---")
 
-                    if not id_detectado:
-                        st.warning("⚠️ Não foi possível identificar o ID da prova automaticamente na imagem. Digite o ID no campo acima para prosseguir.")
+            # Campo para receber o ID bipado via leitor de código de barras/digitado de forma rápida
+            id_detectado = st.text_input("🔢 ID da Avaliação (Bipado ou Detectado):", key="id_prova_bipado", placeholder="Ex: 1001")
+            
+            # Abre a câmera imediatamente em tela para captura
+            img_file = st.camera_input("Capturar Cartão Resposta", key="camera_correcao_automatica")
+            
+            # Funções de simulação para demonstração (substituir por lógica OpenCV real)
+            def simular_respostas_aluno(num_questoes):
+                import random
+                opcoes = ["A", "B", "C", "D"]
+                respostas = {}
+                for i in range(1, num_questoes + 1):
+                    # Simula algumas respostas corretas, algumas erradas, algumas em branco
+                    if random.random() < 0.7:
+                        respostas[i] = random.choice(opcoes)
                     else:
-                        # Carrega dinamicamente a base de dados de gabaritos para encontrar a prova correspondente ao ID
-                        try:
-                            sh = conectar_google_sheets()
-                            wks_gav = sh.worksheet("Gabaritos_Avaliacoes") 
-                            dados_gabaritos = wks_gav.get_all_records()
-                            df_gabaritos = pd.DataFrame(dados_gabaritos)
-                        except Exception as e:
-                            df_gabaritos = pd.DataFrame()
-                            st.error(f"Erro ao conectar ao banco de dados: {e}")
+                        respostas[i] = None
+                return respostas
 
-                        if not df_gabaritos.empty:
-                            # Garante que a comparação seja feita como string limpa
-                            df_gabaritos['ID_Prova'] = df_gabaritos['ID_Prova'].astype(str).str.strip()
-                            prova_alvo = df_gabaritos[df_gabaritos['ID_Prova'] == str(id_detectado).strip()]
-                            
-                            if prova_alvo.empty:
-                                st.error(f"❌ Nenhuma avaliação com o ID '{id_detectado}' foi localizada no banco de dados.")
-                            else:
-                                dados_da_prova = prova_alvo.iloc[0]
-                                
-                                # Carrega gabarito e pesos da prova
-                                gabarito_oficial_json = json.loads(dados_da_prova['Gabarito_Completo'])
-                                pesos_questoes_json = json.loads(dados_da_prova['Valor_Por_Questao'])
-                                total_questoes = dados_da_prova['Total_Questoes']
-                                nota_maxima_prova = dados_da_prova['Valor_Total_Prova']
-
-                                # Converte chaves de string para int para o gabarito_oficial_json
-                                gabarito_oficial_convertido = {int(k): v for k, v in gabarito_oficial_json.items()}
-                                pesos_questoes_convertido = {int(k): v for k, v in pesos_questoes_json.items()}
-
-                                st.success(f"🎯 Prova Identificada com Sucesso! | Disciplina: {dados_da_prova.get('Disciplina')} | Professor: {dados_da_prova.get('Professor')}")
-                                
-                                # --- SIMULAÇÃO DE LEITURA DO CARTÃO RESPOSTA ---
-                                st.write("Simulando leitura do cartão resposta do aluno...")
-                                
-                                # Placeholder para o nome do aluno e turma (seria extraído da imagem ou inputado)
-                                aluno_simulado = st.text_input("Nome do Aluno:", key="aluno_simulado_nome", value="Aluno Teste")
-                                turma_simulada = st.selectbox("Turma do Aluno:", options=sorted(df_alunos['Turma'].unique().astype(str)), key="aluno_simulado_turma")
-
-                                # Simula as respostas do aluno
-                                respostas_aluno_simuladas = simular_respostas_aluno(total_questoes)
-                                
-                                # Calcula a nota
-                                nota_obtida, detalhes_respostas = calcular_nota(gabarito_oficial_convertido, pesos_questoes_convertido, respostas_aluno_simuladas)
-                                
-                                st.markdown("---")
-                                st.subheader("✅ Resultado da Correção")
-                                st.metric(label="Nota Final", value=f"{nota_obtida:.2f} / {nota_maxima_prova:.2f}")
-                                
-                                st.markdown("#### Detalhes das Respostas:")
-                                for q_num, detalhes in detalhes_respostas.items():
-                                    st.write(f"**Questão {q_num}:** Resposta Aluno: {detalhes['Resposta Aluno'] if detalhes['Resposta Aluno'] else 'Em Branco'} | Correta: {detalhes['Resposta Correta']} | Status: {detalhes['Status']} | Pontos: {detalhes['Pontos']:.2f}")
-
-                                # Salva o resultado no histórico da sessão
-                                if st.button("Salvar Correção no Histórico", use_container_width=True):
-                                    st.session_state['historico_correcoes'].append({
-                                        "Data/Hora": datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
-                                        "Aluno": aluno_simulado,
-                                        "Turma": turma_simulada,
-                                        "Disciplina": dados_da_prova.get('Disciplina'),
-                                        "ID Prova": id_detectado,
-                                        "Nota Obtida": nota_obtida,
-                                        "Nota Máxima": nota_maxima_prova,
-                                        "Detalhes": detalhes_respostas
-                                    })
-                                    st.success("Correção salva no histórico!")
-                                    time.sleep(1)
-                                    st.rerun()
-
-            elif aba_av_escolhida == "Histórico de Notas":
-                st.subheader("📋 Histórico Completo de Provas Corrigidas")
-                st.markdown("Consulte abaixo todas as avaliações escaneadas pela câmera e arquivadas no sistema:")
+            def calcular_nota(gabarito_oficial, pesos_questoes, respostas_aluno):
+                nota_obtida = 0.0
+                respostas_detalhadas = {}
+                for q_num, resposta_correta in gabarito_oficial.items():
+                    peso = pesos_questoes.get(str(q_num), 0.0)
+                    resposta_aluno = respostas_aluno.get(q_num)
+                    
+                    if resposta_aluno == resposta_correta:
+                        nota_obtida += peso
+                        status = "Correta"
+                    elif resposta_aluno is None:
+                        status = "Em Branco"
+                    else:
+                        status = "Incorreta"
+                    
+                    respostas_detalhadas[q_num] = {
+                        "Resposta Aluno": resposta_aluno,
+                        "Resposta Correta": resposta_correta,
+                        "Status": status,
+                        "Pontos": peso if status == "Correta" else 0.0
+                    }
+                return nota_obtida, respostas_detalhadas
+            
+            # Estrutura lógica de processamento
+            if (img_file is not None or id_detectado) and aluno_sel_av and turma_sel_av:
+                st.info("🔄 Processando dados da avaliação...")
                 
-                if not st.session_state['historico_correcoes']:
-                    st.info("ℹ️ Nenhuma folha de respostas foi corrigida nesta sessão até o momento.")
+                # Se uma imagem foi capturada e o ID ainda não foi digitado, tentamos extrair o ID da prova do cabeçalho
+                if img_file is not None and not id_detectado:
+                    # [Lógica do OpenCV/ZBar ou processamento de imagem para ler as bolinhas de ID ou QR Code]
+                    # Exemplo fictício da variável que seu leitor extrai da imagem:
+                    # id_detectado = extrair_id_da_imagem(img_file)
+                    pass
+
+                if not id_detectado:
+                    st.warning("⚠️ Não foi possível identificar o ID da prova automaticamente na imagem. Digite o ID no campo acima para prosseguir.")
                 else:
-                    df_historico_exibir = pd.DataFrame(st.session_state['historico_correcoes'])
-                    
-                    # Formata a visualização da pontuação para melhor leitura do professor
-                    df_historico_exibir['Pontuação'] = df_historico_exibir.apply(
-                        lambda r: f"{r['Nota Obtida']:.2f} / {r['Nota Máxima']:.2f}", axis=1
-                    )
-                    
-                    # Remove colunas brutas para deixar a tabela visual limpa
-                    tabela_limpa = df_historico_exibir[['Data/Hora', 'Aluno', 'Turma', 'Disciplina', 'ID Prova', 'Pontuação']]
-                    
-                    st.dataframe(tabela_limpa, use_container_width=True)
-                    
-                    # Botão extra para limpar o histórico caso desejado
-                    if st.button("🗑️ Limpar Histórico de Correções", use_container_width=True):
-                        st.session_state['historico_correcoes'] = []
-                        st.success("Histórico limpo com sucesso!")
-                        time.sleep(1)
-                        st.rerun()
+                    # Carrega dinamicamente a base de dados de gabaritos para encontrar a prova correspondente ao ID
+                    try:
+                        sh = conectar_google_sheets()
+                        wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
+                        dados_gabaritos = wks_gav.get_all_records()
+                        df_gabaritos = pd.DataFrame(dados_gabaritos)
+                    except Exception as e:
+                        df_gabaritos = pd.DataFrame()
+                        st.error(f"Erro ao conectar ao banco de dados: {e}")
+
+                    if not df_gabaritos.empty:
+                        # Garante que a comparação seja feita como string limpa
+                        df_gabaritos['ID_Prova'] = df_gabaritos['ID_Prova'].astype(str).str.strip()
+                        prova_alvo = df_gabaritos[df_gabaritos['ID_Prova'] == str(id_detectado).strip()]
+                        
+                        if prova_alvo.empty:
+                            st.error(f"❌ Nenhuma avaliação com o ID '{id_detectado}' foi localizada no banco de dados.")
+                        else:
+                            dados_da_prova = prova_alvo.iloc[0]
+                            
+                            # Carrega gabarito e pesos da prova
+                            gabarito_oficial_json = json.loads(dados_da_prova['Gabarito_Completo'])
+                            pesos_questoes_json = json.loads(dados_da_prova['Valor_Por_Questao'])
+                            total_questoes = dados_da_prova['Total_Questoes']
+                            nota_maxima_prova = dados_da_prova['Valor_Total_Prova']
+
+                            # Converte chaves de string para int para o gabarito_oficial_json
+                            gabarito_oficial_convertido = {int(k): v for k, v in gabarito_oficial_json.items()}
+                            pesos_questoes_convertido = {int(k): v for k, v in pesos_questoes_json.items()}
+
+                            st.success(f"🎯 Prova Identificada com Sucesso! | Disciplina: {dados_da_prova.get('Disciplina')} | Professor: {dados_da_prova.get('Professor')}")
+                            
+                            # --- SIMULAÇÃO DE LEITURA DO CARTÃO RESPOSTA ---
+                            st.write(f"Simulando leitura do cartão resposta para **{aluno_sel_av}** da turma **{turma_sel_av}**...")
+                            
+                            # Simula as respostas do aluno
+                            respostas_aluno_simuladas = simular_respostas_aluno(total_questoes)
+                            
+                            # Calcula a nota
+                            nota_obtida, detalhes_respostas = calcular_nota(gabarito_oficial_convertido, pesos_questoes_convertido, respostas_aluno_simuladas)
+                            
+                            st.markdown("---")
+                            st.subheader("✅ Resultado da Correção")
+                            st.metric(label="Nota Final", value=f"{nota_obtida:.2f} / {nota_maxima_prova:.2f}")
+                            
+                            st.markdown("#### Detalhes das Respostas:")
+                            for q_num, detalhes in detalhes_respostas.items():
+                                st.write(f"**Questão {q_num}:** Resposta Aluno: {detalhes['Resposta Aluno'] if detalhes['Resposta Aluno'] else 'Em Branco'} | Correta: {detalhes['Resposta Correta']} | Status: {detalhes['Status']} | Pontos: {detalhes['Pontos']:.2f}")
+
+                            # Salva o resultado no histórico da sessão
+                            if st.button("Salvar Correção no Histórico", use_container_width=True):
+                                st.session_state['historico_correcoes'].append({
+                                    "Data/Hora": datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
+                                    "Aluno": aluno_sel_av,
+                                    "Turma": turma_sel_av,
+                                    "Disciplina": dados_da_prova.get('Disciplina'),
+                                    "ID Prova": id_detectado,
+                                    "Nota Obtida": nota_obtida,
+                                    "Nota Máxima": nota_maxima_prova,
+                                    "Detalhes": detalhes_respostas
+                                })
+                                st.success("Correção salva no histórico!")
+                                time.sleep(1)
+                                st.rerun()
+            else:
+                if not aluno_sel_av or not turma_sel_av:
+                    st.warning("⚠️ Por favor, selecione a Turma e o Aluno antes de prosseguir com a correção.")
+
+        elif aba_av_escolhida == "Histórico de Notas":
+            st.subheader("📋 Histórico Completo de Provas Corrigidas")
+            st.markdown("Consulte abaixo todas as avaliações escaneadas pela câmera e arquivadas no sistema:")
+            
+            if not st.session_state['historico_correcoes']:
+                st.info("ℹ️ Nenhuma folha de respostas foi corrigida nesta sessão até o momento.")
+            else:
+                df_historico_exibir = pd.DataFrame(st.session_state['historico_correcoes'])
+                
+                # Formata a visualização da pontuação para melhor leitura do professor
+                df_historico_exibir['Pontuação'] = df_historico_exibir.apply(
+                    lambda r: f"{r['Nota Obtida']:.2f} / {r['Nota Máxima']:.2f}", axis=1
+                )
+                
+                # Remove colunas brutas para deixar a tabela visual limpa
+                tabela_limpa = df_historico_exibir[['Data/Hora', 'Aluno', 'Turma', 'Disciplina', 'ID Prova', 'Pontuação']]
+                
+                st.dataframe(tabela_limpa, use_container_width=True)
+                
+                # Botão extra para limpar o histórico caso desejado
+                if st.button("🗑️ Limpar Histórico de Correções", use_container_width=True):
+                    st.session_state['historico_correcoes'] = []
+                    st.success("Histórico limpo com sucesso!")
+                    time.sleep(1)
+                    st.rerun()
 
     elif pagina_atual == "Cadastro" and st.session_state.get('is_master_admin', False):
         st.title("⚙️ Painel de Cadastro")
@@ -2517,6 +2524,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
