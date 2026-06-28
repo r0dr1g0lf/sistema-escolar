@@ -1161,7 +1161,7 @@ else:
                             </div>
                             """
                         
-                        html_id_display_block = f'<link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap" rel="stylesheet"><div style="text-align: center; margin-bottom: 20px; border: 2px solid #000; padding: 8px; background: #fff;"><div style="font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px; display: flex; justify-content: center; align-items: center;">ID DA AVALIAÇÃO <p style="font-family:\'Libre Barcode 39\',sans-serif;font-size:40px;text-align:center;margin:0 0 0 10px;line-height:1;">*{str(id_prova_gerado).strip().zfill(4)}*</p></div></div>'
+                        html_id_display_block = f'<link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap" rel="stylesheet"><div style="text-align: center; margin-bottom: 20px; border: 2px solid #000; padding: 8px; background: #fff;"><div style="display: flex; align-items: center; justify-content: center; font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px;">ID DA AVALIAÇÃO <span style="font-family:\'Libre Barcode 39\',sans-serif;font-size:30px;margin-left:10px;line-height:1;">*{str(id_prova_gerado).strip().zfill(4)}*</span></div></div>'
                         
                         html_prova = f"""
                         <!DOCTYPE html>
