@@ -1617,49 +1617,32 @@ else:
                 
                 id_manual_input = st.text_input("🔢 Digite o ID da Avaliação (ou use a câmera abaixo):", key="id_prova_manual_input", placeholder="Ex: 1001")
 
-                # Inicializa a variável para o restante do sistema não quebrar
+                # Inicializa a variável para evitar erros de NameError nas linhas abaixo
                 scanned_id_from_camera = None
 
-                # Injeta CSS para customizar o componente nativo do Streamlit
+                # Injeta o CSS para desenhar a linha vermelha sobre a câmera nativa
                 st.markdown("""
-<style>
-    /* Força o container da câmera a ter proporção horizontal 16:9 */
-    [data-testid="stCameraInput"] {
-        max-width: 500px !important;
-        margin: 0 auto !important;
-    }
-    [data-testid="stCameraInput"] > div {
-        position: relative !important;
-        aspect-ratio: 16/9 !important;
-    }
-    /* Cria a linha guia laser vermelha no meio do visor nativo */
-    [data-testid="stCameraInput"]::after {
-        content: "" !important;
-        position: absolute !important;
-        top: 50% !important;
-        left: 10% !important;
-        width: 80% !important;
-        height: 2px !important;
-        background-color: #ff0000 !important;
-        box-shadow: 0 0 8px #ff0000 !important;
-        z-index: 999 !important;
-        pointer-events: none !important;
-    }
-</style>
-""", unsafe_allow_html=True)
+                <style>
+                    [data-testid="stCameraInput"] { max-width: 500px !important; margin: 0 auto !important; }
+                    [data-testid="stCameraInput"] > div { position: relative !important; aspect-ratio: 16/9 !important; }
+                    [data-testid="stCameraInput"]::after {
+                        content: "" !important; position: absolute !important;
+                        top: 50% !important; left: 10% !important; width: 80% !important; height: 2px !important;
+                        background-color: #ff0000 !important; box-shadow: 0 0 8px #ff0000 !important;
+                        z-index: 999 !important; pointer-events: none !important;
+                    }
+                </style>
+                """, unsafe_allow_html=True)
 
-                # Abre a câmera nativa do Streamlit (ele gerencia o botão e o clique perfeitamente)
+                # Abre a câmera oficial do Streamlit (com botão nativo de tirar foto)
                 foto_registro = st.camera_input("Alinhe o código de barras na linha vermelha")
 
-                # Se o professor tirar a foto usando o botão nativo
                 if foto_registro is not None:
                     try:
-                        # Converte o arquivo de foto nativo diretamente para o formato do OpenCV
                         bytes_data = foto_registro.getvalue()
                         np_img = np.frombuffer(bytes_data, dtype=np.uint8)
                         img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
 
-                        # Faz a leitura do código de barras
                         codigos_detectados = decode(img)
 
                         if codigos_detectados:
@@ -1669,7 +1652,7 @@ else:
                             scanned_id_from_camera = id_detectado
                             st.rerun()
                         else:
-                            st.warning("⚠️ Código de barras não detectado na foto. Centralize bem na linha vermelha e evite reflexos.")
+                            st.warning("⚠️ Código de barras não detectado. Use o ícone de girar câmera para ativar a câmera traseira, deite o celular e alinhe na linha vermelha.")
                     except Exception as e:
                         st.error(f"Erro no processamento da imagem: {e}")
 
@@ -2623,6 +2606,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
