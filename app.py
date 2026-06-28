@@ -8,7 +8,24 @@ import io
 import pytz
 import json # Adicionado para corrigir NameError
 import base64
+import qrcode # Adicionado para gerar QR Code
+from io import BytesIO # Adicionado para manipulação de bytes
 
+# Função para gerar QR Code em base64
+def gerar_qr_code_base64(data):
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(str(data))
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+    buffered = BytesIO()
+    img.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 # Configuração do fuso horário correto de Roraima
 fuso_roraima = pytz.timezone('America/Boa_Vista')
@@ -2509,6 +2526,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
