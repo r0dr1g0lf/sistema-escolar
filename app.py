@@ -8,7 +8,7 @@ import io
 import pytz
 import json # Adicionado para corrigir NameError
 import base64
-import qrcode # Adicionado para gerar QR Code
+import qrcode # Adicionado para gerar QR Code (Instalar: pip install qrcode)
 from io import BytesIO # Adicionado para manipulação de bytes
 
 # Função para gerar QR Code em base64
@@ -2526,6 +2526,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
