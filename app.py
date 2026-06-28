@@ -1617,42 +1617,28 @@ else:
                 
                 id_manual_input = st.text_input("🔢 Digite o ID da Avaliação (ou use a câmera abaixo):", key="id_prova_manual_input", placeholder="Ex: 1001")
                 st.components.v1.html("""
-<div class="scanner-container" style="position: relative; width: 100%; max-width: 600px; margin: 0 auto; overflow: hidden; aspect-ratio: 16/9; background: #000;">
-    <video id="video" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
-    
+<div style="position: relative; width: 100%; max-width: 500px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden;">
+    <video id="vid" autoplay playsinline style="width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block;"></video>
     <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; border: 4px solid rgba(0,0,0,0.4); pointer-events: none;">
-        <div style="position: absolute; top: 35%; left: 10%; right: 10%; height: 30%; border: 2px solid #00ff00; border-radius: 4px; box-shadow: 0 0 10px rgba(0,255,0,0.5);">
-            <div style="position: absolute; top: 50%; left: 0; width: 100%; height: 2px; background-color: #ff0000; box-shadow: 0 0 8px #ff0000;"></div>
+        <div style="position: absolute; top: 35%; left: 10%; right: 10%; height: 30%; border: 2px solid #00ff00; border-radius: 4px;">
+            <div style="position: absolute; top: 50%; left: 0; width: 100%; height: 2px; background: #ff0000;"></div>
         </div>
     </div>
 </div>
-
+<div style="text-align: center; margin-top: 10px;">
+    <button id="snap" style="background: #ff4b4b; color: #fff; border: none; padding: 10px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 80%; font-weight: bold;">📸 Capturar Código de Barras</button>
+</div>
+<canvas id="canv" style="display: none;"></canvas>
 <script>
-    // Configurações para forçar a câmera traseira em modo paisagem/horizontal
-    const constraints = {
-        video: {
-            facingMode: { exact: "environment" }, // Força a câmera traseira
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-        }
-    };
-
-    navigator.mediaDevices.getUserMedia(constraints)
-        .then(function(stream) {
-            const video = document.getElementById('video');
-            video.srcObject = stream;
-            video.play();
-        })
-        .catch(function(err) {
-            // Caso falhe o modo estrito 'exact', tenta a câmera traseira geral
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-                .then(function(stream) {
-                    document.getElementById('video').srcObject = stream;
-                })
-                .catch(function(error) {
-                    console.error("Erro ao acessar a câmera traseira:", error);
-                });
-        });
+    const v = document.getElementById('vid'), b = document.getElementById('snap'), c = document.getElementById('canv');
+    navigator.mediaDevices.getUserMedia({video: {facingMode: {ideal: "environment"}, width: {ideal: 1280}, height: {ideal: 720}}})
+        .then(s => { v.srcObject = s; v.play(); })
+        .catch(e => console.error(e));
+    b.addEventListener('click', () => {
+        const ctx = c.getContext('2d'); c.width = v.videoWidth; c.height = v.videoHeight;
+        ctx.drawImage(v, 0, 0, c.width, c.height);
+        Streamlit.setComponentValue(c.toDataURL('image/jpeg'));
+    });
 </script>
 """, height=380)
                 img_id_scan = None # Set img_id_scan to None as the camera input is now handled by custom HTML
@@ -2623,22 +2609,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
