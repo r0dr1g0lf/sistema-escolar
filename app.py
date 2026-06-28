@@ -8,7 +8,13 @@ import io
 import pytz
 import json # Adicionado para corrigir NameError
 import base64
+import qrcode
 
+def gerar_qr_code_base64(conteudo):
+    qr = qrcode.make(conteudo)
+    buffer = io.BytesIO()
+    qr.save(buffer, format="PNG")
+    return base64.b64encode(buffer.getvalue()).decode('utf-8').replace('\n', '').strip()
 
 # Configuração do fuso horário correto de Roraima
 fuso_roraima = pytz.timezone('America/Boa_Vista')
@@ -1519,7 +1525,8 @@ else:
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Erro ao excluir todas as avaliações: {e}")
-                    # REMOVIDO: else block que exibia a mensagem de "Nenhuma avaliação criada" quando havia avaliações, mas nenhuma selecionada.
+                    else:
+                        st.info("ℹ️ Nenhuma avaliação foi criada ainda. Use a aba 'Criar' para começar.")
                 else:
                     st.info("ℹ️ Nenhuma avaliação foi criada ainda. Use a aba 'Criar' para começar.")
 
@@ -2508,5 +2515,3 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
