@@ -1681,31 +1681,92 @@ else:
                 st.write(f"Aluno: **{st.session_state.selected_aluno_av}** | Turma: **{st.session_state.selected_turma_av}** | Prova ID: **{st.session_state.id_prova_scanned}**")
                 st.write(f"Disciplina: {st.session_state.prova_data.get('Disciplina')} | Professor: {st.session_state.prova_data.get('Professor')}")
 
-                img_answer_scan = st.camera_input("📸 Capturar Cartão Resposta do Aluno", key="camera_answer_scan")
+                # CSS para criar os cantos guias verdes em cima do visor da câmera nativa
+                st.markdown("""
+                <style>
+                    [data-testid="stCameraInput"] { max-width: 500px !important; margin: 0 auto !important; position: relative !important; }
+                    [data-testid="stCameraInput"] > div { position: relative !important; aspect-ratio: 1/1 !important; }
+                    /* Desenha os cantos guias para alinhar os 4 quadrados pretos */
+                    [data-testid="stCameraInput"]::before {
+                        content: "" !important; position: absolute !important;
+                        top: 5% !important; left: 5% !important; right: 5% !important; bottom: 5% !important;
+                        border: 3px dashed #00ff00 !important; border-radius: 8px !important;
+                        pointer-events: none !important; z-index: 999 !important; box-shadow: 0 0 10px rgba(0,255,0,0.5) !important;
+                    }
+                </style>
+                """, unsafe_allow_html=True)
+
+                img_answer_scan = st.camera_input("📸 Alinhe os 4 cantos pretos na moldura verde", key="camera_answer_scan")
 
                 if img_answer_scan is not None:
-                    st.info("🔄 Processando respostas do cartão...")
+                    st.info("🔄 Processando e corrigindo cartão-resposta...")
                     
-                    # Load gabarito and weights from session state
-                    gabarito_oficial_json = json.loads(st.session_state.prova_data['Gabarito_Completo'])
-                    pesos_questoes_json = json.loads(st.session_state.prova_data['Valor_Por_Questao'])
-                    total_questoes = st.session_state.prova_data['Total_Questoes']
+                    try:
+                        import cv2
+                        import numpy as np
+                        import json
 
-                    gabarito_oficial_convertido = {int(k): v for k, v in gabarito_oficial_json.items()}
-                    pesos_questoes_convertido = {int(k): v for k, v in pesos_questoes_json.items()}
+                        # Carrega o gabarito oficial salvo na primeira etapa
+                        gabarito_oficial_json = json.loads(st.session_state.prova_data['Gabarito_Completo'])
+                        pesos_questoes_json = json.loads(st.session_state.prova_data['Valor_Por_Questao'])
+                        total_questoes = int(st.session_state.prova_data['Total_Questoes'])
 
-                    # --- SIMULAÇÃO DE LEITURA DO CARTÃO RESPOSTA ---
-                    # Here you would integrate OpenCV/image processing to read the bubbles from img_answer_scan
-                    st.write("Simulando leitura das respostas do aluno... (Integração OpenCV/Image Processing necessária aqui)")
-                    st.session_state.respostas_aluno_simuladas = simular_respostas_aluno(total_questoes)
-                    
-                    # Calcula a nota
-                    st.session_state.nota_obtida, st.session_state.detalhes_respostas = calcular_nota(
-                        gabarito_oficial_convertido, pesos_questoes_convertido, st.session_state.respostas_aluno_simuladas
-                    )
-                    
-                    st.session_state.correcao_step = "display_results"
-                    st.rerun()
+                        gabarito_oficial_convertido = {int(k): v.upper().strip() for k, v in gabarito_oficial_json.items()}
+                        pesos_questoes_convertido = {int(k): float(v) for k, v in pesos_questoes_json.items()}
+
+                        # Converter imagem do Streamlit para o OpenCV
+                        bytes_data = img_answer_scan.getvalue()
+                        np_img = np.frombuffer(bytes_data, dtype=np.uint8)
+                        img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
+                        
+                        # Redimensiona para uma matriz padrão de análise (600x600)
+                        img_redim = cv2.resize(img, (600, 600))
+                        cinza = cv2.cvtColor(img_redim, cv2.COLOR_BGR2GRAY)
+                        blur = cv2.GaussianBlur(cinza, (5, 5), 0)
+                        thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+
+                        # Coordenadas das bolinhas para o layout oficial (A=0, B=1, C=2, D=3)
+                        opcoes_x = [252, 298, 344, 390]
+                        linhas_y = [316, 362, 408, 454, 500]
+                        letras = ['A', 'B', 'C', 'D']
+
+                        respostas_aluno = {}
+
+                        # Varre cada questão e avalia qual bolinha está preenchida
+                        for i in range(min(total_questoes, 5)):
+                            questao_num = i + 1
+                            y = linhas_y[i]
+                            
+                            marcada = None
+                            max_pixels = 0
+                            
+                            for j, x in enumerate(opcoes_x):
+                                # Cria uma máscara circular para isolar a bolinha atual
+                                mascara_bolinha = np.zeros(thresh.shape, dtype=np.uint8)
+                                cv2.circle(mascara_bolinha, (x, y), 14, 255, -1)
+                                
+                                # Conta quantos pixels escuros (marcados) existem dentro da bolinha
+                                pixel_count = cv2.countNonZero(cv2.bitwise_and(thresh, thresh, mask=mascara_bolinha))
+                                
+                                # Define o limite para considerar preenchido
+                                if pixel_count > 150 and pixel_count > max_pixels:
+                                    max_pixels = pixel_count
+                                    marcada = letras[j]
+                            
+                            respostas_aluno[questao_num] = marcada if marcada else ""
+
+                        st.session_state.respostas_aluno_simuladas = respostas_aluno
+                        
+                        # Compara com o gabarito oficial e gera as notas
+                        st.session_state.nota_obtida, st.session_state.detalhes_respostas = calcular_nota(
+                            gabarito_oficial_convertido, pesos_questoes_convertido, st.session_state.respostas_aluno_simuladas
+                        )
+                        
+                        st.session_state.correcao_step = "display_results"
+                        st.rerun()
+
+                    except Exception as e:
+                        st.error(f"Erro crítico no processamento do cartão-resposta: {e}")
                 else:
                     st.info("Aguardando a captura do cartão resposta do aluno.")
 
@@ -2597,3 +2658,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
