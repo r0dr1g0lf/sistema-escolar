@@ -1621,20 +1621,69 @@ else:
                 scanned_id_from_camera = None
 
                 # Abre a câmera oficial do Streamlit (garante que o botão de tirar foto funcione)
-                foto_registro = st.camera_input("Tire a foto do código de barras da prova")
+                # Inicializa as variáveis para o sistema não quebrar nas linhas de baixo
+                scanned_id_from_camera = None
+                if 'foto_codigo_barras' not in st.session_state:
+                    st.session_state['foto_codigo_barras'] = None
 
-                if foto_registro is not None:
+                # Componente de câmera customizado (Traseira Automática + Layout Horizontal)
+                valor_retornado = st.components.v1.html("""
+                <div style="position: relative; width: 100%; max-width: 500px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden;">
+                    <video id="vid" autoplay playsinline style="width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block;"></video>
+                    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; border: 4px solid rgba(0,0,0,0.4); pointer-events: none;">
+                        <div style="position: absolute; top: 35%; left: 10%; right: 10%; height: 30%; border: 2px solid #00ff00; border-radius: 4px;">
+                            <div style="position: absolute; top: 50%; left: 0; width: 100%; height: 2px; background: #ff0000;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div style="text-align: center; margin-top: 10px;">
+                    <button id="snap" style="background: #ff4b4b; color: #fff; border: none; padding: 12px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 80%; font-weight: bold;">📸 Capturar Código de Barras</button>
+                </div>
+                <canvas id="canv" style="display: none;"></canvas>
+                <script>
+                    const v = document.getElementById('vid'), b = document.getElementById('snap'), c = document.getElementById('canv');
+                    
+                    // Força o uso estrito da câmera traseira (environment)
+                    navigator.mediaDevices.getUserMedia({video: {facingMode: {exact: "environment"}, width: {ideal: 1280}, height: {ideal: 720}}})
+                        .then(s => { v.srcObject = s; v.play(); })
+                        .catch(e => {
+                            // Caso o navegador bloqueie o modo exato, tenta o modo ideal
+                            navigator.mediaDevices.getUserMedia({video: {facingMode: {ideal: "environment"}}})
+                                .then(s => { v.srcObject = s; v.play(); })
+                                .catch(err => console.error(err));
+                        });
+                        
+                    b.addEventListener('click', () => {
+                        const ctx = c.getContext('2d'); c.width = v.videoWidth; c.height = v.videoHeight;
+                        ctx.drawImage(v, 0, 0, c.width, c.height);
+                        const dataUrl = c.toDataURL('image/jpeg');
+                        
+                        // Envia o dado para o Streamlit
+                        Streamlit.setComponentValue(dataUrl);
+                    });
+                </script>
+                """, height=390)
+
+                # Trata o retorno do componente apenas se for uma string (evita o erro do DeltaGenerator)
+                if isinstance(valor_retornado, str) and valor_retornado.startswith("data:image"):
+                    st.session_state['foto_codigo_barras'] = valor_retornado
+
+                # Processamento da imagem salva no estado da sessão
+                if st.session_state['foto_codigo_barras']:
                     try:
                         import base64
                         import cv2
                         import numpy as np
                         from pyzbar.pyzbar import decode
 
-                        bytes_data = foto_registro.getvalue()
-                        np_img = np.frombuffer(bytes_data, dtype=np.uint8)
+                        img_b64 = st.session_state['foto_codigo_barras']
+                        if "," in img_b64:
+                            img_b64 = img_b64.split(",")[1]
+                        
+                        bytes_imagem = base64.b64decode(img_b64)
+                        np_img = np.frombuffer(bytes_imagem, dtype=np.uint8)
                         img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
 
-                        # Tenta decodificar o código de barras
                         codigos_detectados = decode(img)
 
                         if codigos_detectados:
@@ -1642,11 +1691,15 @@ else:
                             st.success(f"✅ Código identificado: {id_detectado}")
                             st.session_state['id_prova_atual'] = id_detectado
                             scanned_id_from_camera = id_detectado
+                            st.session_state['foto_codigo_barras'] = None
                         else:
-                            st.warning("⚠️ Foto tirada, mas o código de barras não foi detectado. Se o erro persistir, digite o ID manualmente.")
+                            st.warning("⚠️ Código de barras não detectado na foto. Alinhe na linha vermelha e tente novamente.")
+                            st.session_state['foto_codigo_barras'] = None
                     except Exception as e:
                         st.error(f"Erro ao processar a imagem tirada: {e}")
+                        st.session_state['foto_codigo_barras'] = None
 
+                # A partir daqui o seu código continua exatamente igual
                 detected_id = id_manual_input if id_manual_input else scanned_id_from_camera
 
                 if detected_id:
