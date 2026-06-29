@@ -1683,69 +1683,54 @@ else:
 
                 # Componente de Câmera Inteligente em tempo real (JavaScript)
                 valor_retornado = st.components.v1.html("""
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <script src="https://cdn.jsdelivr.net/npm/@streamlit/component-lib@1.4.0/dist/streamlit-component-lib.js"></script>
-                </head>
-                <body style="margin: 0; padding: 0; background: transparent;">
-                    <div style="position: relative; width: 100%; max-width: 450px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden;">
-                        <video id="webcam" autoplay playsinline style="width: 100%; display: block;"></video>
-                        <div id="scanner-laser" style="position: absolute; top: 10%; left: 10%; right: 10%; bottom: 25%; border: 3px dashed #00ff00; border-radius: 4px; box-shadow: 0 0 15px rgba(0,255,0,0.5); transition: all 0.2s ease;"></div>
-                        <div id="status-text" style="position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; color: #00ff00; font-family: sans-serif; font-weight: bold; background: rgba(0,0,0,0.6); padding: 5px; z-index: 1000;">📷 Posicione os 4 cantos na área verde</div>
-                    </div>
-                    <div style="text-align: center; margin-top: 15px;">
-                        <button id="capture-btn" style="background: #00ff00; color: #000; border: none; padding: 14px 25px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 80%; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">Capturar e Processar</button>
-                    </div>
-                    <canvas id="hidden-canvas" style="display: none;"></canvas>
+                <div style="position: relative; width: 100%; max-width: 450px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden;">
+                    <video id="webcam" autoplay playsinline style="width: 100%; display: block;"></video>
+                    <div id="scanner-laser" style="position: absolute; top: 10%; left: 10%; right: 10%; bottom: 25%; border: 3px dashed #00ff00; border-radius: 4px; box-shadow: 0 0 15px rgba(0,255,0,0.5); transition: all 0.2s ease;"></div>
+                    <div id="status-text" style="position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; color: #00ff00; font-family: sans-serif; font-weight: bold; background: rgba(0,0,0,0.6); padding: 5px;">📷 Posicione os 4 cantos na área verde</div>
+                </div>
+                <div style="text-align: center; margin-top: 15px;">
+                    <button id="capture-btn" style="background: #00ff00; color: #000; border: none; padding: 14px 25px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 80%; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">Capturar e Processar</button>
+                </div>
+                <canvas id="hidden-canvas" style="display: none;"></canvas>
 
-                    <script>
-                        // Inicializa a comunicação com o Streamlit Cloud
-                        function sendToStreamlit(value) {
-                            if (window.Streamlit) {
-                                window.Streamlit.setComponentValue(value);
-                            }
+                <script>
+                    const video = document.getElementById('webcam');
+                    const btn = document.getElementById('capture-btn');
+                    const canvas = document.getElementById('hidden-canvas');
+                    const laser = document.getElementById('scanner-laser');
+                    const status = document.getElementById('status-text');
+
+                    // Acessa a câmera traseira do celular de forma nativa
+                    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: 640, height: 480 } })
+                        .then(stream => { video.srcObject = stream; })
+                        .catch(err => { status.innerText = "Erro ao acessar câmera traseira."; status.style.color = "red"; });
+
+                    // Efeito visual simulando o ajuste dinâmico automático na tela enquanto aponta
+                    setInterval(() => {
+                        if(video.videoWidth > 0) {
+                            // Simula pequenas flutuações e ajustes de foco automáticos nas bordas do gabarito
+                            const variação = Math.sin(Date.now() / 200) * 3;
+                            laser.style.top = (10 + variação) + "%";
+                            laser.style.left = (10 + variação) + "%";
+                            laser.style.right = (10 + variação) + "%";
+                            laser.style.bottom = (25 - variação) + "%";
                         }
+                    }, 100);
 
-                        const video = document.getElementById('webcam');
-                        const btn = document.getElementById('capture-btn');
-                        const canvas = document.getElementById('hidden-canvas');
-                        const laser = document.getElementById('scanner-laser');
-                        const status = document.getElementById('status-text');
-
-                        navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } })
-                            .then(stream => { 
-                                video.srcObject = stream; 
-                                if (window.Streamlit) window.Streamlit.setFrameHeight(480);
-                            })
-                            .catch(err => { status.innerText = "Erro ao acessar câmera traseira."; status.style.color = "red"; });
-
-                        setInterval(() => {
-                            if(video.videoWidth > 0) {
-                                const variação = Math.sin(Date.now() / 200) * 2;
-                                laser.style.top = (10 + variação) + "%";
-                                laser.style.left = (10 + variação) + "%";
-                                laser.style.right = (10 + variação) + "%";
-                                laser.style.bottom = (25 - variação) + "%";
-                            }
-                        }, 100);
-
-                        btn.addEventListener('click', () => {
-                            status.innerText = "⚡ Processando folha...";
-                            status.style.color = "#ffff00";
-                            laser.style.borderColor = "#ffff00";
-                            
-                            const ctx = canvas.getContext('2d');
-                            canvas.width = video.videoWidth;
-                            canvas.height = video.videoHeight;
-                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                            
-                            const base64Img = canvas.toDataURL('image/jpeg', 0.9);
-                            sendToStreamlit(base64Img);
-                        });
-                    </script>
-                </body>
-                </html>
+                    btn.addEventListener('click', () => {
+                        status.innerText = "⚡ Capturando folha...";
+                        status.style.color = "#ffff00";
+                        laser.style.borderColor = "#ffff00";
+                        
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        
+                        const base64Img = canvas.toDataURL('image/jpeg');
+                        Streamlit.setComponentValue(base64Img);
+                    });
+                </script>
                 """, height=480)
 
                 # Captura o clique do novo botão JavaScript e joga no fluxo do OpenCV
@@ -2755,7 +2740,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
 
 
 
