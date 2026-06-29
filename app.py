@@ -1718,24 +1718,85 @@ else:
                         pesos_questoes_convertido = {int(k): float(v) for k, v in pesos_questoes_json.items()}
 
                         # Converter imagem do Streamlit para o OpenCV
+                        # Converter imagem do Streamlit para o OpenCV
                         bytes_data = img_answer_scan.getvalue()
                         np_img = np.frombuffer(bytes_data, dtype=np.uint8)
                         img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
                         
-                        # Redimensiona para uma matriz padrão de análise (600x600)
-                        img_redim = cv2.resize(img, (600, 600))
-                        cinza = cv2.cvtColor(img_redim, cv2.COLOR_BGR2GRAY)
+                        # Processamento inicial para detecção de contornos
+                        H, W = img.shape[:2]
+                        cinza = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                         blur = cv2.GaussianBlur(cinza, (5, 5), 0)
                         thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
 
-                        # Coordenadas das bolinhas para o layout oficial (A=0, B=1, C=2, D=3)
+                        # 1. ENCONTRAR OS 4 QUADRADINHOS DOS CANTOS (ÂNCORES)
+                        contornos, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                        cantos = []
+
+                        for c in contornos:
+                            perimetro = cv2.arcLength(c, True)
+                            approx = cv2.approxPolyDP(c, 0.04 * perimetro, True)
+                            
+                            # Procura por formas de 4 lados (quadrados das pontas)
+                            if len(approx) == 4:
+                                x, y, w, h = cv2.boundingRect(approx)
+                                proporcao = w / float(h)
+                                area = cv2.contourArea(c)
+                                
+                                # Filtra por tamanho mínimo e formato quadrado para evitar ruídos
+                                if area > 100 and 0.8 <= proporcao <= 1.2:
+                                    # Pega o centro do quadradinho
+                                    M = cv2.moments(c)
+                                    if M["m00"] != 0:
+                                        cX = int(M["m10"] / M["m00"])
+                                        cY = int(M["m01"] / M["m00"])
+                                        cantos.append([cX, cY])
+
+                        # Se encontrou exatamente os 4 cantos, faz o alinhamento perfeito
+                        if len(cantos) == 4:
+                            # Ordena os cantos: [Sup_Esq, Sup_Dir, Inf_Dir, Inf_Esq]
+                            cantos = np.array(cantos, dtype="float32")
+                            soma = cantos.sum(axis=1)
+                            dif = np.diff(cantos, axis=1)
+                            
+                            pts_origem = np.zeros((4, 2), dtype="float32")
+                            pts_origem[0] = cantos[np.argmin(soma)]       # Superior Esquerdo
+                            pts_origem[1] = cantos[np.argmin(dif)]        # Superior Direito
+                            pts_origem[2] = cantos[np.argmax(soma)]       # Inferior Direito
+                            pts_origem[3] = cantos[np.argmax(dif)]        # Inferior Esquerdo
+
+                            # Define a matriz de destino como um quadrado perfeito de 600x600
+                            pts_destino = np.array([
+                                [0, 0],
+                                [600 - 1, 0],
+                                [600 - 1, 600 - 1],
+                                [0, 600 - 1]
+                            ], dtype="float32")
+
+                            # Aplica a transformação de perspectiva (Estica e alinha a folha)
+                            M_transf = cv2.getPerspectiveTransform(pts_origem, pts_destino)
+                            img_alinhada = cv2.warpPerspective(img, M_transf, (600, 600))
+                            
+                            # Reprocessa a imagem perfeitamente alinhada e reta
+                            cinza_alinhada = cv2.cvtColor(img_alinhada, cv2.COLOR_BGR2GRAY)
+                            blur_alinhada = cv2.GaussianBlur(cinza_alinhada, (5, 5), 0)
+                            thresh_final = cv2.threshold(blur_alinhada, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+                        else:
+                            # Caso falhe em achar os 4 cantos (ex: sombra ou corte), usa o redimensionamento padrão antigo como fallback
+                            st.warning("⚠️ Não foi possível alinhar automaticamente pelas 4 âncoras. Tentando leitura direta por aproximação...")
+                            img_alinhada = cv2.resize(img, (600, 600))
+                            cinza_alinhada = cv2.cvtColor(img_alinhada, cv2.COLOR_BGR2GRAY)
+                            blur_alinhada = cv2.GaussianBlur(cinza_alinhada, (5, 5), 0)
+                            thresh_final = cv2.threshold(blur_alinhada, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+
+                        # 2. MAPEAMENTO DAS QUESTÕES NA IMAGEM RETIFICADA (AGORA É FIXO E PRECISO)
+                        # Coordenadas oficiais baseadas no modelo horizontal perfeito (600x600)
                         opcoes_x = [252, 298, 344, 390]
                         linhas_y = [316, 362, 408, 454, 500]
                         letras = ['A', 'B', 'C', 'D']
 
                         respostas_aluno = {}
 
-                        # Varre cada questão e avalia qual bolinha está preenchida
                         for i in range(min(total_questoes, 5)):
                             questao_num = i + 1
                             y = linhas_y[i]
@@ -1744,15 +1805,12 @@ else:
                             max_pixels = 0
                             
                             for j, x in enumerate(opcoes_x):
-                                # Cria uma máscara circular para isolar a bolinha atual
-                                mascara_bolinha = np.zeros(thresh.shape, dtype=np.uint8)
+                                mascara_bolinha = np.zeros(thresh_final.shape, dtype=np.uint8)
                                 cv2.circle(mascara_bolinha, (x, y), 14, 255, -1)
                                 
-                                # Conta quantos pixels escuros (marcados) existem dentro da bolinha
-                                pixel_count = cv2.countNonZero(cv2.bitwise_and(thresh, thresh, mask=mascara_bolinha))
+                                pixel_count = cv2.countNonZero(cv2.bitwise_and(thresh_final, thresh_final, mask=mascara_bolinha))
                                 
-                                # Define o limite para considerar preenchido
-                                if pixel_count > 150 and pixel_count > max_pixels:
+                                if pixel_count > 160 and pixel_count > max_pixels:
                                     max_pixels = pixel_count
                                     marcada = letras[j]
                             
@@ -2661,6 +2719,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
