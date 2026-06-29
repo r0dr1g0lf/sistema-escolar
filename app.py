@@ -1681,25 +1681,65 @@ else:
                 st.write(f"Aluno: **{st.session_state.selected_aluno_av}** | Turma: **{st.session_state.selected_turma_av}** | Prova ID: **{st.session_state.id_prova_scanned}**")
                 st.write(f"Disciplina: {st.session_state.prova_data.get('Disciplina')} | Professor: {st.session_state.prova_data.get('Professor')}")
 
-                st.markdown("""
-                <style>
-                    [data-testid="stCameraInput"] { max-width: 500px !important; margin: 0 auto !important; }
-                    /* Remove proporções artificiais do contêiner externo */
-                    [data-testid="stCameraInput"] > div { aspect-ratio: unset !important; height: auto !important; }
-                    
-                    /* Aplica a moldura verde diretamente e exclusivamente no vídeo ativo */
-                    [data-testid="stCameraInput"] video {
-                        outline: 4px dashed #00ff00 !important;
-                        outline-offset: -4px !important;
-                        box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.6) !important;
-                        border-radius: 4px !important;
-                        width: 100% !important;
-                        height: auto !important;
-                    }
-                </style>
-                """, unsafe_allow_html=True)
+                # Componente de Câmera Inteligente em tempo real (JavaScript)
+                valor_retornado = st.components.v1.html("""
+                <div style="position: relative; width: 100%; max-width: 450px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden;">
+                    <video id="webcam" autoplay playsinline style="width: 100%; display: block;"></video>
+                    <div id="scanner-laser" style="position: absolute; top: 10%; left: 10%; right: 10%; bottom: 25%; border: 3px dashed #00ff00; border-radius: 4px; box-shadow: 0 0 15px rgba(0,255,0,0.5); transition: all 0.2s ease;"></div>
+                    <div id="status-text" style="position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; color: #00ff00; font-family: sans-serif; font-weight: bold; background: rgba(0,0,0,0.6); padding: 5px;">📷 Posicione os 4 cantos na área verde</div>
+                </div>
+                <div style="text-align: center; margin-top: 15px;">
+                    <button id="capture-btn" style="background: #00ff00; color: #000; border: none; padding: 14px 25px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 80%; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">Capturar e Processar</button>
+                </div>
+                <canvas id="hidden-canvas" style="display: none;"></canvas>
 
-                img_answer_scan = st.camera_input("📸 Alinhe os 4 cantos pretos na moldura verde", key="camera_answer_scan")
+                <script>
+                    const video = document.getElementById('webcam');
+                    const btn = document.getElementById('capture-btn');
+                    const canvas = document.getElementById('hidden-canvas');
+                    const laser = document.getElementById('scanner-laser');
+                    const status = document.getElementById('status-text');
+
+                    // Acessa a câmera traseira do celular de forma nativa
+                    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: 640, height: 480 } })
+                        .then(stream => { video.srcObject = stream; })
+                        .catch(err => { status.innerText = "Erro ao acessar câmera traseira."; status.style.color = "red"; });
+
+                    // Efeito visual simulando o ajuste dinâmico automático na tela enquanto aponta
+                    setInterval(() => {
+                        if(video.videoWidth > 0) {
+                            // Simula pequenas flutuações e ajustes de foco automáticos nas bordas do gabarito
+                            const variação = Math.sin(Date.now() / 200) * 3;
+                            laser.style.top = (10 + variação) + "%";
+                            laser.style.left = (10 + variação) + "%";
+                            laser.style.right = (10 + variação) + "%";
+                            laser.style.bottom = (25 - variação) + "%";
+                        }
+                    }, 100);
+
+                    btn.addEventListener('click', () => {
+                        status.innerText = "⚡ Capturando folha...";
+                        status.style.color = "#ffff00";
+                        laser.style.borderColor = "#ffff00";
+                        
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        
+                        const base64Img = canvas.toDataURL('image/jpeg');
+                        Streamlit.setComponentValue(base64Img);
+                    });
+                </script>
+                """, height=480)
+
+                # Captura o clique do novo botão JavaScript e joga no fluxo do OpenCV
+                img_answer_scan = None
+                if valor_retornado and isinstance(valor_retornado, str) and valor_retornado.startswith("data:image"):
+                    import base64
+                    from io import BytesIO
+                    dados_base64 = valor_retornado.split(",")[1]
+                    img_answer_scan = BytesIO(base64.b64decode(dados_base64))
 
                 if img_answer_scan is not None:
                     st.info("🔄 Processando e corrigindo cartão-resposta...")
@@ -2700,6 +2740,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
