@@ -1620,12 +1620,25 @@ else:
                 # Inicializa a variável para o sistema não quebrar
                 scanned_id_from_camera = None
 
-                # Abre a câmera oficial do Streamlit (garante que o botão de tirar foto funcione)
-                foto_registro = st.camera_input("Tire a foto do código de barras da prova")
+                # Custom camera input with camera selection
+                camera_choice = st.radio(
+                    "Selecione a Câmera:",
+                    ("Frontal", "Traseira"),
+                    key="camera_selection_id_prova",
+                    horizontal=True
+                )
+
+                # Map choice to camera_id (0 for default/front, 1 for secondary/rear)
+                camera_id_to_use = 0 if camera_choice == "Frontal" else 1
+
+                foto_registro = st.camera_input(
+                    "Tire a foto do código de barras da prova",
+                    camera_id=camera_id_to_use,
+                    key="camera_input_id_prova"
+                )
 
                 if foto_registro is not None:
                     try:
-                        import base64
                         import cv2
                         import numpy as np
                         from pyzbar.pyzbar import decode
@@ -2597,3 +2610,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
