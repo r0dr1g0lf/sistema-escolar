@@ -1622,6 +1622,23 @@ else:
 
                 # Abre a câmera oficial do Streamlit (garante que o botão de tirar foto funcione)
                 foto_registro = st.camera_input("Tire a foto do código de barras da prova")
+                # Instrução invisível para forçar o navegador a selecionar a câmera traseira (environment)
+                st.components.v1.html("""
+                <script>
+                    // Procura por elementos de vídeo criados pelo Streamlit e solicita a câmera traseira
+                    navigator.mediaDevices.enumerateDevices().then(devices => {
+                        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                        if (videoDevices.length > 1) {
+                            navigator.mediaDevices.getUserMedia({
+                                video: { facingMode: { ideal: "environment" } }
+                            }).then(stream => {
+                                // Vincula o fluxo de vídeo para inicializar a câmera correta
+                                window.parent.postMessage({type: 'streamlit:setComponentValue'}, '*');
+                            }).catch(err => console.log("Erro ao alternar câmera: ", err));
+                        }
+                    });
+                </script>
+                """, height=0)
 
                 if foto_registro is not None:
                     try:
@@ -2597,5 +2614,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
 
