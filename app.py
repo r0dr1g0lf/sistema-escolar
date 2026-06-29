@@ -1681,17 +1681,15 @@ else:
                 st.write(f"Aluno: **{st.session_state.selected_aluno_av}** | Turma: **{st.session_state.selected_turma_av}** | Prova ID: **{st.session_state.id_prova_scanned}**")
                 st.write(f"Disciplina: {st.session_state.prova_data.get('Disciplina')} | Professor: {st.session_state.prova_data.get('Professor')}")
 
-                # CSS corrigido para alinhar a moldura exatamente com o foco interno da câmera
                 st.markdown("""
                 <style>
-                    [data-testid="stCameraInput"] { max-width: 500px !important; margin: 0 auto !important; position: relative !important; }
-                    [data-testid="stCameraInput"] > div { position: relative !important; aspect-ratio: 1/1 !important; }
-                    /* Ajusta a moldura verde para colar perfeitamente nas bordas internas do visor */
-                    [data-testid="stCameraInput"]::before {
-                        content: "" !important; position: absolute !important;
-                        top: 0px !important; left: 0px !important; right: 0px !important; bottom: 0px !important;
-                        border: 4px dashed #00ff00 !important; border-radius: 4px !important;
-                        pointer-events: none !important; z-index: 999 !important; box-shadow: inset 0 0 15px rgba(0,255,0,0.3) !important;
+                    [data-testid="stCameraInput"] { max-width: 500px !important; margin: 0 auto !important; }
+                    /* Alvo cirúrgico: o elemento de vídeo onde a imagem aparece */
+                    [data-testid="stCameraInput"] video {
+                        outline: 4px dashed #00ff00 !important;
+                        outline-offset: -4px !important;
+                        box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.6) !important;
+                        border-radius: 4px !important;
                     }
                 </style>
                 """, unsafe_allow_html=True)
@@ -2658,6 +2656,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
