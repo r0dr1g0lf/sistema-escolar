@@ -1620,8 +1620,8 @@ else:
                 # Inicializa a variável para o sistema não quebrar
                 scanned_id_from_camera = None
 
-                # Abre a câmera oficial do Streamlit (garante que o botão de tirar foto funcione)
-                foto_registro = st.camera_input("Tire a foto do código de barras da prova")
+                # Abre a câmera oficial do Streamlit configurada explicitamente para a câmera traseira
+                foto_registro = st.camera_input("Tire a foto do código de barras da prova", disabled=False, key="camera_provas", camera_id="environment")
                 # Instrução invisível para forçar o navegador a selecionar a câmera traseira (environment)
                 st.components.v1.html("""
                 <script>
@@ -2614,4 +2614,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
