@@ -1684,12 +1684,17 @@ else:
                 st.markdown("""
                 <style>
                     [data-testid="stCameraInput"] { max-width: 500px !important; margin: 0 auto !important; }
-                    /* Alvo cirúrgico: o elemento de vídeo onde a imagem aparece */
+                    /* Remove proporções artificiais do contêiner externo */
+                    [data-testid="stCameraInput"] > div { aspect-ratio: unset !important; height: auto !important; }
+                    
+                    /* Aplica a moldura verde diretamente e exclusivamente no vídeo ativo */
                     [data-testid="stCameraInput"] video {
                         outline: 4px dashed #00ff00 !important;
                         outline-offset: -4px !important;
                         box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.6) !important;
                         border-radius: 4px !important;
+                        width: 100% !important;
+                        height: auto !important;
                     }
                 </style>
                 """, unsafe_allow_html=True)
@@ -2656,6 +2661,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
