@@ -1683,13 +1683,11 @@ else:
                 st.markdown("""
                 <style>
                     [data-testid="stCameraInput"] { max-width: 500px !important; margin: 0 auto !important; }
-                    [data-testid="stCameraInput"] video {
-                        outline: 4px solid #00ff00 !important;
-                    }
+                    [data-testid="stCameraInput"] video { outline: 4px solid #00ff00 !important; }
                 </style>
                 """, unsafe_allow_html=True)
 
-                img_answer_scan = st.camera_input("📸 Alinhe os 4 cantos pretos na moldura verde", key="camera_answer_scan")
+                img_answer_scan = st.camera_input("📸 Alinhe o gabarito na tela", key="camera_answer_scan")
 
                 if img_answer_scan is not None:
                     try:
@@ -1708,26 +1706,27 @@ else:
                         np_img = np.frombuffer(bytes_data, dtype=np.uint8)
                         img_original = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
                         
+                        # Obtém o tamanho original da captura
                         h_orig, w_orig = img_original.shape[:2]
-                        if h_orig > w_orig:
-                            img_original = cv2.rotate(img_original, cv2.ROTATE_90_COUNTERCLOCKWISE)
-                            h_orig, w_orig = img_original.shape[:2]
 
-                        # Testando um recorte manual agressivo para remover as barras cinzas e a borda do note
-                        # Corta 22% das laterais e 15% do topo/fundo
-                        corte_w = int(w_orig * 0.22)
-                        corte_h = int(h_orig * 0.15)
+                        # ROTAÇÃO REMOVIDA: Mantém a imagem exatamente como foi capturada pelo celular
+                        
+                        # Recorte cirúrgico focado nas alternativas horizontais
+                        # Remove 12% das barras cinzas/molduras laterais e 8% do topo/fundo
+                        corte_w = int(w_orig * 0.12)
+                        corte_h = int(h_orig * 0.08)
+                        
                         img_recortada = img_original[corte_h:(h_orig - corte_h), corte_w:(w_orig - corte_w)]
                         img_alinhada = cv2.resize(img_recortada, (600, 600))
 
-                        # Mostra para você na tela do sistema o que restou após o corte das sobras
-                        st.warning("🔍 Visão do OpenCV (O que sobrou da folha):")
-                        st.image(img_alinhada, channels="BGR", caption="Se o gabarito não estiver centralizado aqui, ajuste a distância da câmera.")
+                        # Painel de diagnóstico visual para você validar o enquadramento
+                        st.warning("🔍 Visão do OpenCV (Região analisada):")
+                        st.image(img_alinhada, channels="BGR", caption="O gabarito deve aparecer centralizado e completo aqui.")
 
                         cinza_final = cv2.cvtColor(img_alinhada, cv2.COLOR_BGR2GRAY)
                         thresh_final = cv2.threshold(cinza_final, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
 
-                        # Coordenadas internas das alternativas
+                        # Coordenadas internas oficiais mapeadas para a matriz 600x600
                         opcoes_x = [252, 298, 344, 390]
                         linhas_y = [316, 362, 408, 454, 500]
                         letras = ['A', 'B', 'C', 'D']
@@ -1751,7 +1750,6 @@ else:
                             respostas_aluno[questao_num] = marcada if marcada else ""
 
                         st.session_state.respostas_aluno_simuladas = respostas_aluno
-                        
                         st.write("📝 Respostas detectadas nesta tentativa:", respostas_aluno)
 
                         if st.button("Confirmar Leitura e Ver Nota ➡️"):
@@ -2654,14 +2652,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
-
-
-
-
-
-
-
-
 
