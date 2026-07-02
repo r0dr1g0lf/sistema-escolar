@@ -1191,7 +1191,12 @@ else:
                             .question-block {{ margin-bottom: 15px; page-break-inside: avoid; }}
                             .enunciado {{ margin-bottom: 8px; text-align: justify; white-space: pre-wrap; }}
                             .alternatives p {{ margin: 3px 0; }}
-                            
+                            .questions-border-box {{
+                                border: 2px solid #000; /* Black border */
+                                padding: 15px; /* Some padding inside the box */
+                                margin-bottom: 20px; /* Space below the box */
+                                page-break-inside: avoid; /* Keep the box together on print */
+                            }}
 
                             .cartao-title {{ text-align: center; font-weight: bold; font-size: 14pt; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }}
                             
@@ -1226,7 +1231,9 @@ else:
                                     </tr>
                                 </table>
                                 
-                                {html_questoes}
+                                <div class="questions-border-box">
+                                    {html_questoes}
+                                </div>
                                 
                                 <div class="page-break"></div>
                                 
@@ -1409,6 +1416,12 @@ else:
                             .question-block {{ margin-bottom: 15px; page-break-inside: avoid; }}
                             .enunciado {{ margin-bottom: 8px; text-align: justify; white-space: pre-wrap; }}
                             .alternatives p {{ margin: 3px 0; }}
+                            .questions-border-box {{
+                                border: 2px solid #000; /* Black border */
+                                padding: 15px; /* Some padding inside the box */
+                                margin-bottom: 20px; /* Space below the box */
+                                page-break-inside: avoid; /* Keep the box together on print */
+                            }}
                             
                             .cartao-resposta-box {{ border: 4px solid #000; padding: 25px; margin-top: 20px; background: #fff; position: relative; max-width: 480px; margin-left: auto; margin-right: auto; page-break-inside: avoid; }}
                             .cartao-resposta-bubbles-box {{ 
@@ -1456,7 +1469,9 @@ else:
                                     </tr>
                                 </table>
                                 
-                                {html_questoes_visualizar}
+                                <div class="questions-border-box">
+                                    {html_questoes_visualizar}
+                                </div>
                                 
                                 <div class="page-break"></div>
                                 
@@ -2657,6 +2672,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
