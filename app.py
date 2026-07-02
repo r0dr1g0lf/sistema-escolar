@@ -1192,7 +1192,8 @@ else:
                             .enunciado {{ margin-bottom: 8px; text-align: justify; white-space: pre-wrap; }}
                             .alternatives p {{ margin: 3px 0; }}
                             
-                            .cartao-resposta-box {{ border: 4px solid #000; padding: 25px; margin-top: 20px; background: #fff; position: relative; max-width: 480px; margin-left: auto; margin-right: auto; page-break-inside: avoid; }}
+                            .cartao-resposta-box {{ padding: 25px; margin-top: 20px; background: #fff; position: relative; max-width: 480px; margin-left: auto; margin-right: auto; page-break-inside: avoid; }}
+                            .gabarito-questions-container {{ border: 4px solid #000; padding: 15px; margin-top: 15px; }}
                             .anchor-marker {{ width: 20px; height: 20px; background-color: #000 !important; background: #000 !important; position: absolute; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }}
                             .tl {{ top: 5px; left: 5px; }} .tr {{ top: 5px; right: 5px; }}
                             .bl {{ bottom: 5px; left: 5px; }} .br {{ bottom: 5px; right: 5px; }}
@@ -2652,3 +2653,28 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
