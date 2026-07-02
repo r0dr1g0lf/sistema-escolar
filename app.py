@@ -1698,7 +1698,7 @@ else:
                 </style>
                 """, unsafe_allow_html=True)
 
-                st.info("🎯 Aponte a câmera e enquadre o novo bloco de alternativas na tela. O sistema usará a imagem pura, sem cortes, para garantir nitidez máxima.")
+                st.info("🎯 Enquadre o retângulo das alternativas no centro da tela. A imagem será processada na vertical com qualidade máxima.")
                 img_answer_scan = st.camera_input("📸 Capture o gabarito focado", key="camera_answer_scan")
 
                 if img_answer_scan is not None:
@@ -1714,35 +1714,35 @@ else:
                         gabarito_oficial_convertido = {int(k): v.upper().strip() for k, v in gabarito_oficial_json.items()}
                         pesos_convertido = {int(k): float(v) for k, v in pesos_questoes_json.items()}
 
-                        # Carrega a imagem sem nenhuma perda de qualidade ou compressão
+                        # Carrega a imagem vertical pura e em alta definição
                         bytes_data = img_answer_scan.getvalue()
                         np_img = np.frombuffer(bytes_data, dtype=np.uint8)
-                        img_original = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
-                        
-                        img_alinhada = img_original.copy()
+                        img_alinhada = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
                         h_orig, w_orig = img_alinhada.shape[:2]
 
-                        # Tratamento direto na resolução nativa máxima
+                        # Tratamento de imagem adaptativo na vertical
                         cinza = cv2.cvtColor(img_alinhada, cv2.COLOR_BGR2GRAY)
                         blur = cv2.medianBlur(cinza, 3)
                         thresh_final = cv2.adaptiveThreshold(
                             blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 19, 9
                         )
 
-                        st.success("🖼️ Visão Pura da Câmera (Qualidade 100% Preservada):")
-                        st.image(img_alinhada, channels="BGR", caption="Imagem original sendo analisada pixel por pixel.")
+                        st.success("🖼️ Imagem Vertical Processada (Alta Resolução):")
+                        st.image(img_alinhada, channels="BGR", caption="Análise direta sobre o arquivo nativo da câmera.")
 
-                        # Mapeamento proporcional baseado no tamanho real da foto tirada
-                        opcoes_x = [int(w_orig * 0.38), int(w_orig * 0.47), int(w_orig * 0.56), int(w_orig * 0.65)]
-                        linhas_y = [int(h_orig * 0.28), int(h_orig * 0.39), int(h_orig * 0.50), int(h_orig * 0.61), int(h_orig * 0.72)]
+                        # CALIBRAÇÃO PARA O RETÂNGULO HORIZONTAL DENTRO DA FOTO VERTICAL
+                        # Como o quadro de alternativas é mais largo, as colunas (A, B, C, D) ocupam mais espaço horizontal (w_orig)
+                        # e as linhas (01 a 05) ficam mais juntas verticalmente (h_orig) no centro da foto
+                        opcoes_x = [int(w_orig * 0.28), int(w_orig * 0.42), int(w_orig * 0.56), int(w_orig * 0.70)]
+                        linhas_y = [int(h_orig * 0.38), int(h_orig * 0.44), int(h_orig * 0.50), int(h_orig * 0.56), int(h_orig * 0.62)]
                         letras = ['A', 'B', 'C', 'D']
 
                         respostas_aluno = {}
-                        raio_bolinha = int(w_orig * 0.03)
+                        raio_bolinha = int(w_orig * 0.035) # Tamanho proporcional à largura para capturar a bolinha cheia
 
                         for i in range(min(total_questoes, 5)):
                             questao_num = i + 1
-                            y = linhas_y[i] if i < len(linhas_y) else linhas_y[-1]
+                            y = linhas_y[i]
                             marcada = None
                             max_pixels = 0
                             
@@ -1752,7 +1752,7 @@ else:
                                 
                                 pixel_count = cv2.countNonZero(cv2.bitwise_and(thresh_final, thresh_final, mask=mascara_bolinha))
                                 
-                                if pixel_count > (raio_bolinha * 10) and pixel_count > max_pixels:
+                                if pixel_count > (raio_bolinha * 12) and pixel_count > max_pixels:
                                     max_pixels = pixel_count
                                     marcada = letras[j]
                             
@@ -1760,7 +1760,7 @@ else:
 
                         st.session_state.respostas_aluno_simuladas = respostas_aluno
                         
-                        st.markdown("### 📝 Respostas Detectadas com Alta Resolução:")
+                        st.markdown("### 📝 Respostas Detectadas:")
                         st.json(respostas_aluno)
 
                         if st.button("Confirmar Leitura e Ver Nota ➡️", use_container_width=True):
@@ -1771,7 +1771,7 @@ else:
                             st.rerun()
 
                     except Exception as e:
-                        st.error(f"Erro no processamento da imagem pura: {e}")
+                        st.error(f"Erro no mapeamento vertical: {e}")
                 else:
                     st.info("Aguardando a captura do bloco de alternativas.")
 
@@ -2663,6 +2663,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
