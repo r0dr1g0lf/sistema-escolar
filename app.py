@@ -1687,8 +1687,8 @@ else:
                 </style>
                 """, unsafe_allow_html=True)
 
-                st.info("🎯 Aponte a câmera mostrando todo o quadrado do gabarito (certifique-se de que os 4 quadradinhos pretos das pontas apareçam na foto).")
-                img_answer_scan = st.camera_input("📸 Capture o gabarito completo", key="camera_answer_scan")
+                st.info("🎯 Aponte a câmera e enquadre o novo bloco de alternativas na tela. O sistema usará a imagem pura, sem cortes, para garantir nitidez máxima.")
+                img_answer_scan = st.camera_input("📸 Capture o gabarito focado", key="camera_answer_scan")
 
                 if img_answer_scan is not None:
                     try:
@@ -1701,86 +1701,47 @@ else:
                         total_questoes = int(st.session_state.prova_data['Total_Questoes'])
 
                         gabarito_oficial_convertido = {int(k): v.upper().strip() for k, v in gabarito_oficial_json.items()}
-                        pesos_questoes_convertido = {int(k): float(v) for k, v in pesos_questoes_json.items()}
+                        pesos_convertido = {int(k): float(v) for k, v in pesos_questoes_json.items()}
 
+                        # Carrega a imagem sem nenhuma perda de qualidade ou compressão
                         bytes_data = img_answer_scan.getvalue()
                         np_img = np.frombuffer(bytes_data, dtype=np.uint8)
                         img_original = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
                         
-                        h_orig, w_orig = img_original.shape[:2]
+                        img_alinhada = img_original.copy()
+                        h_orig, w_orig = img_alinhada.shape[:2]
 
-                        # --- DETECÇÃO AUTOMÁTICA INTELIGENTE PELOS 4 CANTOS ---
-                        cinza_F = cv2.cvtColor(img_original, cv2.COLOR_BGR2GRAY)
-                        borrado = cv2.GaussianBlur(cinza_F, (5, 5), 0)
-                        thresh_contorno = cv2.threshold(borrado, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
-                        
-                        contornos, _ = cv2.findContours(thresh_contorno, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                        
-                        gabarito_encontrado = False
-                        pts_destino = np.float32([[0, 0], [500, 0], [500, 500], [0, 500]])
-                        img_alinhada = None
-
-                        # Procura pelo maior contorno quadrado (o quadro externo do gabarito)
-                        contornos = sorted(contornos, key=cv2.contourArea, reverse=True)
-                        for c in contornos:
-                            perimetro = cv2.arcLength(c, True)
-                            aproximacao = cv2.approxPolyDP(c, 0.02 * perimetro, True)
-                            
-                            if len(aproximacao) == 4 and cv2.contourArea(c) > (w_orig * h_orig * 0.2):
-                                # Reordena os pontos encontrados: topo-esq, topo-dir, baixo-dir, baixo-esq
-                                pts_origem = aproximacao.reshape(4, 2)
-                                soma = pts_origem.sum(axis=1)
-                                dif = np.diff(pts_origem, axis=1)
-                                
-                                pts_ordenados = np.zeros((4, 2), dtype="float32")
-                                pts_ordenados[0] = pts_origem[np.argmin(soma)]
-                                pts_ordenados[2] = pts_origem[np.argmax(soma)]
-                                pts_ordenados[1] = pts_origem[np.argmin(dif)]
-                                pts_ordenados[3] = pts_origem[np.argmax(dif)]
-                                
-                                # Transforma a perspectiva para extrair apenas o quadrado perfeito
-                                matriz = cv2.getPerspectiveTransform(pts_ordenados, pts_destino)
-                                img_alinhada = cv2.warpPerspective(img_original, matriz, (500, 500))
-                                gabarito_encontrado = True
-                                break
-
-                        # Fallback caso a detecção automática falhe por reflexo: aplica o recorte fixo proporcional estável
-                        if not gabarito_encontrado:
-                            corte_w = int(w_orig * 0.15)
-                            corte_h_topo = int(h_orig * 0.35)  # Ignora cabeçalho e código de barras
-                            corte_h_base = int(h_orig * 0.22)  # Ignora barra do Windows
-                            img_recortada = img_original[corte_h_topo:(h_orig - corte_h_base), corte_w:(w_orig - corte_w)]
-                            img_alinhada = cv2.resize(img_recortada, (500, 500))
-
-                        # --- PROCESSAMENTO EXCLUSIVO DAS RESPOSTAS ---
+                        # Tratamento direto na resolução nativa máxima
                         cinza = cv2.cvtColor(img_alinhada, cv2.COLOR_BGR2GRAY)
                         blur = cv2.medianBlur(cinza, 3)
                         thresh_final = cv2.adaptiveThreshold(
                             blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 19, 9
                         )
 
-                        st.success("🖼️ Gabarito Isolado Corretamente (Apenas Área de Respostas):")
-                        st.image(img_alinhada, channels="BGR", caption="Área útil extraída sem distorções.")
+                        st.success("🖼️ Visão Pura da Câmera (Qualidade 100% Preservada):")
+                        st.image(img_alinhada, channels="BGR", caption="Imagem original sendo analisada pixel por pixel.")
 
-                        # Coordenadas calibradas para a matriz 500x500 isolada
-                        opcoes_x = [190, 245, 300, 355]
-                        linhas_y = [160, 225, 290, 355, 420]
+                        # Mapeamento proporcional baseado no tamanho real da foto tirada
+                        opcoes_x = [int(w_orig * 0.38), int(w_orig * 0.47), int(w_orig * 0.56), int(w_orig * 0.65)]
+                        linhas_y = [int(h_orig * 0.28), int(h_orig * 0.39), int(h_orig * 0.50), int(h_orig * 0.61), int(h_orig * 0.72)]
                         letras = ['A', 'B', 'C', 'D']
 
                         respostas_aluno = {}
+                        raio_bolinha = int(w_orig * 0.03)
+
                         for i in range(min(total_questoes, 5)):
                             questao_num = i + 1
-                            y = linhas_y[i]
+                            y = linhas_y[i] if i < len(linhas_y) else linhas_y[-1]
                             marcada = None
                             max_pixels = 0
                             
                             for j, x in enumerate(opcoes_x):
                                 mascara_bolinha = np.zeros(thresh_final.shape, dtype=np.uint8)
-                                cv2.circle(mascara_bolinha, (x, y), 13, 255, -1)
+                                cv2.circle(mascara_bolinha, (x, y), raio_bolinha, 255, -1)
                                 
                                 pixel_count = cv2.countNonZero(cv2.bitwise_and(thresh_final, thresh_final, mask=mascara_bolinha))
                                 
-                                if pixel_count > 120 and pixel_count > max_pixels:
+                                if pixel_count > (raio_bolinha * 10) and pixel_count > max_pixels:
                                     max_pixels = pixel_count
                                     marcada = letras[j]
                             
@@ -1788,20 +1749,20 @@ else:
 
                         st.session_state.respostas_aluno_simuladas = respostas_aluno
                         
-                        st.markdown("### 📝 Respostas Lidas:")
+                        st.markdown("### 📝 Respostas Detectadas com Alta Resolução:")
                         st.json(respostas_aluno)
 
                         if st.button("Confirmar Leitura e Ver Nota ➡️", use_container_width=True):
                             st.session_state.nota_obtida, st.session_state.detalhes_respostas = calcular_nota(
-                                gabarito_oficial_convertido, pesos_questoes_convertido, st.session_state.respostas_aluno_simuladas
+                                gabarito_oficial_convertido, pesos_convertido, st.session_state.respostas_aluno_simuladas
                             )
                             st.session_state.correcao_step = "display_results"
                             st.rerun()
 
                     except Exception as e:
-                        st.error(f"Erro no processamento automático: {e}")
+                        st.error(f"Erro no processamento da imagem pura: {e}")
                 else:
-                    st.info("Aguardando a captura do gabarito completo.")
+                    st.info("Aguardando a captura do bloco de alternativas.")
 
             elif st.session_state.correcao_step == "display_results":
                 st.subheader("✅ Resultado da Correção")
@@ -2691,24 +2652,3 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
