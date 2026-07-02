@@ -1192,8 +1192,7 @@ else:
                             .enunciado {{ margin-bottom: 8px; text-align: justify; white-space: pre-wrap; }}
                             .alternatives p {{ margin: 3px 0; }}
                             
-                            .cartao-resposta-box {{ padding: 25px; margin-top: 20px; background: #fff; position: relative; max-width: 480px; margin-left: auto; margin-right: auto; page-break-inside: avoid; }}
-                            .gabarito-questions-container {{ border: 4px solid #000; padding: 15px; margin-top: 15px; }}
+                            .cartao-resposta-box {{ border: 4px solid #000; padding: 25px; margin-top: 20px; background: #fff; position: relative; max-width: 480px; margin-left: auto; margin-right: auto; page-break-inside: avoid; }}
                             .anchor-marker {{ width: 20px; height: 20px; background-color: #000 !important; background: #000 !important; position: absolute; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }}
                             .tl {{ top: 5px; left: 5px; }} .tr {{ top: 5px; right: 5px; }}
                             .bl {{ bottom: 5px; left: 5px; }} .br {{ bottom: 5px; right: 5px; }}
@@ -1234,14 +1233,14 @@ else:
                                 
                                 <div class="page-break"></div>
                                 
-                                <div class="cartao-resposta-box">
+                                <div style="margin-top: 20px; max-width: 480px; margin-left: auto; margin-right: auto; page-break-inside: avoid; text-align: center;">
+                                    <div class="cartao-title">FOLHA DE RESPOSTAS OFICIAL</div>
+                                    <p style="font-size:9pt; margin-top:0px; margin-bottom:15px;">Use caneta azul ou preta para marcar as respostas.</p>
+                                    {html_id_display_block}
+                                </div>
+                                <div class="cartao-resposta-bubbles-box">
                                     <div class="anchor-marker tl"></div><div class="anchor-marker tr"></div>
                                     <div class="anchor-marker bl"></div><div class="anchor-marker br"></div>
-                                    <div class="cartao-title">FOLHA DE RESPOSTAS OFICIAL</div>
-                                    <p style="font-size:9pt; text-align:center; margin-top:0px; margin-bottom:15px;">Use caneta azul ou preta para marcar as respostas.</p>
-                                    
-                                    {html_id_display_block}
-                                    
                                     {html_linhas_gabarito}
                                 </div>
                                 
@@ -1359,7 +1358,7 @@ else:
                         
                         html_id_display_block_visualizar = f"""
                         <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap" rel="stylesheet">
-                        <div style="text-align: center; margin-bottom: 20px; border: 2px solid #000; padding: 8px; background: #fff;">
+                        <div style="text-align: center; margin-bottom: 20px;">
                             <div style="font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px;">ID DA AVALIAÇÃO</div>
                             <p style="font-family: 'Libre Barcode 39', sans-serif; font-size: 80px; text-align: center; margin: 0;">
                                 *{str(id_prova_gerado_visualizar).zfill(4)}*
@@ -1415,6 +1414,17 @@ else:
                             .alternatives p {{ margin: 3px 0; }}
                             
                             .cartao-resposta-box {{ border: 4px solid #000; padding: 25px; margin-top: 20px; background: #fff; position: relative; max-width: 480px; margin-left: auto; margin-right: auto; page-break-inside: avoid; }}
+                            .cartao-resposta-bubbles-box {{ 
+                                border: 4px solid #000; 
+                                padding: 25px; 
+                                margin-top: 20px; 
+                                background: #fff; 
+                                position: relative; 
+                                max-width: 480px; 
+                                margin-left: auto; 
+                                margin-right: auto; 
+                                page-break-inside: avoid; 
+                            }}
                             .anchor-marker {{ width: 20px; height: 20px; background-color: #000 !important; background: #000 !important; position: absolute; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }}
                             .tl {{ top: 5px; left: 5px; }} .tr {{ top: 5px; right: 5px; }}
                             .bl {{ bottom: 5px; left: 5px; }} .br {{ bottom: 5px; right: 5px; }}
@@ -1453,14 +1463,14 @@ else:
                                 
                                 <div class="page-break"></div>
                                 
-                                <div class="cartao-resposta-box">
+                                <div style="margin-top: 20px; max-width: 480px; margin-left: auto; margin-right: auto; page-break-inside: avoid; text-align: center;">
+                                    <div class="cartao-title">FOLHA DE RESPOSTAS OFICIAL</div>
+                                    <p style="font-size:9pt; margin-top:0px; margin-bottom:15px;">Use caneta azul ou preta para marcar as respostas.</p>
+                                    {html_id_display_block_visualizar}
+                                </div>
+                                <div class="cartao-resposta-bubbles-box">
                                     <div class="anchor-marker tl"></div><div class="anchor-marker tr"></div>
                                     <div class="anchor-marker bl"></div><div class="anchor-marker br"></div>
-                                    <div class="cartao-title">FOLHA DE RESPOSTAS OFICIAL</div>
-                                    <p style="font-size:9pt; text-align:center; margin-top:0px; margin-bottom:15px;">Use caneta azul ou preta para marcar as respostas.</p>
-                                    
-                                    {html_id_display_block_visualizar}
-                                    
                                     {html_linhas_gabarito_visualizar}
                                 </div>
                                 
@@ -2653,22 +2663,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
