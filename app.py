@@ -1681,33 +1681,46 @@ else:
                 st.write(f"Aluno: **{st.session_state.selected_aluno_av}** | Turma: **{st.session_state.selected_turma_av}** | Prova ID: **{st.session_state.id_prova_scanned}**")
                 st.write(f"Disciplina: {st.session_state.prova_data.get('Disciplina')} | Professor: {st.session_state.prova_data.get('Professor')}")
 
-                # Mantém o design da moldura estável no visor
+                # Força o visor do Streamlit a cortar as sobras pretas/cinzas na marra usando CSS Avançado
                 st.markdown("""
                 <style>
-                    [data-testid="stCameraInput"] { max-width: 500px !important; margin: 0 auto !important; }
-                    [data-testid="stCameraInput"] > div { aspect-ratio: unset !important; height: auto !important; }
+                    [data-testid="stCameraInput"] { 
+                        max-width: 600px !important; 
+                        margin: 0 auto !important; 
+                    }
+                    [data-testid="stCameraInput"] > div { 
+                        aspect-ratio: 1/1 !important; /* Força o visor a virar um quadrado perfeito */
+                        overflow: hidden !important;
+                        border-radius: 8px !important;
+                    }
                     [data-testid="stCameraInput"] video {
-                        outline: 4px dashed #00ff00 !important;
-                        outline-offset: -4px !important;
-                        box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.6) !important;
-                        border-radius: 4px !important;
+                        object-fit: cover !important; /* Elimina as barras pretas laterais do visor do celular */
+                        outline: 5px solid #00ff00 !important;
+                        outline-offset: -5px !important;
+                        box-shadow: inset 0 0 30px rgba(0, 255, 0, 0.8) !important;
                         width: 100% !important;
-                        height: auto !important;
+                        height: 100% !important;
+                    }
+                    [data-testid="stCameraInput"] button {
+                        width: 100% !important;
+                        background-color: #00ff00 !important;
+                        color: black !important;
+                        font-weight: bold !important;
                     }
                 </style>
                 """, unsafe_allow_html=True)
 
-                img_answer_scan = st.camera_input("📸 Alinhe os 4 cantos pretos na moldura verde", key="camera_answer_scan")
+                img_answer_scan = st.camera_input("📸 Enquadre o quadrado do gabarito preenchendo toda a moldura verde", key="camera_answer_scan")
 
                 if img_answer_scan is not None:
-                    st.info("🔄 Ajustando orientação e localizando os cantos do gabarito...")
+                    st.info("🔄 Removendo as sobras laterais e decodificando as respostas...")
                     
                     try:
                         import cv2
                         import numpy as np
                         import json
 
-                        # Carrega as configurações do gabarito oficial
+                        # Carrega as configurações estruturais do gabarito
                         gabarito_oficial_json = json.loads(st.session_state.prova_data['Gabarito_Completo'])
                         pesos_questoes_json = json.loads(st.session_state.prova_data['Valor_Por_Questao'])
                         total_questoes = int(st.session_state.prova_data['Total_Questoes'])
@@ -1715,70 +1728,31 @@ else:
                         gabarito_oficial_convertido = {int(k): v.upper().strip() for k, v in gabarito_oficial_json.items()}
                         pesos_questoes_convertido = {int(k): float(v) for k, v in pesos_questoes_json.items()}
 
-                        # Converter imagem recebida do Streamlit para o formato do OpenCV
+                        # Converte o upload do Streamlit para matriz do OpenCV
                         bytes_data = img_answer_scan.getvalue()
                         np_img = np.frombuffer(bytes_data, dtype=np.uint8)
                         img_original = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
                         
-                        # Inteligência de Orientação: Se a imagem estiver em pé (altura maior que a largura),
-                        # gira ela em 90 graus no sentido anti-horário para deitá-la corretamente na horizontal
+                        # Corrige orientação física caso o celular envie a imagem invertida em 90º
                         h_orig, w_orig = img_original.shape[:2]
                         if h_orig > w_orig:
                             img_original = cv2.rotate(img_original, cv2.ROTATE_90_COUNTERCLOCKWISE)
-                        
-                        # Redimensiona para uma resolução estável de trabalho na horizontal
-                        img_trabalho = cv2.resize(img_original, (800, 600))
-                        cinza = cv2.cvtColor(img_trabalho, cv2.COLOR_BGR2GRAY)
-                        
-                        # Binarização adaptativa para isolar os quadradinhos pretos
-                        thresh = cv2.adaptiveThreshold(cinza, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
+                            h_orig, w_orig = img_original.shape[:2]
 
-                        # Detecta contornos na imagem buscando os 4 quadradinhos
-                        contornos, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                        cantos = []
+                        # RECORTE CIRÚRGICO DE SOBRAS: Remove 15% das extremidades esquerda/direita 
+                        # e 5% do topo/fundo para eliminar as bordas extras da câmera horizontal
+                        margem_x = int(w_orig * 0.15)
+                        margem_y = int(h_orig * 0.05)
+                        img_recortada = img_original[margem_y:(h_orig - margem_y), margem_x:(w_orig - margem_x)]
 
-                        for c in contornos:
-                            perimetro = cv2.arcLength(c, True)
-                            approx = cv2.approxPolyDP(c, 0.02 * perimetro, True)
-                            
-                            if len(approx) == 4:
-                                area = cv2.contourArea(c)
-                                x, y, w, h = cv2.boundingRect(approx)
-                                proporcao = w / float(h)
-                                
-                                # Filtro focado nas dimensões das 4 âncoras das pontas
-                                if area > 40 and 0.7 <= proporcao <= 1.3:
-                                    M = cv2.moments(c)
-                                    if M["m00"] != 0:
-                                        cX = int(M["m10"] / M["m00"])
-                                        cY = int(M["m01"] / M["m00"])
-                                        cantos.append([cX, cY])
+                        # Redimensiona a região central útil para o quadrado padrão de leitura
+                        img_alinhada = cv2.resize(img_recortada, (600, 600))
 
-                        # Se achar os 4 cantos, extrai o quadrado exato eliminando as sobras de cima e de baixo
-                        if len(cantos) == 4:
-                            cantos = np.array(cantos, dtype="float32")
-                            soma = cantos.sum(axis=1)
-                            dif = np.diff(cantos, axis=1)
-                            
-                            pts_origem = np.zeros((4, 2), dtype="float32")
-                            pts_origem[0] = cantos[np.argmin(soma)]       # Superior Esquerdo
-                            pts_origem[1] = cantos[np.argmin(dif)]        # Superior Direito
-                            pts_origem[2] = cantos[np.argmax(soma)]       # Inferior Direito
-                            pts_origem[3] = cantos[np.argmax(dif)]        # Inferior Esquerdo
-
-                            # Alinha em uma matriz quadrada padrão de leitura de bolinhas
-                            pts_destino = np.array([[0, 0], [600, 0], [600, 600], [0, 600]], dtype="float32")
-                            M_transf = cv2.getPerspectiveTransform(pts_origem, pts_destino)
-                            img_alinhada = cv2.warpPerspective(img_trabalho, M_transf, (600, 600))
-                        else:
-                            # Fallback caso falte luz/detecção nas pontas
-                            img_alinhada = cv2.resize(img_trabalho, (600, 600))
-
-                        # Gera a binarização final sobre a área isolada e endireitada do gabarito
+                        # Binarização final focada exclusivamente na folha limpa
                         cinza_final = cv2.cvtColor(img_alinhada, cv2.COLOR_BGR2GRAY)
                         thresh_final = cv2.threshold(cinza_final, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
 
-                        # Coordenadas internas oficiais para o mapeamento das bolinhas (600x600)
+                        # Coordenadas internas oficiais e calibradas para a matriz 600x600
                         opcoes_x = [252, 298, 344, 390]
                         linhas_y = [316, 362, 408, 454, 500]
                         letras = ['A', 'B', 'C', 'D']
@@ -2706,6 +2680,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
