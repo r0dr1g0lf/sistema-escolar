@@ -1687,7 +1687,7 @@ else:
                 </style>
                 """, unsafe_allow_html=True)
 
-                img_answer_scan = st.camera_input("📸 Alinhe o gabarito na tela", key="camera_answer_scan")
+                img_answer_scan = st.camera_input("📸 Enquadre APENAS as alternativas na moldura", key="camera_answer_scan")
 
                 if img_answer_scan is not None:
                     try:
@@ -1708,32 +1708,33 @@ else:
                         
                         h_orig, w_orig = img_original.shape[:2]
 
-                        # RECORTE MILIMÉTRICO: Remove as barras cinzas laterais e elimina a barra de tarefas do Windows embaixo
-                        corte_esquerdo = int(w_orig * 0.12)
-                        corte_direito = int(w_orig * 0.12)
-                        corte_superior = int(h_orig * 0.04)
-                        corte_inferior = int(h_orig * 0.14)  # Aumentado para cortar a barra de tarefas do Windows
+                        # ISOLAMENTO ULTRA FOCADO (Corta Título, Código de Barras e Barra do Windows)
+                        # Remove 18% das laterais para focar no bloco central
+                        corte_esquerdo = int(w_orig * 0.18)
+                        corte_direito = int(w_orig * 0.18)
+                        # Remove os 43% superiores (Cabeçalho/Código de barras) e 25% inferiores (Barra do Windows)
+                        corte_superior = int(h_orig * 0.43)
+                        corte_inferior = int(h_orig * 0.25)
                         
                         img_recortada = img_original[corte_superior:(h_orig - corte_inferior), corte_esquerdo:(w_orig - corte_direito)]
-                        img_alinhada = cv2.resize(img_recortada, (600, 600))
-
-                        # Tratamento de imagem para Máxima Nitidez das marcas de caneta
-                        cinza = cv2.cvtColor(img_alinhada, cv2.COLOR_BGR2GRAY)
                         
-                        # Aplica CLAHE (Contraste adaptativo) para destacar o preenchimento mesmo com reflexo da tela
+                        # Redimensiona o bloco isolado para um quadrado perfeito de análise estável
+                        img_alinhada = cv2.resize(img_recortada, (500, 500))
+
+                        # Tratamento para máxima nitidez das alternativas preenchidas
+                        cinza = cv2.cvtColor(img_alinhada, cv2.COLOR_BGR2GRAY)
                         clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
                         cinza_contrastada = clahe.apply(cinza)
-                        
-                        # Binarização limpa
                         thresh_final = cv2.threshold(cinza_contrastada, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
 
-                        # Exibe para o usuário a imagem exatamente como o OpenCV vai analisar
-                        st.warning("🔍 Visão Isolada do Gabarito (Apenas Área Útil):")
-                        st.image(img_alinhada, channels="BGR", caption="Gabarito isolado com sucesso.")
+                        # Painel visual mostrando APENAS a tabela de respostas isolada
+                        st.warning("🔍 Gabarito Isolado pelo OpenCV (Apenas Área de Respostas):")
+                        st.image(img_alinhada, channels="BGR", caption="Bloco exclusivo de questões detectado.")
 
-                        # COORDENADAS RECALIBRADAS para o novo enquadramento focado
-                        opcoes_x = [255, 301, 347, 393]
-                        linhas_y = [255, 303, 351, 399, 447]
+                        # Mapeamento milimétrico recalculado para a nova matriz focada de 500x500
+                        # Centralizado perfeitamente sobre os eixos das bolinhas A, B, C, D
+                        opcoes_x = [185, 250, 315, 380]
+                        linhas_y = [95, 175, 255, 335, 415]
                         letras = ['A', 'B', 'C', 'D']
 
                         respostas_aluno = {}
@@ -1743,14 +1744,13 @@ else:
                             marcada = None
                             max_pixels = 0
                             
-                            # Desenha círculos de feedback visual na imagem de exibição para depuração interna
                             for j, x in enumerate(opcoes_x):
                                 mascara_bolinha = np.zeros(thresh_final.shape, dtype=np.uint8)
-                                cv2.circle(mascara_bolinha, (x, y), 13, 255, -1)
+                                cv2.circle(mascara_bolinha, (x, y), 16, 255, -1)
                                 pixel_count = cv2.countNonZero(cv2.bitwise_and(thresh_final, thresh_final, mask=mascara_bolinha))
                                 
-                                # Se o preenchimento for significativo, define como marcada
-                                if pixel_count > 110 and pixel_count > max_pixels:
+                                # Validação do preenchimento escuro com margem de segurança
+                                if pixel_count > 150 and pixel_count > max_pixels:
                                     max_pixels = pixel_count
                                     marcada = letras[j]
                             
@@ -1758,7 +1758,7 @@ else:
 
                         st.session_state.respostas_aluno_simuladas = respostas_aluno
                         
-                        st.markdown("### 📝 Respostas Detectadas Corretamente:")
+                        st.markdown("### 📝 Respostas Detectadas no Bloco:")
                         st.json(respostas_aluno)
 
                         if st.button("Confirmar Leitura e Ver Nota ➡️", use_container_width=True):
@@ -2661,6 +2661,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
