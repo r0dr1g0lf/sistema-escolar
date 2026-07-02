@@ -1681,31 +1681,128 @@ else:
                 st.write(f"Aluno: **{st.session_state.selected_aluno_av}** | Turma: **{st.session_state.selected_turma_av}** | Prova ID: **{st.session_state.id_prova_scanned}**")
                 st.write(f"Disciplina: {st.session_state.prova_data.get('Disciplina')} | Professor: {st.session_state.prova_data.get('Professor')}")
 
-                img_answer_scan = st.camera_input("📸 Capturar Cartão Resposta do Aluno", key="camera_answer_scan")
+                # Ajusta o contorno verde cirurgicamente na imagem real transmitida pela câmera oficial
+                st.markdown("""
+                <style>
+                    [data-testid="stCameraInput"] { max-width: 500px !important; margin: 0 auto !important; }
+                    [data-testid="stCameraInput"] > div { aspect-ratio: unset !important; height: auto !important; }
+                    [data-testid="stCameraInput"] video {
+                        outline: 4px dashed #00ff00 !important;
+                        outline-offset: -4px !important;
+                        box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.6) !important;
+                        border-radius: 4px !important;
+                        width: 100% !important;
+                        height: auto !important;
+                    }
+                </style>
+                """, unsafe_allow_html=True)
+
+                img_answer_scan = st.camera_input("📸 Alinhe os 4 cantos pretos na moldura verde", key="camera_answer_scan")
 
                 if img_answer_scan is not None:
-                    st.info("🔄 Processando respostas do cartão...")
+                    st.info("🔄 Processando e corrigindo cartão-resposta...")
                     
-                    # Load gabarito and weights from session state
-                    gabarito_oficial_json = json.loads(st.session_state.prova_data['Gabarito_Completo'])
-                    pesos_questoes_json = json.loads(st.session_state.prova_data['Valor_Por_Questao'])
-                    total_questoes = st.session_state.prova_data['Total_Questoes']
+                    try:
+                        import cv2
+                        import numpy as np
+                        import json
 
-                    gabarito_oficial_convertido = {int(k): v for k, v in gabarito_oficial_json.items()}
-                    pesos_questoes_convertido = {int(k): v for k, v in pesos_questoes_json.items()}
+                        # Carrega o gabarito oficial salvo na primeira etapa
+                        gabarito_oficial_json = json.loads(st.session_state.prova_data['Gabarito_Completo'])
+                        pesos_questoes_json = json.loads(st.session_state.prova_data['Valor_Por_Questao'])
+                        total_questoes = int(st.session_state.prova_data['Total_Questoes'])
 
-                    # --- SIMULAÇÃO DE LEITURA DO CARTÃO RESPOSTA ---
-                    # Here you would integrate OpenCV/image processing to read the bubbles from img_answer_scan
-                    st.write("Simulando leitura das respostas do aluno... (Integração OpenCV/Image Processing necessária aqui)")
-                    st.session_state.respostas_aluno_simuladas = simular_respostas_aluno(total_questoes)
-                    
-                    # Calcula a nota
-                    st.session_state.nota_obtida, st.session_state.detalhes_respostas = calcular_nota(
-                        gabarito_oficial_convertido, pesos_questoes_convertido, st.session_state.respostas_aluno_simuladas
-                    )
-                    
-                    st.session_state.correcao_step = "display_results"
-                    st.rerun()
+                        gabarito_oficial_convertido = {int(k): v.upper().strip() for k, v in gabarito_oficial_json.items()}
+                        pesos_questoes_convertido = {int(k): float(v) for k, v in pesos_questoes_json.items()}
+
+                        # Converter imagem do Streamlit para o OpenCV
+                        bytes_data = img_answer_scan.getvalue()
+                        np_img = np.frombuffer(bytes_data, dtype=np.uint8)
+                        img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
+                        
+                        # Redimensiona a imagem original para um tamanho padrão de trabalho
+                        img_trabalho = cv2.resize(img, (800, 800))
+                        cinza = cv2.cvtColor(img_trabalho, cv2.COLOR_BGR2GRAY)
+                        thresh = cv2.adaptiveThreshold(cinza, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
+
+                        # Encontra os contornos dos elementos na folha para achar as 4 âncoras
+                        contornos, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                        cantos = []
+
+                        for c in contornos:
+                            perimetro = cv2.arcLength(c, True)
+                            approx = cv2.approxPolyDP(c, 0.02 * perimetro, True)
+                            
+                            if len(approx) == 4:
+                                area = cv2.contourArea(c)
+                                if area > 80:
+                                    M = cv2.moments(c)
+                                    if M["m00"] != 0:
+                                        cX = int(M["m10"] / M["m00"])
+                                        cY = int(M["m01"] / M["m00"])
+                                        cantos.append([cX, cY])
+
+                        # Se encontrar os 4 cantos pretos, reconstrói a imagem perfeitamente reta (Homografia)
+                        if len(cantos) == 4:
+                            cantos = np.array(cantos, dtype="float32")
+                            soma = cantos.sum(axis=1)
+                            dif = np.diff(cantos, axis=1)
+                            
+                            pts_origem = np.zeros((4, 2), dtype="float32")
+                            pts_origem[0] = cantos[np.argmin(soma)]       # Superior Esquerdo
+                            pts_origem[1] = cantos[np.argmin(dif)]        # Superior Direito
+                            pts_origem[2] = cantos[np.argmax(soma)]       # Inferior Direito
+                            pts_origem[3] = cantos[np.argmax(dif)]        # Inferior Esquerdo
+
+                            pts_destino = np.array([[0, 0], [600, 0], [600, 600], [0, 600]], dtype="float32")
+                            M_transf = cv2.getPerspectiveTransform(pts_origem, pts_destino)
+                            img_alinhada = cv2.warpPerspective(img_trabalho, M_transf, (600, 600))
+                        else:
+                            # Se falhar por reflexo, usa a imagem inteira comprimida do visor quadrado
+                            img_alinhada = cv2.resize(img_trabalho, (600, 600))
+
+                        # Reprocessa a imagem alinhada final para a leitura das bolinhas
+                        cinza_final = cv2.cvtColor(img_alinhada, cv2.COLOR_BGR2GRAY)
+                        thresh_final = cv2.threshold(cinza_final, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+
+                        # Coordenadas oficiais na matriz corrigida de 600x600
+                        opcoes_x = [252, 298, 344, 390]
+                        linhas_y = [316, 362, 408, 454, 500]
+                        letras = ['A', 'B', 'C', 'D']
+
+                        respostas_aluno = {}
+
+                        for i in range(min(total_questoes, 5)):
+                            questao_num = i + 1
+                            y = linhas_y[i]
+                            
+                            marcada = None
+                            max_pixels = 0
+                            
+                            for j, x in enumerate(opcoes_x):
+                                mascara_bolinha = np.zeros(thresh_final.shape, dtype=np.uint8)
+                                cv2.circle(mascara_bolinha, (x, y), 14, 255, -1)
+                                
+                                pixel_count = cv2.countNonZero(cv2.bitwise_and(thresh_final, thresh_final, mask=mascara_bolinha))
+                                
+                                if pixel_count > 140 and pixel_count > max_pixels:
+                                    max_pixels = pixel_count
+                                    marcada = letras[j]
+                            
+                            respostas_aluno[questao_num] = marcada if marcada else ""
+
+                        st.session_state.respostas_aluno_simuladas = respostas_aluno
+                        
+                        # Compara com o gabarito oficial e gera as notas
+                        st.session_state.nota_obtida, st.session_state.detalhes_respostas = calcular_nota(
+                            gabarito_oficial_convertido, pesos_questoes_convertido, st.session_state.respostas_aluno_simuladas
+                        )
+                        
+                        st.session_state.correcao_step = "display_results"
+                        st.rerun()
+
+                    except Exception as e:
+                        st.error(f"Erro crítico no processamento do cartão-resposta: {e}")
                 else:
                     st.info("Aguardando a captura do cartão resposta do aluno.")
 
@@ -2597,3 +2694,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
