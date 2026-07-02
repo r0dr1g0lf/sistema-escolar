@@ -1679,19 +1679,12 @@ else:
             elif st.session_state.correcao_step == "scan_answers":
                 st.subheader("Passo 2: Capturar Respostas do Aluno")
                 st.write(f"Aluno: **{st.session_state.selected_aluno_av}** | Turma: **{st.session_state.selected_turma_av}** | Prova ID: **{st.session_state.id_prova_scanned}**")
-                st.write(f"Disciplina: {st.session_state.prova_data.get('Disciplina')} | Professor: {st.session_state.prova_data.get('Professor')}")
 
                 st.markdown("""
                 <style>
                     [data-testid="stCameraInput"] { max-width: 500px !important; margin: 0 auto !important; }
-                    [data-testid="stCameraInput"] > div { aspect-ratio: unset !important; height: auto !important; }
                     [data-testid="stCameraInput"] video {
-                        outline: 4px dashed #00ff00 !important;
-                        outline-offset: -4px !important;
-                        box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.6) !important;
-                        border-radius: 4px !important;
-                        width: 100% !important;
-                        height: auto !important;
+                        outline: 4px solid #00ff00 !important;
                     }
                 </style>
                 """, unsafe_allow_html=True)
@@ -1699,14 +1692,11 @@ else:
                 img_answer_scan = st.camera_input("📸 Alinhe os 4 cantos pretos na moldura verde", key="camera_answer_scan")
 
                 if img_answer_scan is not None:
-                    st.info("🔄 Isolando o gabarito das bordas do notebook...")
-                    
                     try:
                         import cv2
                         import numpy as np
                         import json
 
-                        # Carrega os dados oficiais do gabarito
                         gabarito_oficial_json = json.loads(st.session_state.prova_data['Gabarito_Completo'])
                         pesos_questoes_json = json.loads(st.session_state.prova_data['Valor_Por_Questao'])
                         total_questoes = int(st.session_state.prova_data['Total_Questoes'])
@@ -1714,100 +1704,47 @@ else:
                         gabarito_oficial_convertido = {int(k): v.upper().strip() for k, v in gabarito_oficial_json.items()}
                         pesos_questoes_convertido = {int(k): float(v) for k, v in pesos_questoes_json.items()}
 
-                        # Converter bytes do Streamlit para imagem OpenCV
                         bytes_data = img_answer_scan.getvalue()
                         np_img = np.frombuffer(bytes_data, dtype=np.uint8)
                         img_original = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
                         
-                        # Se a foto vier rotacionada na vertical, deita para a horizontal
                         h_orig, w_orig = img_original.shape[:2]
                         if h_orig > w_orig:
                             img_original = cv2.rotate(img_original, cv2.ROTATE_90_COUNTERCLOCKWISE)
-                        
-                        # Define tamanho padrão para análise estável
-                        img_trabalho = cv2.resize(img_original, (800, 800))
-                        cinza = cv2.cvtColor(img_trabalho, cv2.COLOR_BGR2GRAY)
-                        blur = cv2.GaussianBlur(cinza, (3, 3), 0)
-                        
-                        # Binarização rigorosa via Otsu para destacar os pequenos quadrados pretos das pontas
-                        thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+                            h_orig, w_orig = img_original.shape[:2]
 
-                        # Procura contornos dos 4 quadradinhos âncoras na folha
-                        contornos, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-                        cantos = []
+                        # Testando um recorte manual agressivo para remover as barras cinzas e a borda do note
+                        # Corta 22% das laterais e 15% do topo/fundo
+                        corte_w = int(w_orig * 0.22)
+                        corte_h = int(h_orig * 0.15)
+                        img_recortada = img_original[corte_h:(h_orig - corte_h), corte_w:(w_orig - corte_w)]
+                        img_alinhada = cv2.resize(img_recortada, (600, 600))
 
-                        for c in contornos:
-                            perimetro = cv2.arcLength(c, True)
-                            approx = cv2.approxPolyDP(c, 0.03 * perimetro, True)
-                            
-                            # Verifica se tem 4 lados
-                            if len(approx) == 4:
-                                area = cv2.contourArea(c)
-                                x, y, w, h = cv2.boundingRect(approx)
-                                proporcao = w / float(h)
-                                
-                                # Filtro cirúrgico: Descarta moldura grande do notebook e foca apenas nos quadradinhos pequenos (âncoras)
-                                if 40 < area < 1200 and 0.8 <= proporcao <= 1.2:
-                                    M = cv2.moments(c)
-                                    if M["m00"] != 0:
-                                        cX = int(M["m10"] / M["m00"])
-                                        cY = int(M["m01"] / M["m00"])
-                                        cantos.append([cX, cY])
+                        # Mostra para você na tela do sistema o que restou após o corte das sobras
+                        st.warning("🔍 Visão do OpenCV (O que sobrou da folha):")
+                        st.image(img_alinhada, channels="BGR", caption="Se o gabarito não estiver centralizado aqui, ajuste a distância da câmera.")
 
-                        # Filtra pontos duplicados próximos
-                        cantos_unicos = []
-                        for p in cantos:
-                            if not any(np.linalg.norm(np.array(p) - np.array(u)) < 20 for u in cantos_unicos):
-                                cantos_unicos.append(p)
-
-                        # Se achar exatamente as 4 âncoras internas, faz o recorte de perspectiva (Homografia)
-                        if len(cantos_unicos) == 4:
-                            cantos_unicos = np.array(cantos_unicos, dtype="float32")
-                            soma = cantos_unicos.sum(axis=1)
-                            dif = np.diff(cantos_unicos, axis=1)
-                            
-                            pts_origem = np.zeros((4, 2), dtype="float32")
-                            pts_origem[0] = cantos_unicos[np.argmin(soma)]       # Superior Esquerdo
-                            pts_origem[1] = cantos_unicos[np.argmin(dif)]        # Superior Direito
-                            pts_origem[2] = cantos_unicos[np.argmax(soma)]       # Inferior Direito
-                            pts_origem[3] = cantos_unicos[np.argmax(dif)]        # Inferior Esquerdo
-
-                            pts_destino = np.array([[0, 0], [600, 0], [600, 600], [0, 600]], dtype="float32")
-                            M_transf = cv2.getPerspectiveTransform(pts_origem, pts_destino)
-                            img_alinhada = cv2.warpPerspective(img_trabalho, M_transf, (600, 600))
-                        else:
-                            # Fallback caso a moldura do notebook ainda interfira: recorta as bordas externas proporcionalmente
-                            h_t, w_t = img_trabalho.shape[:2]
-                            margem_w = int(w_t * 0.18)
-                            margem_h = int(h_t * 0.12)
-                            img_recorte_manual = img_trabalho[margem_h:(h_t-margem_h), margem_w:(w_t-margem_w)]
-                            img_alinhada = cv2.resize(img_recorte_manual, (600, 600))
-
-                        # Processamento final sobre o quadrado limpo de 600x600 do gabarito
                         cinza_final = cv2.cvtColor(img_alinhada, cv2.COLOR_BGR2GRAY)
                         thresh_final = cv2.threshold(cinza_final, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
 
-                        # Coordenadas internas oficiais para o mapeamento das bolinhas
+                        # Coordenadas internas das alternativas
                         opcoes_x = [252, 298, 344, 390]
                         linhas_y = [316, 362, 408, 454, 500]
                         letras = ['A', 'B', 'C', 'D']
 
                         respostas_aluno = {}
-
                         for i in range(min(total_questoes, 5)):
                             questao_num = i + 1
                             y = linhas_y[i]
-                            
                             marcada = None
                             max_pixels = 0
                             
                             for j, x in enumerate(opcoes_x):
                                 mascara_bolinha = np.zeros(thresh_final.shape, dtype=np.uint8)
                                 cv2.circle(mascara_bolinha, (x, y), 14, 255, -1)
-                                
                                 pixel_count = cv2.countNonZero(cv2.bitwise_and(thresh_final, thresh_final, mask=mascara_bolinha))
                                 
-                                if pixel_count > 140 and pixel_count > max_pixels:
+                                if pixel_count > 130 and pixel_count > max_pixels:
                                     max_pixels = pixel_count
                                     marcada = letras[j]
                             
@@ -1815,15 +1752,17 @@ else:
 
                         st.session_state.respostas_aluno_simuladas = respostas_aluno
                         
-                        st.session_state.nota_obtida, st.session_state.detalhes_respostas = calcular_nota(
-                            gabarito_oficial_convertido, pesos_questoes_convertido, st.session_state.respostas_aluno_simuladas
-                        )
-                        
-                        st.session_state.correcao_step = "display_results"
-                        st.rerun()
+                        st.write("📝 Respostas detectadas nesta tentativa:", respostas_aluno)
+
+                        if st.button("Confirmar Leitura e Ver Nota ➡️"):
+                            st.session_state.nota_obtida, st.session_state.detalhes_respostas = calcular_nota(
+                                gabarito_oficial_convertido, pesos_questoes_convertido, st.session_state.respostas_aluno_simuladas
+                            )
+                            st.session_state.correcao_step = "display_results"
+                            st.rerun()
 
                     except Exception as e:
-                        st.error(f"Erro no processamento do cartão-resposta: {e}")
+                        st.error(f"Erro no processamento: {e}")
                 else:
                     st.info("Aguardando a captura do cartão resposta do aluno.")
 
@@ -2715,6 +2654,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
