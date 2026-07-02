@@ -1681,7 +1681,7 @@ else:
                 st.write(f"Aluno: **{st.session_state.selected_aluno_av}** | Turma: **{st.session_state.selected_turma_av}** | Prova ID: **{st.session_state.id_prova_scanned}**")
                 st.write(f"Disciplina: {st.session_state.prova_data.get('Disciplina')} | Professor: {st.session_state.prova_data.get('Professor')}")
 
-                # Ajusta o contorno verde cirurgicamente na imagem real transmitida pela câmera oficial
+                # Mantém o CSS ajustado para o visor da câmera
                 st.markdown("""
                 <style>
                     [data-testid="stCameraInput"] { max-width: 500px !important; margin: 0 auto !important; }
@@ -1700,14 +1700,14 @@ else:
                 img_answer_scan = st.camera_input("📸 Alinhe os 4 cantos pretos na moldura verde", key="camera_answer_scan")
 
                 if img_answer_scan is not None:
-                    st.info("🔄 Processando e corrigindo cartão-resposta...")
+                    st.info("🔄 Localizando os cantos do gabarito e corrigindo a imagem...")
                     
                     try:
                         import cv2
                         import numpy as np
                         import json
 
-                        # Carrega o gabarito oficial salvo na primeira etapa
+                        # Carrega o gabarito oficial e configurações
                         gabarito_oficial_json = json.loads(st.session_state.prova_data['Gabarito_Completo'])
                         pesos_questoes_json = json.loads(st.session_state.prova_data['Valor_Por_Questao'])
                         total_questoes = int(st.session_state.prova_data['Total_Questoes'])
@@ -1715,17 +1715,19 @@ else:
                         gabarito_oficial_convertido = {int(k): v.upper().strip() for k, v in gabarito_oficial_json.items()}
                         pesos_questoes_convertido = {int(k): float(v) for k, v in pesos_questoes_json.items()}
 
-                        # Converter imagem do Streamlit para o OpenCV
+                        # Converter imagem recebida do Streamlit para o formato do OpenCV
                         bytes_data = img_answer_scan.getvalue()
                         np_img = np.frombuffer(bytes_data, dtype=np.uint8)
                         img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
                         
-                        # Redimensiona a imagem original para um tamanho padrão de trabalho
+                        # Redimensiona para uma resolução estável de trabalho
                         img_trabalho = cv2.resize(img, (800, 800))
                         cinza = cv2.cvtColor(img_trabalho, cv2.COLOR_BGR2GRAY)
+                        
+                        # Binarização adaptativa para destacar os quadradinhos pretos dos cantos
                         thresh = cv2.adaptiveThreshold(cinza, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
 
-                        # Encontra os contornos dos elementos na folha para achar as 4 âncoras
+                        # Detecta contornos na imagem buscando os 4 quadradinhos
                         contornos, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                         cantos = []
 
@@ -1733,16 +1735,21 @@ else:
                             perimetro = cv2.arcLength(c, True)
                             approx = cv2.approxPolyDP(c, 0.02 * perimetro, True)
                             
+                            # Verifica se o contorno tem 4 lados (um quadrado)
                             if len(approx) == 4:
                                 area = cv2.contourArea(c)
-                                if area > 80:
+                                x, y, w, h = cv2.boundingRect(approx)
+                                proporcao = w / float(h)
+                                
+                                # Filtra para evitar ruídos e focar apenas nas 4 marcas estruturais
+                                if area > 50 and 0.7 <= proporcao <= 1.3:
                                     M = cv2.moments(c)
                                     if M["m00"] != 0:
                                         cX = int(M["m10"] / M["m00"])
                                         cY = int(M["m01"] / M["m00"])
                                         cantos.append([cX, cY])
 
-                        # Se encontrar os 4 cantos pretos, reconstrói a imagem perfeitamente reta (Homografia)
+                        # Se achar os 4 cantos exatos, recorta e alinha removendo as sobras da horizontal
                         if len(cantos) == 4:
                             cantos = np.array(cantos, dtype="float32")
                             soma = cantos.sum(axis=1)
@@ -1754,18 +1761,19 @@ else:
                             pts_origem[2] = cantos[np.argmax(soma)]       # Inferior Direito
                             pts_origem[3] = cantos[np.argmax(dif)]        # Inferior Esquerdo
 
+                            # Nova matriz de destino baseada no quadrado perfeito de análise
                             pts_destino = np.array([[0, 0], [600, 0], [600, 600], [0, 600]], dtype="float32")
                             M_transf = cv2.getPerspectiveTransform(pts_origem, pts_destino)
                             img_alinhada = cv2.warpPerspective(img_trabalho, M_transf, (600, 600))
                         else:
-                            # Se falhar por reflexo, usa a imagem inteira comprimida do visor quadrado
+                            # Fallback caso falte luz/detecção: força o redimensionamento padrão
                             img_alinhada = cv2.resize(img_trabalho, (600, 600))
 
-                        # Reprocessa a imagem alinhada final para a leitura das bolinhas
+                        # Gera a binarização final sobre a área isolada do gabarito
                         cinza_final = cv2.cvtColor(img_alinhada, cv2.COLOR_BGR2GRAY)
                         thresh_final = cv2.threshold(cinza_final, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
 
-                        # Coordenadas oficiais na matriz corrigida de 600x600
+                        # Coordenadas internas ajustadas para o mapeamento das bolinhas
                         opcoes_x = [252, 298, 344, 390]
                         linhas_y = [316, 362, 408, 454, 500]
                         letras = ['A', 'B', 'C', 'D']
@@ -1793,7 +1801,6 @@ else:
 
                         st.session_state.respostas_aluno_simuladas = respostas_aluno
                         
-                        # Compara com o gabarito oficial e gera as notas
                         st.session_state.nota_obtida, st.session_state.detalhes_respostas = calcular_nota(
                             gabarito_oficial_convertido, pesos_questoes_convertido, st.session_state.respostas_aluno_simuladas
                         )
@@ -1802,7 +1809,7 @@ else:
                         st.rerun()
 
                     except Exception as e:
-                        st.error(f"Erro crítico no processamento do cartão-resposta: {e}")
+                        st.error(f"Erro no processamento do cartão-resposta: {e}")
                 else:
                     st.info("Aguardando a captura do cartão resposta do aluno.")
 
@@ -2694,4 +2701,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
