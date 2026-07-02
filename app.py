@@ -1680,14 +1680,23 @@ else:
                 st.subheader("Passo 2: Capturar Respostas do Aluno")
                 st.write(f"Aluno: **{st.session_state.selected_aluno_av}** | Turma: **{st.session_state.selected_turma_av}** | Prova ID: **{st.session_state.id_prova_scanned}**")
 
+                # Injeta CSS para criar uma mira quadrada perfeita (1:1) na interface
                 st.markdown("""
                 <style>
-                    [data-testid="stCameraInput"] { max-width: 500px !important; margin: 0 auto !important; }
-                    [data-testid="stCameraInput"] video { outline: 4px solid #00ff00 !important; }
+                    [data-testid="stCameraInput"] { max-width: 450px !important; margin: 0 auto !important; }
+                    [data-testid="stCameraInput"] > div { aspect-ratio: 1 / 1 !important; }
+                    [data-testid="stCameraInput"] video {
+                        outline: 4px solid #00ff00 !important;
+                        outline-offset: -4px !important;
+                        box-shadow: inset 0 0 25px rgba(0, 255, 0, 0.4) !important;
+                        object-fit: cover !important;
+                        aspect-ratio: 1 / 1 !important;
+                    }
                 </style>
                 """, unsafe_allow_html=True)
 
-                img_answer_scan = st.camera_input("📸 Enquadre APENAS as alternativas na moldura", key="camera_answer_scan")
+                st.info("🎯 Enquadre o bloco quadrado de alternativas preenchendo exatamente a mira verde acima.")
+                img_answer_scan = st.camera_input("📸 Posicione o gabarito no quadrado", key="camera_answer_scan")
 
                 if img_answer_scan is not None:
                     try:
@@ -1702,39 +1711,35 @@ else:
                         gabarito_oficial_convertido = {int(k): v.upper().strip() for k, v in gabarito_oficial_json.items()}
                         pesos_questoes_convertido = {int(k): float(v) for k, v in pesos_questoes_json.items()}
 
+                        # Lê os bytes da imagem mantendo a qualidade original intacta
                         bytes_data = img_answer_scan.getvalue()
                         np_img = np.frombuffer(bytes_data, dtype=np.uint8)
                         img_original = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
                         
+                        # Recorta um quadrado central perfeito da foto capturada para coincidir com a mira da tela
                         h_orig, w_orig = img_original.shape[:2]
-
-                        # ISOLAMENTO ULTRA FOCADO (Corta Título, Código de Barras e Barra do Windows)
-                        # Remove 18% das laterais para focar no bloco central
-                        corte_esquerdo = int(w_orig * 0.18)
-                        corte_direito = int(w_orig * 0.18)
-                        # Remove os 43% superiores (Cabeçalho/Código de barras) e 25% inferiores (Barra do Windows)
-                        corte_superior = int(h_orig * 0.43)
-                        corte_inferior = int(h_orig * 0.25)
+                        tamanho_min = min(h_orig, w_orig)
                         
-                        img_recortada = img_original[corte_superior:(h_orig - corte_inferior), corte_esquerdo:(w_orig - corte_direito)]
+                        inicio_x = (w_orig - tamanho_min) // 2
+                        inicio_y = (h_orig - tamanho_min) // 2
+                        img_quadrada = img_original[inicio_y:(inicio_y + tamanho_min), inicio_x:(inicio_x + tamanho_min)]
                         
-                        # Redimensiona o bloco isolado para um quadrado perfeito de análise estável
-                        img_alinhada = cv2.resize(img_recortada, (500, 500))
+                        # Redimensiona para uma resolução estável mantendo a proporção 1:1 perfeita
+                        img_alinhada = cv2.resize(img_quadrada, (500, 500))
 
-                        # Tratamento para máxima nitidez das alternativas preenchidas
+                        # Melhora a nitidez e o contraste para evidenciar as marcas de caneta
                         cinza = cv2.cvtColor(img_alinhada, cv2.COLOR_BGR2GRAY)
-                        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
-                        cinza_contrastada = clahe.apply(cinza)
-                        thresh_final = cv2.threshold(cinza_contrastada, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+                        blur = cv2.medianBlur(cinza, 3)
+                        thresh_final = cv2.adaptiveThreshold(
+                            blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 19, 9
+                        )
 
-                        # Painel visual mostrando APENAS a tabela de respostas isolada
-                        st.warning("🔍 Gabarito Isolado pelo OpenCV (Apenas Área de Respostas):")
-                        st.image(img_alinhada, channels="BGR", caption="Bloco exclusivo de questões detectado.")
+                        st.success("🖼️ Visão da Câmera no Quadrado Perfeito:")
+                        st.image(img_alinhada, channels="BGR", caption="Imagem capturada seguindo a proporção da mira.")
 
-                        # Mapeamento milimétrico recalculado para a nova matriz focada de 500x500
-                        # Centralizado perfeitamente sobre os eixos das bolinhas A, B, C, D
-                        opcoes_x = [185, 250, 315, 380]
-                        linhas_y = [95, 175, 255, 335, 415]
+                        # Coordenadas internas milimetricamente distribuídas na matriz quadrada de 500x500
+                        opcoes_x = [165, 230, 295, 360]  # Eixo vertical das colunas A, B, C, D
+                        linhas_y = [115, 185, 255, 325, 395]  # Eixo horizontal das linhas de questões 1 a 5
                         letras = ['A', 'B', 'C', 'D']
 
                         respostas_aluno = {}
@@ -1746,11 +1751,11 @@ else:
                             
                             for j, x in enumerate(opcoes_x):
                                 mascara_bolinha = np.zeros(thresh_final.shape, dtype=np.uint8)
-                                cv2.circle(mascara_bolinha, (x, y), 16, 255, -1)
+                                cv2.circle(mascara_bolinha, (x, y), 15, 255, -1)
+                                
                                 pixel_count = cv2.countNonZero(cv2.bitwise_and(thresh_final, thresh_final, mask=mascara_bolinha))
                                 
-                                # Validação do preenchimento escuro com margem de segurança
-                                if pixel_count > 150 and pixel_count > max_pixels:
+                                if pixel_count > 120 and pixel_count > max_pixels:
                                     max_pixels = pixel_count
                                     marcada = letras[j]
                             
@@ -1758,7 +1763,7 @@ else:
 
                         st.session_state.respostas_aluno_simuladas = respostas_aluno
                         
-                        st.markdown("### 📝 Respostas Detectadas no Bloco:")
+                        st.markdown("### 📝 Respostas Lidas:")
                         st.json(respostas_aluno)
 
                         if st.button("Confirmar Leitura e Ver Nota ➡️", use_container_width=True):
@@ -1769,9 +1774,9 @@ else:
                             st.rerun()
 
                     except Exception as e:
-                        st.error(f"Erro no processamento: {e}")
+                        st.error(f"Erro no processamento da imagem quadrada: {e}")
                 else:
-                    st.info("Aguardando a captura do cartão resposta do aluno.")
+                    st.info("Aguardando o posicionamento do gabarito na mira.")
 
             elif st.session_state.correcao_step == "display_results":
                 st.subheader("✅ Resultado da Correção")
@@ -2661,6 +2666,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
