@@ -251,9 +251,13 @@ else:
         st.title("📊 Desempenho do Aluno")
         
         # Cria a navegação interna por abas na parte superior da tela
+        opcoes_abas_registro = ["Visualizar registros"] if is_soe else ["Novo registro", "Visualizar registros"]
+        default_index_registro = 0 # Default para a primeira opção disponível
+
         aba_selecionada = st.radio(
             "Selecione a ação desejada:",
-            ["Novo registro", "Visualizar registros"],
+            options=opcoes_abas_registro,
+            index=default_index_registro,
             horizontal=True
         )
         
@@ -2691,20 +2695,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
