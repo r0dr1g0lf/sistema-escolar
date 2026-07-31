@@ -642,8 +642,6 @@ else:
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
         with tab_oc1:
-            if is_soe:
-                st.info("Você está logado como SOE. Este módulo é apenas para visualização.")
             hoje = data_atual
             bimestres_disponiveis = []
             if not df_periodos.empty:
@@ -2672,20 +2670,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
