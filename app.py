@@ -715,7 +715,7 @@ else:
                 justificativa_selecionada = None
                 if is_soe:
                     justificativa_opcoes = ["Problema de saúde", "Consulta médica", "Exame médico", "Transporte/Trânsito", "Problemas familiares", "Sem justificativa", "Outros"]
-                    justificativa_selecionada = st.selectbox("Justificativa (Apenas para SOE)", options=[""] + justificativa_opcoes, key="justificativa_oc")
+                    justificativa_selecionada = st.selectbox("Justificativa", options=[""] + justificativa_opcoes, key="justificativa_oc")
 
                 obs_oc = st.text_area("Observações detalhadas")
                 
@@ -2679,6 +2679,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
