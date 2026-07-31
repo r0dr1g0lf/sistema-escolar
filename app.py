@@ -872,69 +872,66 @@ else:
                         st.divider()
                         st.subheader("📝 Editar ou 🗑️ Excluir Ocorrências")
                         
-                        if is_soe:
-                            st.info("Usuários SOE não possuem permissão para editar ou excluir registros.")
+                        # Changed: Use is_master_admin for admin check
+                        if st.session_state.get('is_master_admin', False):
+                            df_edit_oc_propria = df_oc_filtrado
                         else:
-                            # Changed: Use is_master_admin for admin check
-                            if st.session_state.get('is_master_admin', False):
-                                df_edit_oc_propria = df_oc_filtrado
-                            else:
-                                discs_usuario = [d.strip().lower() for d in str(st.session_state.user_data.get('Disciplinas', "")).split(", ") if d.strip()]
-                                df_edit_oc_propria = df_oc_filtrado[df_oc_filtrado[colunas_df[4]].astype(str).str.lower().isin(discs_usuario)]
+                            discs_usuario = [d.strip().lower() for d in str(st.session_state.user_data.get('Disciplinas', "")).split(", ") if d.strip()]
+                            df_edit_oc_propria = df_oc_filtrado[df_oc_filtrado[colunas_df[4]].astype(str).str.lower().isin(discs_usuario)]
+                        
+                        if not df_edit_oc_propria.empty:
+                            col_data_oc = colunas_df[0]
+                            opcoes_edit_oc = {f"{row[col_data_oc]} - {row[colunas_df[3]]} ({row[colunas_df[4]]})": row['ID_Original'] for _, row in df_edit_oc_propria.iterrows()}
+                            selecionado_oc_edit = st.selectbox("Selecione a ocorrência para gerenciar (Apenas suas disciplinas)", [""] + list(opcoes_edit_oc.keys()))
                             
-                            if not df_edit_oc_propria.empty:
-                                col_data_oc = colunas_df[0]
-                                opcoes_edit_oc = {f"{row[col_data_oc]} - {row[colunas_df[3]]} ({row[colunas_df[4]]})": row['ID_Original'] for _, row in df_edit_oc_propria.iterrows()}
-                                selecionado_oc_edit = st.selectbox("Selecione a ocorrência para gerenciar (Apenas suas disciplinas)", [""] + list(opcoes_edit_oc.keys()))
+                            if selecionado_oc_edit != "":
+                                linha_idx_oc = opcoes_edit_oc[selecionado_oc_edit]
+                                dados_oc_edit = df_edit_oc_propria[df_edit_oc_propria['ID_Original'] == linha_idx_oc].iloc[0]
                                 
-                                if selecionado_oc_edit != "":
-                                    linha_idx_oc = opcoes_edit_oc[selecionado_oc_edit]
-                                    dados_oc_edit = df_edit_oc_propria[df_edit_oc_propria['ID_Original'] == linha_idx_oc].iloc[0]
+                                with st.form("form_editar_ocorrencia"):
+                                    st.markdown(f"Gerenciando ocorrência de: **{dados_oc_edit[colunas_df[3]]}**")
                                     
-                                    with st.form("form_editar_ocorrencia"):
-                                        st.markdown(f"Gerenciando ocorrência de: **{dados_oc_edit[colunas_df[3]]}**")
+                                    texto_oc_atual = str(dados_oc_edit[colunas_df[6]]).replace("OCORRÊNCIA: ", "")
+                                    lista_oc_atual = [i.strip() for i in texto_oc_atual.split(",")]
+                                    
+                                    opcoes_oc_edit = [
+                                        "Agrediu o colega verbalmente", "Agrediu o colega fisicamente", 
+                                        "Agrediu o professor verbalmente", "Agrediu o professor fisicamente", 
+                                        "Não trouxe o livro", "Dormiu em sala", "Usou o celular em sala", 
+                                        "Não fez a tarefa em sala", "Não fez a tarefa em casa", 
+                                        "Não trouxe o material", "Excesso de faltas", "Outras"
+                                    ]
+                                    
+                                    edit_selecao_oc = st.multiselect("Selecione as ocorrências", options=opcoes_oc_edit, default=[i for i in lista_oc_atual if i in opcoes_oc_edit])
+                                    edit_detalhes_oc = st.text_area("Detalhes (Data/Tempo/Obs)", value=dados_oc_edit[colunas_df[7]])
+                                    
+                                    col_at_oc1, col_at_oc2 = st.columns(2)
+                                    with col_at_oc1:
+                                        btn_confirmar_edit_oc = st.form_submit_button("SALVAR ALTERAÇÕES")
+                                    with col_at_oc2:
+                                        btn_confirmar_exc_oc = st.form_submit_button("❌ EXCLUIR OCORRÊNCIA")
                                         
-                                        texto_oc_atual = str(dados_oc_edit[colunas_df[6]]).replace("OCORRÊNCIA: ", "")
-                                        lista_oc_atual = [i.strip() for i in texto_oc_atual.split(",")]
-                                        
-                                        opcoes_oc_edit = [
-                                            "Agrediu o colega verbalmente", "Agrediu o colega fisicamente", 
-                                            "Agrediu o professor verbalmente", "Agrediu o professor fisicamente", 
-                                            "Não trouxe o livro", "Dormiu em sala", "Usou o celular em sala", 
-                                            "Não fez a tarefa em sala", "Não fez a tarefa em casa", 
-                                            "Não trouxe o material", "Excesso de faltas", "Outras"
-                                        ]
-                                        
-                                        edit_selecao_oc = st.multiselect("Selecione as ocorrências", options=opcoes_oc_edit, default=[i for i in lista_oc_atual if i in opcoes_oc_edit])
-                                        edit_detalhes_oc = st.text_area("Detalhes (Data/Tempo/Obs)", value=dados_oc_edit[colunas_df[7]])
-                                        
-                                        col_at_oc1, col_at_oc2 = st.columns(2)
-                                        with col_at_oc1:
-                                            btn_confirmar_edit_oc = st.form_submit_button("SALVAR ALTERAÇÕES")
-                                        with col_at_oc2:
-                                            btn_confirmar_exc_oc = st.form_submit_button("❌ EXCLUIR OCORRÊNCIA")
+                                    if btn_confirmar_edit_oc:
+                                        try:
+                                            tipo_formatado_edit_oc = "OCORRÊNCIA: " + ", ".join(edit_selecao_oc)
+                                            wks_reg.update_cell(linha_idx_oc, 7, tipo_formatado_edit_oc)
+                                            wks_reg.update_cell(linha_idx_oc, 8, edit_detalhes_oc)
+                                            st.success("Ocorrência atualizada!")
+                                            time.sleep(2)
+                                            st.rerun()
+                                        except Exception as e:
+                                            st.error(f"Erro ao editar: {e}")
                                             
-                                        if btn_confirmar_edit_oc:
-                                            try:
-                                                tipo_formatado_edit_oc = "OCORRÊNCIA: " + ", ".join(edit_selecao_oc)
-                                                wks_reg.update_cell(linha_idx_oc, 7, tipo_formatado_edit_oc)
-                                                wks_reg.update_cell(linha_idx_oc, 8, edit_detalhes_oc)
-                                                st.success("Ocorrência atualizada!")
-                                                time.sleep(2)
-                                                st.rerun()
-                                            except Exception as e:
-                                                st.error(f"Erro ao editar: {e}")
-                                                
-                                        if btn_confirmar_exc_oc:
-                                            try:
-                                                wks_reg.delete_rows(linha_idx_oc)
-                                                st.success("Ocorrência excluída!")
-                                                time.sleep(2)
-                                                st.rerun()
-                                            except Exception as e:
-                                                st.error(f"Erro ao excluir: {e}")
-                            else:
-                                st.info("Nenhuma ocorrência de suas disciplinas disponível para editar ou excluir.")
+                                    if btn_confirmar_exc_oc:
+                                        try:
+                                            wks_reg.delete_rows(linha_idx_oc)
+                                            st.success("Ocorrência excluída!")
+                                            time.sleep(2)
+                                            st.rerun()
+                                        except Exception as e:
+                                            st.error(f"Erro ao excluir: {e}")
+                        else:
+                            st.info("Nenhuma ocorrência de suas disciplinas disponível para editar ou excluir.")
 
                     else:
                         st.info("A planilha de registros está vazia.")
@@ -2670,4 +2667,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
