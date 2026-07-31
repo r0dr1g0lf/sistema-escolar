@@ -207,18 +207,21 @@ else:
         st.session_state.pagina = "Registro"
         st.rerun()
 
+    is_soe = "SOE" in str(st.session_state.user_data.get('Disciplinas', ""))
+
     if st.sidebar.button("Ocorrências", key="btn_ocorrencias_nav", use_container_width=True):
         st.session_state.pagina = "Ocorrencias"
         st.rerun()
 
-    if st.sidebar.button("Avaliações", key="btn_avaliacoes_nav", use_container_width=True):
-        st.session_state.pagina = "Avaliações"
-        st.rerun()
+    if not is_soe: # Esconde para usuários SOE
+        if st.sidebar.button("Avaliações", key="btn_avaliacoes_nav", use_container_width=True):
+            st.session_state.pagina = "Avaliações"
+            st.rerun()
 
-    # NOVO LOCAL: Botão posicionado logo abaixo de Ocorrências
-    if st.sidebar.button('📅 Agendar Equipamentos', key="btn_agendar_equipamentos_nav", use_container_width=True):
-        st.session_state.pagina = 'Agendamento de Equipamentos'
-        st.rerun()
+        # NOVO LOCAL: Botão posicionado logo abaixo de Ocorrências
+        if st.sidebar.button('📅 Agendar Equipamentos', key="btn_agendar_equipamentos_nav", use_container_width=True):
+            st.session_state.pagina = 'Agendamento de Equipamentos'
+            st.rerun()
 
     # All logged-in users can see "Segurança" to change their own password
     if st.sidebar.button("Segurança", key="btn_seguranca", use_container_width=True):
@@ -241,8 +244,6 @@ else:
         st.session_state.is_master_admin = False # NEW: Reset master admin status on logout
         st.session_state.pagina = "Registro"
         st.rerun()
-
-    is_soe = "SOE" in str(st.session_state.user_data.get('Disciplinas', ""))
 
     pagina_atual = st.session_state.get("pagina", "Registro")
 
@@ -2690,6 +2691,7 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
 
 
 
