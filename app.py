@@ -806,29 +806,10 @@ else:
                         if bim_filtro_oc != "Todos":
                             df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_bim_oc].astype(str) == bim_filtro_oc]
                         
-                        # Apply user-specific filters if not master admin
-                        if not st.session_state.get('is_master_admin', False):
-                            discs_usuario_logado = [d.strip().lower() for d in str(st.session_state.user_data.get('Disciplinas', "")).split(", ") if d.strip()]
-                            turmas_usuario_logado = [t.strip() for t in str(st.session_state.user_data.get('Turmas', "")).split(", ") if t.strip()]
-
-                            if is_soe:
-                                # SOE users filter by their assigned disciplines
-                                if discs_usuario_logado and "todas" not in discs_usuario_logado:
-                                    df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_disc_oc].astype(str).str.lower().isin(discs_usuario_logado)]
-                                else:
-                                    # If SOE user has no specific disciplines or 'Todas', show nothing to be strict
-                                    df_oc_filtrado = pd.DataFrame(columns=df_oc_filtrado.columns)
-                            else: # Regular teacher
-                                # Regular teachers filter by their assigned turmas
-                                if turmas_usuario_logado:
-                                    df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_turma_oc].astype(str).isin(turmas_usuario_logado)]
-                                else:
-                                    # If regular teacher has no turmas assigned, show nothing
-                                    df_oc_filtrado = pd.DataFrame(columns=df_oc_filtrado.columns)
-                                
-                                # Additionally filter by disciplines for regular teachers if they have specific ones
-                                if discs_usuario_logado and "todas" not in discs_usuario_logado:
-                                    df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_disc_oc].astype(str).str.lower().isin(discs_usuario_logado)]
+                        # Changed: Use is_master_admin for admin/rodrigo check
+                        if not st.session_state.get('is_master_admin', False) and not is_soe:
+                            turmas_usuario = [t.strip() for t in str(st.session_state.user_data.get('Turmas', "")).split(", ") if t.strip()]
+                            df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_turma_oc].astype(str).isin(turmas_usuario)]
                             
                         if turma_filtro_oc:
                             df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_turma_oc].astype(str).isin(turma_filtro_oc)]
@@ -2714,11 +2695,5 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
-
-
-
-
 
 
