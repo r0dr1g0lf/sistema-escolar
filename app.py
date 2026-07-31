@@ -211,16 +211,14 @@ else:
         st.session_state.pagina = "Ocorrencias"
         st.rerun()
 
-    if not is_soe: # Apenas usuários não-SOE veem Avaliações
-        if st.sidebar.button("Avaliações", key="btn_avaliacoes_nav", use_container_width=True):
-            st.session_state.pagina = "Avaliações"
-            st.rerun()
+    if st.sidebar.button("Avaliações", key="btn_avaliacoes_nav", use_container_width=True):
+        st.session_state.pagina = "Avaliações"
+        st.rerun()
 
     # NOVO LOCAL: Botão posicionado logo abaixo de Ocorrências
-    if not is_soe: # Apenas usuários não-SOE veem Agendar Equipamentos
-        if st.sidebar.button('📅 Agendar Equipamentos', key="btn_agendar_equipamentos_nav", use_container_width=True):
-            st.session_state.pagina = 'Agendamento de Equipamentos'
-            st.rerun()
+    if st.sidebar.button('📅 Agendar Equipamentos', key="btn_agendar_equipamentos_nav", use_container_width=True):
+        st.session_state.pagina = 'Agendamento de Equipamentos'
+        st.rerun()
 
     # All logged-in users can see "Segurança" to change their own password
     if st.sidebar.button("Segurança", key="btn_seguranca", use_container_width=True):
@@ -2692,4 +2690,19 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
