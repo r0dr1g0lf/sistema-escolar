@@ -690,7 +690,12 @@ else:
                 periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True, key="bim_oc")
                 
                 data_ocorrido = st.date_input("Data do ocorrido", value=data_atual, format="DD/MM/YYYY")
-                tempo_aula = st.selectbox("Tempo de aula", ["1º tempo", "2º tempo", "3º tempo", "4º tempo"])
+                
+                tempos_de_aula_opcoes = ["1º tempo", "2º tempo", "3º tempo", "4º tempo", "5º tempo"]
+                if is_soe:
+                    tempo_aula = st.multiselect("Tempo de aula", options=tempos_de_aula_opcoes, key="tempo_aula_oc_soe")
+                else:
+                    tempo_aula = st.selectbox("Tempo de aula", options=tempos_de_aula_opcoes, key="tempo_aula_oc_prof")
                 
                 if is_soe:
                     opcoes_ocorrencias = ["Chegada atrasafa", "Saída antecipada", "Outras"]
@@ -729,7 +734,14 @@ else:
                         sh = conectar_google_sheets()
                         wks = sh.worksheet("Registros_Ocorrencias")
                         tipo_formatado = ", ".join(selecao_oc)
-                        detalhes_extras = f"DATA: {data_ocorrido.strftime('%d/%m/%Y')} | TEMPO: {tempo_aula} | {obs_oc}"
+                        
+                        # Formata tempo_aula para string, caso seja uma lista
+                        if isinstance(tempo_aula, list):
+                            tempo_aula_str = ", ".join(tempo_aula)
+                        else:
+                            tempo_aula_str = tempo_aula
+
+                        detalhes_extras = f"DATA: {data_ocorrido.strftime('%d/%m/%Y')} | TEMPO: {tempo_aula_str} | {obs_oc}"
                         
                         if is_soe and justificativa_selecionada and justificativa_selecionada != "":
                             detalhes_extras += f" | JUSTIFICATIVA: {justificativa_selecionada}"
@@ -2679,6 +2691,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
