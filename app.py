@@ -642,6 +642,8 @@ else:
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
         with tab_oc1:
+            if is_soe:
+                st.info("Você está logado como SOE. Este módulo é apenas para visualização.")
             hoje = data_atual
             bimestres_disponiveis = []
             if not df_periodos.empty:
@@ -709,12 +711,10 @@ else:
                 selecao_oc = st.multiselect("Selecione as ocorrências", options=opcoes_ocorrencias)
                 obs_oc = st.text_area("Observações detalhadas")
                 
-                btn_salvar_oc = st.form_submit_button("GRAVAR OCORRÊNCIA", disabled=(bimestre_ativo == "Bloqueado" or is_soe))
+                btn_salvar_oc = st.form_submit_button("GRAVAR OCORRÊNCIA", disabled=(bimestre_ativo == "Bloqueado"))
 
             if btn_salvar_oc:
-                if is_soe:
-                    st.error("Usuários SOE não possuem permissão para realizar registros.")
-                elif not selecao_oc:
+                if not selecao_oc:
                     st.error("Selecione pelo menos uma ocorrência.")
                 else:
                     try:
