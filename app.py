@@ -720,7 +720,7 @@ else:
                 
                 justificativa_selecionada = None
                 if is_soe:
-                    justificativa_opcoes = ["Problema de saúde", "Consulta médica", "Exame médico", "Transporte/Trânsito", "Problemas familiares", "Sem justificativa", "Outras"]
+                    justificativa_opcoes = ["Problema de saúde", "Consulta médica", "Exame médico", "Transporte/Trânsito", "Problemas familiares", "Situação em casa", "Sem justificativa", "Outras"]
                     justificativa_selecionada = st.selectbox("Justificativa", options=[""] + justificativa_opcoes, key="justificativa_oc")
                     tempo_aula = st.multiselect("Tempo de aula", options=tempos_de_aula_opcoes, key="tempo_aula_oc_soe")
                 else:
@@ -2695,5 +2695,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
 
