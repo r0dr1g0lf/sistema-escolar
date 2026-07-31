@@ -691,10 +691,9 @@ else:
                 
                 data_ocorrido = st.date_input("Data do ocorrido", value=data_atual, format="DD/MM/YYYY")
                 
-                tempos_de_aula_opcoes = ["1º tempo", "2º tempo", "3º tempo", "4º tempo", "5º tempo"]
+                tempos_de_aula_opcoes = ["1º tempo", "2º tempo", "3º tempo", "4º tempo"]
                 if is_soe:
-                    tempos_de_aula_soe = [t for t in tempos_de_aula_opcoes if t != "5º tempo"]
-                    tempo_aula = st.multiselect("Tempo de aula", options=tempos_de_aula_soe, key="tempo_aula_oc_soe")
+                    tempo_aula = st.multiselect("Tempo de aula", options=tempos_de_aula_opcoes, key="tempo_aula_oc_soe")
                 else:
                     tempo_aula = st.selectbox("Tempo de aula", options=tempos_de_aula_opcoes, key="tempo_aula_oc_prof")
                 
@@ -2692,6 +2691,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
