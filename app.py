@@ -693,20 +693,23 @@ else:
                 data_ocorrido = st.date_input("Data do ocorrido", value=data_atual, format="DD/MM/YYYY")
                 tempo_aula = st.selectbox("Tempo de aula", ["1º tempo", "2º tempo", "3º tempo", "4º tempo"])
                 
-                opcoes_ocorrencias = [
-                    "Agrediu o colega verbalmente", 
-                    "Agrediu o colega fisicamente", 
-                    "Agrediu o professor verbalmente", 
-                    "Agrediu o professor fisicamente", 
-                    "Não trouxe o livro",
-                    "Dormiu em sala", 
-                    "Usou o celular em sala", 
-                    "Não fez a tarefa em sala", 
-                    "Não fez a tarefa em casa", 
-                    "Não trouxe o material", 
-                    "Excesso de faltas",
-                    "Outras"
-                ]
+                if is_soe:
+                    opcoes_ocorrencias = ["Chegada atrasafa", "Saída antecipada", "Outras"]
+                else:
+                    opcoes_ocorrencias = [
+                        "Agrediu o colega verbalmente", 
+                        "Agrediu o colega fisicamente", 
+                        "Agrediu o professor verbalmente", 
+                        "Agrediu o professor fisicamente", 
+                        "Não trouxe o livro",
+                        "Dormiu em sala", 
+                        "Usou o celular em sala", 
+                        "Não fez a tarefa em sala", 
+                        "Não fez a tarefa em casa", 
+                        "Não trouxe o material", 
+                        "Excesso de faltas",
+                        "Outras"
+                    ]
                 
                 selecao_oc = st.multiselect("Selecione as ocorrências", options=opcoes_ocorrencias)
                 obs_oc = st.text_area("Observações detalhadas")
@@ -2667,6 +2670,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
 
