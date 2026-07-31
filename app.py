@@ -719,9 +719,18 @@ else:
                 selecao_oc = st.multiselect("Selecione as ocorrências", options=opcoes_ocorrencias)
                 
                 justificativa_selecionada = None
+                disciplinas_envolvidas_soe = []
                 if is_soe:
                     justificativa_opcoes = ["Problema de saúde", "Consulta médica", "Exame médico", "Transporte/Trânsito", "Problemas familiares", "Situação em casa", "Sem justificativa", "Outras"]
                     justificativa_selecionada = st.selectbox("Justificativa", options=[""] + justificativa_opcoes, key="justificativa_oc")
+                    
+                    # NOVO: Multiselect para Disciplinas Envolvidas (apenas para SOE)
+                    if not df_discs.empty:
+                        todas_disciplinas_disponiveis = sorted(df_discs['Disciplina'].unique().astype(str))
+                    else:
+                        todas_disciplinas_disponiveis = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida", "SOE"] # Fallback
+                    disciplinas_envolvidas_soe = st.multiselect("Disciplinas Envolvidas", options=todas_disciplinas_disponiveis, key="disciplinas_envolvidas_oc_soe")
+
                     tempo_aula = st.multiselect("Tempo de aula", options=tempos_de_aula_opcoes, key="tempo_aula_oc_soe")
                 else:
                     tempo_aula = st.selectbox("Tempo de aula", options=tempos_de_aula_opcoes, key="tempo_aula_oc_prof")
@@ -731,8 +740,8 @@ else:
                 btn_salvar_oc = st.form_submit_button("GRAVAR OCORRÊNCIA", disabled=(bimestre_ativo == "Bloqueado"))
 
             if btn_salvar_oc:
-                if not selecao_oc and (not is_soe or not justificativa_selecionada or justificativa_selecionada == ""):
-                    st.error("Selecione pelo menos uma ocorrência ou uma justificativa (para SOE).")
+                if not selecao_oc and (not is_soe or (not justificativa_selecionada or justificativa_selecionada == "") and not disciplinas_envolvidas_soe):
+                    st.error("Selecione pelo menos uma ocorrência, ou uma justificativa/disciplina envolvida (para SOE).")
                 else:
                     try:
                         sh = conectar_google_sheets()
@@ -747,8 +756,11 @@ else:
 
                         detalhes_extras = f"DATA: {data_ocorrido.strftime('%d/%m/%Y')} | TEMPO: {tempo_aula_str} | {obs_oc}"
                         
-                        if is_soe and justificativa_selecionada and justificativa_selecionada != "":
-                            detalhes_extras += f" | JUSTIFICATIVA: {justificativa_selecionada}"
+                        if is_soe:
+                            if justificativa_selecionada and justificativa_selecionada != "":
+                                detalhes_extras += f" | JUSTIFICATIVA: {justificativa_selecionada}"
+                            if disciplinas_envolvidas_soe:
+                                detalhes_extras += f" | DISCIPLINAS ENVOLVIDAS: {', '.join(disciplinas_envolvidas_soe)}"
 
                         nova_linha = [
                             datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
@@ -2695,4 +2707,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
