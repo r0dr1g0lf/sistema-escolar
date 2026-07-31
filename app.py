@@ -642,8 +642,7 @@ else:
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
         with tab_oc1:
-            if is_soe:
-                st.info("Você está logado como SOE. Este módulo é apenas para visualização.")
+            # Removido: st.info("Você está logado como SOE. Este módulo é apenas para visualização.")
             hoje = data_atual
             bimestres_disponiveis = []
             if not df_periodos.empty:
@@ -712,19 +711,29 @@ else:
                     ]
                 
                 selecao_oc = st.multiselect("Selecione as ocorrências", options=opcoes_ocorrencias)
+                
+                justificativa_selecionada = None
+                if is_soe:
+                    justificativa_opcoes = ["Problema de saúde", "Consulta médica", "Exame médico", "Transporte/Trânsito", "Problemas familiares", "Sem justificativa", "Outros"]
+                    justificativa_selecionada = st.selectbox("Justificativa (Apenas para SOE)", options=[""] + justificativa_opcoes, key="justificativa_oc")
+
                 obs_oc = st.text_area("Observações detalhadas")
                 
                 btn_salvar_oc = st.form_submit_button("GRAVAR OCORRÊNCIA", disabled=(bimestre_ativo == "Bloqueado"))
 
             if btn_salvar_oc:
-                if not selecao_oc:
-                    st.error("Selecione pelo menos uma ocorrência.")
+                if not selecao_oc and (not is_soe or not justificativa_selecionada or justificativa_selecionada == ""):
+                    st.error("Selecione pelo menos uma ocorrência ou uma justificativa (para SOE).")
                 else:
                     try:
                         sh = conectar_google_sheets()
                         wks = sh.worksheet("Registros_Ocorrencias")
                         tipo_formatado = ", ".join(selecao_oc)
                         detalhes_extras = f"DATA: {data_ocorrido.strftime('%d/%m/%Y')} | TEMPO: {tempo_aula} | {obs_oc}"
+                        
+                        if is_soe and justificativa_selecionada and justificativa_selecionada != "":
+                            detalhes_extras += f" | JUSTIFICATIVA: {justificativa_selecionada}"
+
                         nova_linha = [
                             datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
                             prof_nome,
@@ -2670,4 +2679,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
