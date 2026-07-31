@@ -692,10 +692,6 @@ else:
                 data_ocorrido = st.date_input("Data do ocorrido", value=data_atual, format="DD/MM/YYYY")
                 
                 tempos_de_aula_opcoes = ["1º tempo", "2º tempo", "3º tempo", "4º tempo"]
-                if is_soe:
-                    tempo_aula = st.multiselect("Tempo de aula", options=tempos_de_aula_opcoes, key="tempo_aula_oc_soe")
-                else:
-                    tempo_aula = st.selectbox("Tempo de aula", options=tempos_de_aula_opcoes, key="tempo_aula_oc_prof")
                 
                 if is_soe:
                     opcoes_ocorrencias = ["Chegada atrasafa", "Saída antecipada", "Outras"]
@@ -721,6 +717,9 @@ else:
                 if is_soe:
                     justificativa_opcoes = ["Problema de saúde", "Consulta médica", "Exame médico", "Transporte/Trânsito", "Problemas familiares", "Sem justificativa", "Outras"]
                     justificativa_selecionada = st.selectbox("Justificativa", options=[""] + justificativa_opcoes, key="justificativa_oc")
+                    tempo_aula = st.multiselect("Tempo de aula", options=tempos_de_aula_opcoes, key="tempo_aula_oc_soe")
+                else:
+                    tempo_aula = st.selectbox("Tempo de aula", options=tempos_de_aula_opcoes, key="tempo_aula_oc_prof")
 
                 obs_oc = st.text_area("Observações detalhadas")
                 
@@ -2691,9 +2690,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
-
 
 
 
