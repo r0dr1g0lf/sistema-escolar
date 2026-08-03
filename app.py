@@ -1675,20 +1675,137 @@ else:
                 
                 id_manual_input = st.text_input("🔢 Digite o ID da Avaliação (ou use a câmera abaixo):", key="id_prova_manual_input", placeholder="Ex: 1001")
 
-                # Inicializa a variável para o sistema não quebrar
-                scanned_id_from_camera = None
+            html_camera_component = """
+            <style>
+                .camera-container {
+                    text-align: center;
+                    margin-bottom: 20px;
+                }
+                video {
+                    width: 100%; /* Make video responsive */
+                    max-width: 320px; /* Max width for consistency */
+                    height: auto;
+                    display: block;
+                    margin: 10px auto;
+                    border: 3px solid #4CAF50; /* Green border for active camera */
+                    border-radius: 8px;
+                    background-color: #000;
+                }
+                button {
+                    display: block;
+                    width: 100%;
+                    max-width: 320px;
+                    padding: 12px 20px;
+                    margin: 10px auto;
+                    background-color: #007bff; /* Blue button */
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    font-size: 16px;
+                    font-weight: bold;
+                    transition: background-color 0.3s ease;
+                }
+                button:hover {
+                    background-color: #0056b3;
+                }
+                #camera-message {
+                    color: #dc3545; /* Red for errors */
+                    font-weight: bold;
+                    margin-top: 10px;
+                }
+            </style>
+            <div class="camera-container">
+                <p>Aponte a câmera traseira para o código de barras da prova.</p>
+                <video id="video" autoplay playsinline></video>
+                <button id="snap">📸 Tirar Foto do Código</button>
+                <canvas id="canvas" style="display: none;"></canvas>
+                <div id="camera-message"></div>
+            </div>
 
-                # Abre a câmera oficial do Streamlit (garante que o botão de tirar foto funcione)
-                foto_registro = st.camera_input("Tire a foto do código de barras da prova")
+            <script>
+                const video = document.getElementById('video');
+                const canvas = document.getElementById('canvas');
+                const context = canvas.getContext('2d');
+                const snap = document.getElementById('snap');
+                const cameraMessage = document.getElementById('camera-message');
+                let stream = null; // To store the camera stream
 
-                if foto_registro is not None:
+                function startCamera() {
+                    if (stream) { // Stop existing stream if any
+                        stream.getTracks().forEach(track => track.stop());
+                    }
+                    cameraMessage.textContent = "Iniciando câmera...";
+                    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } } })
+                        .then(function(s) {
+                            stream = s;
+                            video.srcObject = stream;
+                            video.play();
+                            cameraMessage.textContent = "Câmera traseira ativa.";
+                        })
+                        .catch(function(err) {
+                            console.error("Erro ao acessar a câmera: " + err);
+                            cameraMessage.textContent = "Erro ao acessar a câmera: " + err.message + ". Verifique as permissões.";
+                            if (window.Streamlit) {
+                                window.Streamlit.setComponentValue("ERROR_CAMERA_ACCESS: " + err.message);
+                            }
+                        });
+                }
+
+                // Start camera when the component loads
+                startCamera();
+
+                snap.addEventListener('click', function() {
+                    if (!stream || !video.srcObject) {
+                        cameraMessage.textContent = "Câmera não está ativa. Tente novamente.";
+                        return;
+                    }
+                    // Set canvas dimensions to match video stream for better quality
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const imageData = canvas.toDataURL('image/jpeg', 0.9); // Capture as JPEG with 90% quality
+                    if (window.Streamlit) {
+                        window.Streamlit.setComponentValue(imageData);
+                        cameraMessage.textContent = "Foto capturada e enviada!";
+                    } else {
+                        console.log("Streamlit object not found. Image data:", imageData.substring(0, 100) + "...");
+                    }
+                });
+
+                // Inform Streamlit about the component's readiness
+                if (window.Streamlit) {
+                    window.Streamlit.setComponentReady();
+                }
+            </script>
+            """
+            # Inicializa a variável para o sistema não quebrar
+            scanned_id_from_camera = None
+
+            # Usa o componente de câmera HTML5 personalizado
+            captured_image_b64 = st.components.v1.html(
+                html_camera_component,
+                height=400, # Altura ajustada para o vídeo, botão e mensagens
+                width=500,  # Largura ajustada
+                scrolling=False,
+                key="custom_camera_id_scan"
+            )
+
+            if captured_image_b64 is not None:
+                if captured_image_b64.startswith("ERROR_CAMERA_ACCESS:"):
+                    st.error(f"Erro de acesso à câmera: {captured_image_b64.split(':', 1)[1]}")
+                elif captured_image_b64.startswith("data:image/jpeg;base64,"):
                     try:
                         import base64
                         import cv2
                         import numpy as np
                         from pyzbar.pyzbar import decode
 
-                        bytes_data = foto_registro.getvalue()
+                        # Decodifica a string base64 para bytes
+                        base64_data = captured_image_b64.split(",")[1]
+                        bytes_data = base64.b64decode(base64_data)
+
+                        # Converte bytes para array numpy e depois para imagem OpenCV
                         np_img = np.frombuffer(bytes_data, dtype=np.uint8)
                         img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
 
@@ -1701,11 +1818,13 @@ else:
                             st.session_state['id_prova_atual'] = id_detectado
                             scanned_id_from_camera = id_detectado
                         else:
-                            st.warning("⚠️ Foto tirada, mas o código de barras não foi detectado. Se o erro persistir, digite o ID manualmente.")
+                            st.warning("⚠️ Foto tirada, mas o código de barras não foi detectado. Tente novamente com melhor iluminação ou enquadramento.")
                     except Exception as e:
-                        st.error(f"Erro ao processar a imagem tirada: {e}")
+                        st.error(f"Erro ao processar a imagem capturada: {e}")
+                else:
+                    st.warning(f"Valor inesperado recebido da câmera: {captured_image_b64[:50]}...")
 
-                detected_id = id_manual_input if id_manual_input else scanned_id_from_camera
+            detected_id = id_manual_input if id_manual_input else scanned_id_from_camera
 
                 if detected_id:
                     st.session_state.id_prova_scanned = detected_id
