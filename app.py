@@ -1770,20 +1770,10 @@ else:
                         # Mostra a imagem em escala de cinza para feedback visual
                         st.image(img_gray, channels="GRAY", caption="Gabarito compacto detectado (Escala de Cinza).")
 
-                        # COORDENADAS RECALIBRADAS para layout vertical (retrato)
-                        # A região de interesse (ROI) para as bolhas é agora um retângulo vertical centralizado.
-                        # Definimos uma "caixa virtual" para as bolhas com base na largura da imagem (menor dimensão em retrato)
-                        # e ajustamos a altura para manter uma proporção vertical consistente.
-                        
-                        # Largura da caixa de detecção (ex: 80% da largura da imagem)
-                        detection_box_width = int(w_orig * 0.8)
-                        # Altura da caixa de detecção (ex: 120% da largura da imagem para ser vertical)
-                        detection_box_height = int(w_orig * 1.2) 
-                        
-                        # Garante que a caixa não exceda as dimensões da imagem
-                        if detection_box_height > h_orig:
-                            detection_box_height = int(h_orig * 0.9) # Ajusta para 90% da altura se for muito grande
-                            detection_box_width = int(detection_box_height / 1.2) # Reajusta largura para manter proporção
+                        # Dimensões de destino para a transformação de perspectiva (proporção vertical fixa)
+                        # Isso garante que os marcadores e bolhas não sejam esticados, mantendo a proporção 3:4 (600x800)
+                        detection_box_width = 600
+                        detection_box_height = 800
 
                         # Calcula o ponto de início (canto superior esquerdo) para centralizar a caixa
                         start_x = (w_orig - detection_box_width) // 2
@@ -2775,6 +2765,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
