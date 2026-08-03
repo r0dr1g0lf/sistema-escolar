@@ -1770,39 +1770,14 @@ else:
                         # Mostra a imagem em escala de cinza para feedback visual
                         st.image(img_gray, channels="GRAY", caption="Gabarito compacto detectado (Escala de Cinza).")
 
-                        # Dimensões de destino para a transformação de perspectiva (proporção vertical fixa)
-                        # Isso garante que os marcadores e bolhas não sejam esticados, mantendo a proporção 3:4 (600x800)
-                        detection_box_width = 600
-                        detection_box_height = 800
-
-                        # Calcula o ponto de início (canto superior esquerdo) para centralizar a caixa
-                        start_x = (w_orig - detection_box_width) // 2
-                        start_y = (h_orig - detection_box_height) // 2
-                        
-                        # Define as posições X das opções (A, B, C, D) dentro da caixa de detecção
-                        # Distribuídas horizontalmente no centro da caixa
-                        opcoes_x = [
-                            int(start_x + detection_box_width * 0.30), # A
-                            int(start_x + detection_box_width * 0.45), # B
-                            int(start_x + detection_box_width * 0.60), # C
-                            int(start_x + detection_box_width * 0.75)  # D
-                        ]
-                        
-                        # Define as posições Y das linhas de questões (5 questões) dentro da caixa de detecção
-                        # Distribuídas verticalmente
-                        linhas_y = [
-                            int(start_y + detection_box_height * 0.20), # Questão 1
-                            int(start_y + detection_box_height * 0.35), # Questão 2
-                            int(start_y + detection_box_height * 0.50), # Questão 3
-                            int(start_y + detection_box_height * 0.65), # Questão 4
-                            int(start_y + detection_box_height * 0.80)  # Questão 5
-                        ]
-                        
+                        # COORDENADAS RECALIBRADAS: Como o quadrado agora é justo e compacto,
+                        # as alternativas ficam mais concentradas no centro perfeito da foto vertical
+                        opcoes_x = [int(w_orig * 0.42), int(w_orig * 0.48), int(w_orig * 0.54), int(w_orig * 0.60)]
+                        linhas_y = [int(h_orig * 0.45), int(h_orig * 0.52), int(h_orig * 0.59), int(h_orig * 0.66), int(h_orig * 0.73)]
                         letras = ['A', 'B', 'C', 'D']
 
                         respostas_aluno = {}
-                        # Raio da bolinha ajustado para ser proporcional à largura da caixa de detecção
-                        raio_bolinha = int(detection_box_width * 0.04)
+                        raio_bolinha = int(w_orig * 0.022)
                         
                         # Limiar de diferença de intensidade para considerar uma bolha "marcada"
                         # Este valor pode precisar de ajuste dependendo da qualidade da foto e da caneta.
@@ -2765,18 +2740,3 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
