@@ -1773,7 +1773,8 @@ else:
                         )
 
                         st.success("🖼️ Analisando Imagem em Alta Resolução (Sem distorções):")
-                        st.image(img_alinhada, channels="BGR", caption="Gabarito compacto detectado.")
+                        # Mostra a imagem binarizada para melhor feedback visual do que o algoritmo "vê"
+                        st.image(thresh_final, channels="GRAY", caption="Gabarito compacto detectado (Binarizado).")
 
                         # COORDENADAS RECALIBRADAS: Como o quadrado agora é justo e compacto,
                         # as alternativas ficam mais concentradas no centro perfeito da foto vertical
@@ -1783,6 +1784,11 @@ else:
 
                         respostas_aluno = {}
                         raio_bolinha = int(w_orig * 0.022)
+                        
+                        # Calcula o limiar de preenchimento com base na área do círculo
+                        area_do_circulo = np.pi * (raio_bolinha ** 2)
+                        # Um preenchimento de 25% da área do círculo é um bom ponto de partida para detecção de marcações
+                        limiar_preenchimento = int(area_do_circulo * 0.25) 
 
                         for i in range(min(total_questoes, 5)):
                             questao_num = i + 1
@@ -1796,7 +1802,8 @@ else:
                                 
                                 pixel_count = cv2.countNonZero(cv2.bitwise_and(thresh_final, thresh_final, mask=mascara_bolinha))
                                 
-                                if pixel_count > (raio_bolinha * 11) and pixel_count > max_pixels:
+                                # Usa o limiar de preenchimento baseado na área
+                                if pixel_count > limiar_preenchimento and pixel_count > max_pixels:
                                     max_pixels = pixel_count
                                     marcada = letras[j]
                             
@@ -2707,3 +2714,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
