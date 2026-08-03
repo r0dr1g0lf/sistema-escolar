@@ -1771,6 +1771,10 @@ else:
                         thresh_final = cv2.adaptiveThreshold(
                             blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 19, 9
                         )
+                        
+                        # NOVO: Aplicar operação morfológica de Abertura para remover ruídos finos (letras A, B, C, D)
+                        kernel = np.ones((3,3), np.uint8) # Kernel 3x3 para abertura
+                        thresh_final = cv2.morphologyEx(thresh_final, cv2.MORPH_OPEN, kernel)
 
                         st.success("🖼️ Analisando Imagem em Alta Resolução (Sem distorções):")
                         # Mostra a imagem binarizada para melhor feedback visual do que o algoritmo "vê"
@@ -1787,8 +1791,8 @@ else:
                         
                         # Calcula o limiar de preenchimento com base na área do círculo
                         area_do_circulo = np.pi * (raio_bolinha ** 2)
-                        # Um preenchimento de 25% da área do círculo é um bom ponto de partida para detecção de marcações
-                        limiar_preenchimento = int(area_do_circulo * 0.25) 
+                        # NOVO: Aumentar o limiar de preenchimento para evitar falsos positivos das letras impressas
+                        limiar_preenchimento = int(area_do_circulo * 0.55) # Aumentado para 55%
 
                         for i in range(min(total_questoes, 5)):
                             questao_num = i + 1
@@ -2714,4 +2718,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
