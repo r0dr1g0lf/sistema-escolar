@@ -1762,23 +1762,13 @@ else:
                         # Carrega a imagem nativa em qualidade máxima
                         bytes_data = img_answer_scan.getvalue()
                         np_img = np.frombuffer(bytes_data, dtype=np.uint8)
-                        img_alinhada = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
-                        h_orig, w_orig = img_alinhada.shape[:2]
+                        img_color = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
+                        img_gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
+                        h_orig, w_orig = img_gray.shape[:2]
 
-                        # Tratamento de alta definição para destacar as marcas de caneta
-                        cinza = cv2.cvtColor(img_alinhada, cv2.COLOR_BGR2GRAY)
-                        blur = cv2.medianBlur(cinza, 3)
-                        thresh_final = cv2.adaptiveThreshold(
-                            blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 19, 9
-                        )
-                        
-                        # NOVO: Aplicar operação morfológica de Abertura para remover ruídos finos (letras A, B, C, D)
-                        kernel = np.ones((3,3), np.uint8) # Kernel 3x3 para abertura
-                        thresh_final = cv2.morphologyEx(thresh_final, cv2.MORPH_OPEN, kernel)
-
-                        st.success("🖼️ Analisando Imagem em Alta Resolução (Sem distorções):")
-                        # Mostra a imagem binarizada para melhor feedback visual do que o algoritmo "vê"
-                        st.image(thresh_final, channels="GRAY", caption="Gabarito compacto detectado (Binarizado).")
+                        st.success("🖼️ Analisando Imagem em Escala de Cinza:")
+                        # Mostra a imagem em escala de cinza para feedback visual
+                        st.image(img_gray, channels="GRAY", caption="Gabarito compacto detectado (Escala de Cinza).")
 
                         # COORDENADAS RECALIBRADAS: Como o quadrado agora é justo e compacto,
                         # as alternativas ficam mais concentradas no centro perfeito da foto vertical
@@ -1789,29 +1779,61 @@ else:
                         respostas_aluno = {}
                         raio_bolinha = int(w_orig * 0.022)
                         
-                        # Calcula o limiar de preenchimento com base na área do círculo
-                        area_do_circulo = np.pi * (raio_bolinha ** 2)
-                        # NOVO: Aumentar o limiar de preenchimento para evitar falsos positivos das letras impressas
-                        limiar_preenchimento = int(area_do_circulo * 0.55) # Aumentado para 55%
+                        # Limiar de diferença de intensidade para considerar uma bolha "marcada"
+                        # Este valor pode precisar de ajuste dependendo da qualidade da foto e da caneta.
+                        # Uma diferença de 30-50 unidades de cinza (0-255) é geralmente perceptível.
+                        intensity_difference_threshold = 40 
+
+                        # Para feedback visual, desenha círculos na imagem original
+                        img_feedback = img_color.copy()
 
                         for i in range(min(total_questoes, 5)):
                             questao_num = i + 1
                             y = linhas_y[i]
-                            marcada = None
-                            max_pixels = 0
+                            
+                            bubble_intensities = [] # Para armazenar a intensidade média de A, B, C, D
                             
                             for j, x in enumerate(opcoes_x):
-                                mascara_bolinha = np.zeros(thresh_final.shape, dtype=np.uint8)
-                                cv2.circle(mascara_bolinha, (x, y), raio_bolinha, 255, -1)
+                                mask = np.zeros(img_gray.shape, dtype=np.uint8)
+                                cv2.circle(mask, (x, y), raio_bolinha, 255, -1)
                                 
-                                pixel_count = cv2.countNonZero(cv2.bitwise_and(thresh_final, thresh_final, mask=mascara_bolinha))
-                                
-                                # Usa o limiar de preenchimento baseado na área
-                                if pixel_count > limiar_preenchimento and pixel_count > max_pixels:
-                                    max_pixels = pixel_count
-                                    marcada = letras[j]
+                                # Calcula a intensidade média na região mascarada
+                                mean_val = cv2.mean(img_gray, mask=mask)[0]
+                                bubble_intensities.append(mean_val)
                             
-                            respostas_aluno[questao_num] = marcada if marcada else ""
+                            marcada = None
+                            if bubble_intensities:
+                                # Encontra a bolha mais escura (menor intensidade média)
+                                min_intensity = min(bubble_intensities)
+                                min_intensity_index = bubble_intensities.index(min_intensity)
+                                
+                                # Verifica se esta bolha mais escura é significativamente mais escura que as outras
+                                is_clearly_marked = True
+                                for k, intensity in enumerate(bubble_intensities):
+                                    if k != min_intensity_index:
+                                        # Se qualquer outra bolha estiver muito próxima em intensidade, não é claramente marcada
+                                        if (intensity - min_intensity) < intensity_difference_threshold:
+                                            is_clearly_marked = False
+                                            break
+                                
+                                if is_clearly_marked:
+                                    marcada = letras[min_intensity_index]
+                            
+                            respostas_aluno[questao_num] = marcada # None se não marcada
+                            
+                            # Desenha feedback visual na imagem
+                            for j, x in enumerate(opcoes_x):
+                                color = (0, 255, 0) # Verde para não marcada
+                                thickness = 1
+                                
+                                if marcada == letras[j]:
+                                    color = (0, 0, 255) # Vermelho para marcada
+                                    thickness = 2
+                                
+                                cv2.circle(img_feedback, (x, y), raio_bolinha, color, thickness)
+                        
+                        # Mostra a imagem com os círculos de feedback
+                        st.image(img_feedback, channels="BGR", caption="Gabarito com respostas detectadas (Feedback Visual).")
 
                         st.session_state.respostas_aluno_simuladas = respostas_aluno
                         
@@ -2718,6 +2740,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
