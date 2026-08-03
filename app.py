@@ -2708,5 +2708,3 @@ else:
         st.session_state.pagina = "Registro"
         st.rerun()
 
-
-
