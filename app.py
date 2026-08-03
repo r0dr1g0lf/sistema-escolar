@@ -1205,6 +1205,10 @@ else:
                         <meta charset="utf-8">
                         <style>
                             @media print {{
+                                @page {{
+                                    size: A4 portrait; /* Define A4 size and portrait orientation */
+                                    margin: 10mm; /* Optional: Set default margins for the page */
+                                }}
                                 body {{ 
                                     margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 11pt; color: #000; 
                                     -webkit-print-color-adjust: exact !important; 
@@ -1430,6 +1434,10 @@ else:
                         <meta charset="utf-8">
                         <style>
                             @media print {{
+                                @page {{
+                                    size: A4 portrait; /* Define A4 size and portrait orientation */
+                                    margin: 10mm; /* Optional: Set default margins for the page */
+                                }}
                                 body {{ 
                                     margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 11pt; color: #000; 
                                     -webkit-print-color-adjust: exact !important; 
@@ -2740,3 +2748,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
