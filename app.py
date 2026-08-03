@@ -1773,7 +1773,7 @@ else:
                         # COORDENADAS RECALIBRADAS: Como o quadrado agora é justo e compacto,
                         # as alternativas ficam mais concentradas no centro perfeito da foto vertical
                         opcoes_x = [int(w_orig * 0.41), int(w_orig * 0.47), int(w_orig * 0.53), int(w_orig * 0.59)]
-                        linhas_y = [int(h_orig * 0.38), int(h_orig * 0.45), int(h_orig * 0.52), int(h_orig * 0.59), int(h_orig * 0.66)]
+                        linhas_y = [int(h_orig * 0.48), int(h_orig * 0.55), int(h_orig * 0.62), int(h_orig * 0.69), int(h_orig * 0.76)]
                         letras = ['A', 'B', 'C', 'D']
 
                         respostas_aluno = {}
@@ -2740,6 +2740,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
