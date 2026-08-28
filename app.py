@@ -1078,6 +1078,14 @@ else:
                         with col_val:
                             valor_questao = st.number_input(f"Valor (Pts):", min_value=0.0, max_value=float(nota_maxima), value=float(valor_sugerido), step=0.1, key=f"valor_av_{i}")
                         
+                        # NEW: Image upload for question
+                        uploaded_image = st.file_uploader(f"Upload de Imagem para Questão {i+1} (Opcional)", type=["jpg", "jpeg", "png"], key=f"img_av_{i}")
+                        image_base64 = None
+                        if uploaded_image is not None:
+                            image_bytes = uploaded_image.getvalue()
+                            image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+                            st.image(uploaded_image, caption="Pré-visualização da Imagem", width=200)
+                        
                         soma_valores_atual += valor_questao
                         
                         col_alt_esq, col_alt_dir = st.columns(2)
@@ -1097,7 +1105,8 @@ else:
                             "A": alt_a,
                             "B": alt_b,
                             "C": alt_c,
-                            "D": alt_d
+                            "D": alt_d,
+                            "imagem_base64": image_base64 # NEW: Store image data
                         })
                 
                 st.markdown("---")
@@ -1159,10 +1168,14 @@ else:
                         html_gabarito_professor = ""
                         
                         for q in questoes_dados:
+                            image_html = ""
+                            if q.get('imagem_base64'):
+                                image_html = f'<div style="text-align: center; margin-top: 10px; margin-bottom: 10px;"><img src="data:image/png;base64,{q["imagem_base64"]}" style="max-width: 80%; height: auto; border: 1px solid #ccc; display: block; margin: 0 auto;"></div>'
                             html_questoes += f"""
                             <div class="question-block">
                                 <p class="question-title"><b>Questão {q['numero']} ({q['valor']:.2f} pts)</b></p>
                                 <p class="enunciado">{q['enunciado']}</p>
+                                {image_html} <!-- NEW: Insert image here -->
                                 <div class="alternatives">
                                     <p><b>A)</b> {q['A']}</p>
                                     <p><b>B)</b> {q['B']}</p>
@@ -1205,10 +1218,6 @@ else:
                         <meta charset="utf-8">
                         <style>
                             @media print {{
-                                @page {{
-                                    size: A4 portrait; /* Define A4 size and portrait orientation */
-                                    margin: 10mm; /* Optional: Set default margins for the page */
-                                }}
                                 body {{ 
                                     margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 11pt; color: #000; 
                                     -webkit-print-color-adjust: exact !important; 
@@ -1371,10 +1380,14 @@ else:
                         html_gabarito_professor_visualizar = ""
                         
                         for q in questoes_dados_visualizar:
+                            image_html_visualizar = ""
+                            if q.get('imagem_base64'):
+                                image_html_visualizar = f'<div style="text-align: center; margin-top: 10px; margin-bottom: 10px;"><img src="data:image/png;base64,{q["imagem_base64"]}" style="max-width: 80%; height: auto; border: 1px solid #ccc; display: block; margin: 0 auto;"></div>'
                             html_questoes_visualizar += f"""
                             <div class="question-block">
                                 <p class="question-title"><b>Questão {q['numero']} ({q['valor']:.2f} pts)</b></p>
                                 <p class="enunciado">{q['enunciado']}</p>
+                                {image_html_visualizar} <!-- NEW: Insert image here -->
                                 <div class="alternatives">
                                     <p><b>A)</b> {q['A']}</p>
                                     <p><b>B)</b> {q['B']}</p>
@@ -1434,10 +1447,6 @@ else:
                         <meta charset="utf-8">
                         <style>
                             @media print {{
-                                @page {{
-                                    size: A4 portrait; /* Define A4 size and portrait orientation */
-                                    margin: 10mm; /* Optional: Set default margins for the page */
-                                }}
                                 body {{ 
                                     margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 11pt; color: #000; 
                                     -webkit-print-color-adjust: exact !important; 
@@ -1770,78 +1779,45 @@ else:
                         # Carrega a imagem nativa em qualidade máxima
                         bytes_data = img_answer_scan.getvalue()
                         np_img = np.frombuffer(bytes_data, dtype=np.uint8)
-                        img_color = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
-                        img_gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
-                        h_orig, w_orig = img_gray.shape[:2]
+                        img_alinhada = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
+                        h_orig, w_orig = img_alinhada.shape[:2]
 
-                        st.success("🖼️ Analisando Imagem em Escala de Cinza:")
-                        # Mostra a imagem em escala de cinza para feedback visual
-                        st.image(img_gray, channels="GRAY", caption="Gabarito compacto detectado (Escala de Cinza).")
+                        # Tratamento de alta definição para destacar as marcas de caneta
+                        cinza = cv2.cvtColor(img_alinhada, cv2.COLOR_BGR2GRAY)
+                        blur = cv2.medianBlur(cinza, 3)
+                        thresh_final = cv2.adaptiveThreshold(
+                            blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 19, 9
+                        )
+
+                        st.success("🖼️ Analisando Imagem em Alta Resolução (Sem distorções):")
+                        st.image(img_alinhada, channels="BGR", caption="Gabarito compacto detectado.")
 
                         # COORDENADAS RECALIBRADAS: Como o quadrado agora é justo e compacto,
                         # as alternativas ficam mais concentradas no centro perfeito da foto vertical
-                        opcoes_x = [int(w_orig * 0.42), int(w_orig * 0.48), int(w_orig * 0.54), int(w_orig * 0.60)]
-                        linhas_y = [int(h_orig * 0.45), int(h_orig * 0.52), int(h_orig * 0.59), int(h_orig * 0.66), int(h_orig * 0.73)]
+                        opcoes_x = [int(w_orig * 0.41), int(w_orig * 0.47), int(w_orig * 0.53), int(w_orig * 0.59)]
+                        linhas_y = [int(h_orig * 0.36), int(h_orig * 0.43), int(h_orig * 0.50), int(h_orig * 0.57), int(h_orig * 0.64)]
                         letras = ['A', 'B', 'C', 'D']
 
                         respostas_aluno = {}
                         raio_bolinha = int(w_orig * 0.022)
-                        
-                        # Limiar de diferença de intensidade para considerar uma bolha "marcada"
-                        # Este valor pode precisar de ajuste dependendo da qualidade da foto e da caneta.
-                        # Uma diferença de 30-50 unidades de cinza (0-255) é geralmente perceptível.
-                        intensity_difference_threshold = 40 
-
-                        # Para feedback visual, desenha círculos na imagem original
-                        img_feedback = img_color.copy()
 
                         for i in range(min(total_questoes, 5)):
                             questao_num = i + 1
                             y = linhas_y[i]
-                            
-                            bubble_intensities = [] # Para armazenar a intensidade média de A, B, C, D
-                            
-                            for j, x in enumerate(opcoes_x):
-                                mask = np.zeros(img_gray.shape, dtype=np.uint8)
-                                cv2.circle(mask, (x, y), raio_bolinha, 255, -1)
-                                
-                                # Calcula a intensidade média na região mascarada
-                                mean_val = cv2.mean(img_gray, mask=mask)[0]
-                                bubble_intensities.append(mean_val)
-                            
                             marcada = None
-                            if bubble_intensities:
-                                # Encontra a bolha mais escura (menor intensidade média)
-                                min_intensity = min(bubble_intensities)
-                                min_intensity_index = bubble_intensities.index(min_intensity)
-                                
-                                # Verifica se esta bolha mais escura é significativamente mais escura que as outras
-                                is_clearly_marked = True
-                                for k, intensity in enumerate(bubble_intensities):
-                                    if k != min_intensity_index:
-                                        # Se qualquer outra bolha estiver muito próxima em intensidade, não é claramente marcada
-                                        if (intensity - min_intensity) < intensity_difference_threshold:
-                                            is_clearly_marked = False
-                                            break
-                                
-                                if is_clearly_marked:
-                                    marcada = letras[min_intensity_index]
+                            max_pixels = 0
                             
-                            respostas_aluno[questao_num] = marcada # None se não marcada
-                            
-                            # Desenha feedback visual na imagem
                             for j, x in enumerate(opcoes_x):
-                                color = (0, 255, 0) # Verde para não marcada
-                                thickness = 1
+                                mascara_bolinha = np.zeros(thresh_final.shape, dtype=np.uint8)
+                                cv2.circle(mascara_bolinha, (x, y), raio_bolinha, 255, -1)
                                 
-                                if marcada == letras[j]:
-                                    color = (0, 0, 255) # Vermelho para marcada
-                                    thickness = 2
+                                pixel_count = cv2.countNonZero(cv2.bitwise_and(thresh_final, thresh_final, mask=mascara_bolinha))
                                 
-                                cv2.circle(img_feedback, (x, y), raio_bolinha, color, thickness)
-                        
-                        # Mostra a imagem com os círculos de feedback
-                        st.image(img_feedback, channels="BGR", caption="Gabarito com respostas detectadas (Feedback Visual).")
+                                if pixel_count > (raio_bolinha * 11) and pixel_count > max_pixels:
+                                    max_pixels = pixel_count
+                                    marcada = letras[j]
+                            
+                            respostas_aluno[questao_num] = marcada if marcada else ""
 
                         st.session_state.respostas_aluno_simuladas = respostas_aluno
                         
@@ -2748,4 +2724,3 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
