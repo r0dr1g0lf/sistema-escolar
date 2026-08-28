@@ -7,6 +7,7 @@ import time
 import io
 import pytz
 import json # Adicionado para corrigir NameError
+import base64 # Adicionado para corrigir NameError
 
 # Configuração do fuso horário correto de Roraima
 fuso_roraima = pytz.timezone('America/Boa_Vista')
