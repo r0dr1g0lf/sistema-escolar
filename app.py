@@ -1079,6 +1079,13 @@ else:
                             valor_questao = st.number_input(f"Valor (Pts):", min_value=0.0, max_value=float(nota_maxima), value=float(valor_sugerido), step=0.1, key=f"valor_av_{i}")
                         
                         soma_valores_atual += valor_questao
+
+                        uploaded_image = st.file_uploader(f"Upload de Imagem para Questão {i+1} (Opcional):", type=["png", "jpg", "jpeg"], key=f"image_av_{i}")
+                        image_base64 = None
+                        if uploaded_image is not None:
+                            image_bytes = uploaded_image.getvalue()
+                            image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+                            st.image(uploaded_image, caption=f"Pré-visualização da Imagem da Questão {i+1}", width=200)
                         
                         col_alt_esq, col_alt_dir = st.columns(2)
                         with col_alt_esq:
@@ -1097,7 +1104,8 @@ else:
                             "A": alt_a,
                             "B": alt_b,
                             "C": alt_c,
-                            "D": alt_d
+                            "D": alt_d,
+                            "imagem": image_base64
                         })
                 
                 st.markdown("---")
@@ -2707,4 +2715,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
