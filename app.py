@@ -1175,10 +1175,15 @@ else:
                         html_gabarito_professor = ""
                         
                         for q in questoes_dados:
+                            image_html = ""
+                            if q['imagem']:
+                                image_html = f'<img src="data:image/png;base64,{q["imagem"]}" style="max-width:100%; height:auto; margin:10px 0;">'
+
                             html_questoes += f"""
                             <div class="question-block">
                                 <p class="question-title"><b>Questão {q['numero']} ({q['valor']:.2f} pts)</b></p>
                                 <p class="enunciado">{q['enunciado']}</p>
+                                {image_html}
                                 <div class="alternatives">
                                     <p><b>A)</b> {q['A']}</p>
                                     <p><b>B)</b> {q['B']}</p>
@@ -2723,6 +2728,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
