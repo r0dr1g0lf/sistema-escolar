@@ -1045,7 +1045,7 @@ else:
             nome_professor_cabecalho = st.session_state.get('username', 'Administrador')
 
         st.title("📝 Sistema de Gestão de Avaliações")
-        aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Visualizar", "Correção", "Histórico de Notas"], horizontal=True)
+        aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Visualizar", "Histórico de Notas"], horizontal=True)
         st.markdown("---")
         
         if aba_av_escolhida == "Criar":
@@ -2707,3 +2707,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
