@@ -1148,6 +1148,13 @@ else:
                         st.session_state['disciplina_ativa'] = disciplina_sel_av
 
                         # Prepara os dados para salvar na planilha
+                        # Cria uma cópia dos dados das questões e remove as imagens para salvar no Sheets
+                        import copy
+                        questoes_dados_sem_imagem = copy.deepcopy(questoes_dados)
+                        for q_data in questoes_dados_sem_imagem:
+                            if 'imagem' in q_data:
+                                del q_data['imagem']
+
                         new_row_data = [
                             str(id_prova_gerado),
                             disciplina_sel_av,
@@ -1157,7 +1164,7 @@ else:
                             float(nota_maxima),
                             datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
                             json.dumps(st.session_state['gabarito_oficial']),
-                            json.dumps(questoes_dados)
+                            json.dumps(questoes_dados_sem_imagem)
                         ]
                         
                         # Salva os dados na planilha
@@ -2716,6 +2723,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
