@@ -1081,8 +1081,6 @@ else:
                         
                         soma_valores_atual += valor_questao
 
-import io
-from PIL import Image
                         uploaded_image = st.file_uploader(f"Upload de Imagem para Questão {i+1} (Opcional):", type=["png", "jpg", "jpeg"], key=f"image_av_{i}")
                         image_base64 = None
                         if uploaded_image is not None:
@@ -2746,6 +2744,8 @@ from PIL import Image
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
