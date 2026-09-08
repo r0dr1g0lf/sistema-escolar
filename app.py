@@ -7,8 +7,6 @@ import time
 import io
 import pytz
 import json # Adicionado para corrigir NameError
-import base64
-from PIL import Image # Adicionado para manipulação de imagens
 
 # Configuração do fuso horário correto de Roraima
 fuso_roraima = pytz.timezone('America/Boa_Vista')
@@ -1047,7 +1045,7 @@ else:
             nome_professor_cabecalho = st.session_state.get('username', 'Administrador')
 
         st.title("📝 Sistema de Gestão de Avaliações")
-        aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Visualizar", "Histórico de Notas"], horizontal=True)
+        aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Visualizar", "Correção", "Histórico de Notas"], horizontal=True)
         st.markdown("---")
         
         if aba_av_escolhida == "Criar":
@@ -1081,29 +1079,6 @@ else:
                             valor_questao = st.number_input(f"Valor (Pts):", min_value=0.0, max_value=float(nota_maxima), value=float(valor_sugerido), step=0.1, key=f"valor_av_{i}")
                         
                         soma_valores_atual += valor_questao
-
-                        uploaded_image = st.file_uploader(f"Upload de Imagem para Questão {i+1} (Opcional):", type=["png", "jpg", "jpeg"], key=f"image_av_{i}")
-                        image_base64 = None
-                        if uploaded_image is not None:
-                            # Read image bytes
-                            image_bytes = uploaded_image.getvalue()
-                            
-                            # Resize image to max 400px width
-                            img_pil = Image.open(io.BytesIO(image_bytes))
-                            max_width = 400
-                            if img_pil.width > max_width:
-                                ratio = max_width / img_pil.width
-                                new_height = int(img_pil.height * ratio)
-                                img_pil = img_pil.resize((max_width, new_height), Image.LANCZOS)
-                            
-                            # Save resized image to bytes (as PNG for better compatibility with Base64 in HTML)
-                            buffered = io.BytesIO()
-                            img_pil.save(buffered, format="PNG")
-                            resized_image_bytes = buffered.getvalue()
-
-                            # Encode to Base64
-                            image_base64 = base64.b64encode(resized_image_bytes).decode('utf-8')
-                            st.image(uploaded_image, caption=f"Pré-visualização da Imagem da Questão {i+1}", width=200)
                         
                         col_alt_esq, col_alt_dir = st.columns(2)
                         with col_alt_esq:
@@ -1122,8 +1097,7 @@ else:
                             "A": alt_a,
                             "B": alt_b,
                             "C": alt_c,
-                            "D": alt_d,
-                            "imagem": image_base64 # Keep the image_base64 here
+                            "D": alt_d
                         })
                 
                 st.markdown("---")
@@ -1165,8 +1139,6 @@ else:
                         st.session_state['disciplina_ativa'] = disciplina_sel_av
 
                         # Prepara os dados para salvar na planilha
-                        # 'questoes_dados' já contém a string Base64 da imagem redimensionada.
-                        # Não é necessário remover a imagem, pois a instrução pede para armazená-la.
                         new_row_data = [
                             str(id_prova_gerado),
                             disciplina_sel_av,
@@ -1176,7 +1148,7 @@ else:
                             float(nota_maxima),
                             datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
                             json.dumps(st.session_state['gabarito_oficial']),
-                            json.dumps(questoes_dados) # Use questoes_dados diretamente, que agora inclui a imagem
+                            json.dumps(questoes_dados)
                         ]
                         
                         # Salva os dados na planilha
@@ -1187,15 +1159,10 @@ else:
                         html_gabarito_professor = ""
                         
                         for q in questoes_dados:
-                            image_html = ""
-                            if q['imagem']:
-                                image_html = f'<img src="data:image/png;base64,{q["imagem"]}" style="max-width:100%; height:auto; margin:10px 0;">'
-
                             html_questoes += f"""
                             <div class="question-block">
                                 <p class="question-title"><b>Questão {q['numero']} ({q['valor']:.2f} pts)</b></p>
                                 <p class="enunciado">{q['enunciado']}</p>
-                                {image_html}
                                 <div class="alternatives">
                                     <p><b>A)</b> {q['A']}</p>
                                     <p><b>B)</b> {q['B']}</p>
@@ -1400,15 +1367,10 @@ else:
                         html_gabarito_professor_visualizar = ""
                         
                         for q in questoes_dados_visualizar:
-                            image_html_visualizar = ""
-                            if q.get('imagem'): # Check if 'imagem' key exists and has a value
-                                image_html_visualizar = f'<img src="data:image/png;base64,{q["imagem"]}" style="max-width:100%; height:auto; margin:10px 0;">'
-
                             html_questoes_visualizar += f"""
                             <div class="question-block">
                                 <p class="question-title"><b>Questão {q['numero']} ({q['valor']:.2f} pts)</b></p>
                                 <p class="enunciado">{q['enunciado']}</p>
-                                {image_html_visualizar} <!-- Inject the image here -->
                                 <div class="alternatives">
                                     <p><b>A)</b> {q['A']}</p>
                                     <p><b>B)</b> {q['B']}</p>
@@ -2745,18 +2707,3 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
