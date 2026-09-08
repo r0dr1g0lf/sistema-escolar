@@ -111,8 +111,6 @@ try:
 except Exception as e:
     st.error(f"Erro ao carregar dados: {e}")
     st.info("Dica: Verifique se a planilha foi compartilhada como EDITOR com o e-mail da conta de serviço e se as abas têm os nomes corretos.")
-    st.cache_data.clear() # Limpa o cache para tentar recarregar os dados
-    st.rerun() # Reinicia o aplicativo para tentar novamente
     st.stop()
 
 if 'pagina' not in st.session_state:
@@ -1780,14 +1778,26 @@ else:
                         # COORDENADAS RECALIBRADAS: Como o quadrado agora é justo e compacto,
                         # as alternativas ficam mais concentradas no centro perfeito da foto vertical
                         opcoes_x = [int(w_orig * 0.41), int(w_orig * 0.47), int(w_orig * 0.53), int(w_orig * 0.59)]
-                        linhas_y = [int(h_orig * 0.36), int(h_orig * 0.43), int(h_orig * 0.50), int(h_orig * 0.57), int(h_orig * 0.64)]
+                        
+                        # Gerar linhas_y dinamicamente para suportar até total_questoes
+                        start_y_ratio = 0.36
+                        spacing_y_ratio = 0.07 # Baseado na diferença entre os valores originais
+                        linhas_y = [int(h_orig * (start_y_ratio + i * spacing_y_ratio)) for i in range(total_questoes)]
+                        
                         letras = ['A', 'B', 'C', 'D']
 
                         respostas_aluno = {}
                         raio_bolinha = int(w_orig * 0.022)
 
-                        for i in range(min(total_questoes, 5)):
+                        for i in range(total_questoes): # Loop por todas as questões
                             questao_num = i + 1
+                            
+                            # Verifica se a linha_y para esta questão existe, caso contrário, pula (segurança)
+                            if i >= len(linhas_y):
+                                st.warning(f"Aviso: Coordenada Y para a questão {questao_num} não calculada. Pulando.")
+                                respostas_aluno[questao_num] = None # Marca como não respondida
+                                continue
+
                             y = linhas_y[i]
                             marcada = None
                             max_pixels = 0
@@ -1798,7 +1808,9 @@ else:
                                 
                                 pixel_count = cv2.countNonZero(cv2.bitwise_and(thresh_final, thresh_final, mask=mascara_bolinha))
                                 
-                                if pixel_count > (raio_bolinha * 11) and pixel_count > max_pixels:
+                                # Ajuste do threshold de detecção de pixels para ser mais robusto
+                                # O valor 11 * raio_bolinha é um bom ponto de partida, mas pode ser ajustado
+                                if pixel_count > (raio_bolinha * 10) and pixel_count > max_pixels: # Ajustado para 10
                                     max_pixels = pixel_count
                                     marcada = letras[j]
                             
