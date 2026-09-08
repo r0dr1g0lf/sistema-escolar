@@ -1575,44 +1575,13 @@ else:
                 st.info("ℹ️ A visualização e gerenciamento de avaliações criadas é uma funcionalidade exclusiva para administradores.")
 
             # --- SUB-ABA: CORREÇÃO DE AVALIAÇÕES ---
-        elif aba_av_escolhida == "Correção":
-            # Initialize session state for correction flow if not already set
+        if aba_av_escolhida == "Correção":
             if 'correcao_step' not in st.session_state:
-                st.session_state.correcao_step = "scan_id" # Default to scanning ID
-            if 'selected_turma_av' not in st.session_state:
-                st.session_state.selected_turma_av = None
-            if 'selected_aluno_av' not in st.session_state:
-                st.session_state.selected_aluno_av = None
-            if 'id_prova_scanned' not in st.session_state:
-                st.session_state.id_prova_scanned = None
-            if 'prova_data' not in st.session_state:
-                st.session_state.prova_data = None
-            if 'respostas_aluno_simuladas' not in st.session_state:
-                st.session_state.respostas_aluno_simuladas = None
-            if 'nota_obtida' not in st.session_state:
-                st.session_state.nota_obtida = None
-            if 'detalhes_respostas' not in st.session_state:
-                st.session_state.detalhes_respostas = None
-
-            # Helper function to reset correction state
-            def reset_correcao_state():
-                st.session_state.correcao_step = "scan_id" # Reset to ID scanning for the current student
-                st.session_state.id_prova_scanned = None
-                st.session_state.prova_data = None
-                st.session_state.respostas_aluno_simuladas = None
-                st.session_state.nota_obtida = None
-                st.session_state.detalhes_respostas = None
+                st.session_state.correcao_step = "scan_id"
 
             st.subheader("📸 Leitura Automatizada e Correção por ID")
-            st.write("Este módulo permite a correção de avaliações em duas etapas: primeiro a identificação da prova, depois a leitura das respostas do aluno.")
             
-            # Lógica para carregar turmas e alunos (sempre visível)
-            if st.session_state.get('is_master_admin', False):
-                todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str))
-            else:
-                turmas_vinc_av = str(st.session_state.user_data.get('Turmas', "")).split(", ")
-                todas_turmas_av = sorted([t.strip() for t in turmas_vinc_av if t.strip()])
-                
+            todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str)) if st.session_state.get('is_master_admin', False) else sorted([t.strip() for t in str(st.session_state.user_data.get('Disciplinas', "")).split(", ") if t.strip()])
             col_av_t1, col_av_t2 = st.columns([1, 4])
             with col_av_t1:
                 turma_sel_av = st.selectbox("1. Turma do Aluno", todas_turmas_av, key="turma_aluno_av_correcao")
@@ -1620,65 +1589,11 @@ else:
                 alunos_da_turma_av = df_alunos[df_alunos['Turma'].astype(str) == turma_sel_av]['Nome_Aluno'].tolist()
                 aluno_sel_av = st.selectbox("2. Aluno", sorted(alunos_da_turma_av), key="aluno_av_correcao")
 
-            # Check for changes in student/turma selection and reset state if needed
-            # This ensures that if a new student is selected, the process restarts from ID scan.
-            if turma_sel_av != st.session_state.selected_turma_av or aluno_sel_av != st.session_state.selected_aluno_av:
-                st.session_state.selected_turma_av = turma_sel_av
-                st.session_state.selected_aluno_av = aluno_sel_av
-                reset_correcao_state() # Reset everything related to the exam, but keep student selected
-                st.rerun() # Rerun to update UI based on new student selection
-
             st.markdown("---")
 
-            # Funções de simulação para demonstração (substituir por lógica OpenCV real)
-            def simular_respostas_aluno(num_questoes):
-                import random
-                opcoes = ["A", "B", "C", "D"]
-                respostas = {}
-                for i in range(1, num_questoes + 1):
-                    # Simula algumas respostas corretas, algumas erradas, algumas em branco
-                    if random.random() < 0.7:
-                        respostas[i] = random.choice(opcoes)
-                    else:
-                        respostas[i] = None
-                return respostas
-
-            def calcular_nota(gabarito_oficial, pesos_questoes, respostas_aluno):
-                nota_obtida = 0.0
-                respostas_detalhadas = {}
-                for q_num, resposta_correta in gabarito_oficial.items():
-                    peso = pesos_questoes.get(str(q_num), 0.0) # Ensure key is string for dict lookup
-                    resposta_aluno = respostas_aluno.get(q_num)
-                    
-                    if resposta_aluno == resposta_correta:
-                        nota_obtida += peso
-                        status = "Correta"
-                    elif resposta_aluno is None:
-                        status = "Em Branco"
-                    else:
-                        status = "Incorreta"
-                    
-                    respostas_detalhadas[q_num] = {
-                        "Resposta Aluno": resposta_aluno,
-                        "Resposta Correta": resposta_correta,
-                        "Status": status,
-                        "Pontos": peso if status == "Correta" else 0.0
-                    }
-                return nota_obtida, respostas_detalhadas
-            
-            # Main correction flow based on session state step
-            if not st.session_state.selected_aluno_av or not st.session_state.selected_turma_av:
-                st.info("⚠️ Por favor, selecione a Turma e o Aluno para iniciar a correção.")
-            elif st.session_state.correcao_step == "scan_id":
+            if st.session_state.correcao_step == "scan_id":
                 st.subheader("Passo 1: Identificar Avaliação (ID da Prova)")
-                st.write(f"Aluno: **{st.session_state.selected_aluno_av}** | Turma: **{st.session_state.selected_turma_av}**")
-                
                 id_manual_input = st.text_input("🔢 Digite o ID da Avaliação (ou use a câmera abaixo):", key="id_prova_manual_input", placeholder="Ex: 1001")
-
-                # Inicializa a variável para o sistema não quebrar
-                scanned_id_from_camera = None
-
-                # Abre a câmera oficial do Streamlit (garante que o botão de tirar foto funcione)
                 foto_registro = st.camera_input("Tire a foto do código de barras da prova")
 
                 if foto_registro is not None:
@@ -1778,26 +1693,14 @@ else:
                         # COORDENADAS RECALIBRADAS: Como o quadrado agora é justo e compacto,
                         # as alternativas ficam mais concentradas no centro perfeito da foto vertical
                         opcoes_x = [int(w_orig * 0.41), int(w_orig * 0.47), int(w_orig * 0.53), int(w_orig * 0.59)]
-                        
-                        # Gerar linhas_y dinamicamente para suportar até total_questoes
-                        start_y_ratio = 0.36
-                        spacing_y_ratio = 0.07 # Baseado na diferença entre os valores originais
-                        linhas_y = [int(h_orig * (start_y_ratio + i * spacing_y_ratio)) for i in range(total_questoes)]
-                        
+                        linhas_y = [int(h_orig * 0.36), int(h_orig * 0.43), int(h_orig * 0.50), int(h_orig * 0.57), int(h_orig * 0.64)]
                         letras = ['A', 'B', 'C', 'D']
 
                         respostas_aluno = {}
                         raio_bolinha = int(w_orig * 0.022)
 
-                        for i in range(total_questoes): # Loop por todas as questões
+                        for i in range(min(total_questoes, 5)):
                             questao_num = i + 1
-                            
-                            # Verifica se a linha_y para esta questão existe, caso contrário, pula (segurança)
-                            if i >= len(linhas_y):
-                                st.warning(f"Aviso: Coordenada Y para a questão {questao_num} não calculada. Pulando.")
-                                respostas_aluno[questao_num] = None # Marca como não respondida
-                                continue
-
                             y = linhas_y[i]
                             marcada = None
                             max_pixels = 0
@@ -1808,9 +1711,7 @@ else:
                                 
                                 pixel_count = cv2.countNonZero(cv2.bitwise_and(thresh_final, thresh_final, mask=mascara_bolinha))
                                 
-                                # Ajuste do threshold de detecção de pixels para ser mais robusto
-                                # O valor 11 * raio_bolinha é um bom ponto de partida, mas pode ser ajustado
-                                if pixel_count > (raio_bolinha * 10) and pixel_count > max_pixels: # Ajustado para 10
+                                if pixel_count > (raio_bolinha * 11) and pixel_count > max_pixels:
                                     max_pixels = pixel_count
                                     marcada = letras[j]
                             
