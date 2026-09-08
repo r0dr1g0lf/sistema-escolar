@@ -7,6 +7,7 @@ import time
 import io
 import pytz
 import json # Adicionado para corrigir NameError
+import base64
 
 # Configuração do fuso horário correto de Roraima
 fuso_roraima = pytz.timezone('America/Boa_Vista')
@@ -1045,7 +1046,7 @@ else:
             nome_professor_cabecalho = st.session_state.get('username', 'Administrador')
 
         st.title("📝 Sistema de Gestão de Avaliações")
-        aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Visualizar", "Correção", "Histórico de Notas"], horizontal=True)
+        aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Visualizar", "Histórico de Notas"], horizontal=True)
         st.markdown("---")
         
         if aba_av_escolhida == "Criar":
@@ -1079,6 +1080,13 @@ else:
                             valor_questao = st.number_input(f"Valor (Pts):", min_value=0.0, max_value=float(nota_maxima), value=float(valor_sugerido), step=0.1, key=f"valor_av_{i}")
                         
                         soma_valores_atual += valor_questao
+
+                        uploaded_image = st.file_uploader(f"Upload de Imagem para Questão {i+1} (Opcional):", type=["png", "jpg", "jpeg"], key=f"image_av_{i}")
+                        image_base64 = None
+                        if uploaded_image is not None:
+                            image_bytes = uploaded_image.getvalue()
+                            image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+                            st.image(uploaded_image, caption=f"Pré-visualização da Imagem da Questão {i+1}", width=200)
                         
                         col_alt_esq, col_alt_dir = st.columns(2)
                         with col_alt_esq:
@@ -1097,7 +1105,8 @@ else:
                             "A": alt_a,
                             "B": alt_b,
                             "C": alt_c,
-                            "D": alt_d
+                            "D": alt_d,
+                            "imagem": image_base64
                         })
                 
                 st.markdown("---")
@@ -1139,6 +1148,13 @@ else:
                         st.session_state['disciplina_ativa'] = disciplina_sel_av
 
                         # Prepara os dados para salvar na planilha
+                        # Cria uma cópia dos dados das questões e remove as imagens para salvar no Sheets
+                        import copy
+                        questoes_dados_sem_imagem = copy.deepcopy(questoes_dados)
+                        for q_data in questoes_dados_sem_imagem:
+                            if 'imagem' in q_data:
+                                del q_data['imagem']
+
                         new_row_data = [
                             str(id_prova_gerado),
                             disciplina_sel_av,
@@ -1148,7 +1164,7 @@ else:
                             float(nota_maxima),
                             datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
                             json.dumps(st.session_state['gabarito_oficial']),
-                            json.dumps(questoes_dados)
+                            json.dumps(questoes_dados_sem_imagem)
                         ]
                         
                         # Salva os dados na planilha
@@ -1159,10 +1175,15 @@ else:
                         html_gabarito_professor = ""
                         
                         for q in questoes_dados:
+                            image_html = ""
+                            if q['imagem']:
+                                image_html = f'<img src="data:image/png;base64,{q["imagem"]}" style="max-width:100%; height:auto; margin:10px 0;">'
+
                             html_questoes += f"""
                             <div class="question-block">
                                 <p class="question-title"><b>Questão {q['numero']} ({q['valor']:.2f} pts)</b></p>
                                 <p class="enunciado">{q['enunciado']}</p>
+                                {image_html}
                                 <div class="alternatives">
                                     <p><b>A)</b> {q['A']}</p>
                                     <p><b>B)</b> {q['B']}</p>
@@ -1575,13 +1596,44 @@ else:
                 st.info("ℹ️ A visualização e gerenciamento de avaliações criadas é uma funcionalidade exclusiva para administradores.")
 
             # --- SUB-ABA: CORREÇÃO DE AVALIAÇÕES ---
-        if aba_av_escolhida == "Correção":
+        elif aba_av_escolhida == "Correção":
+            # Initialize session state for correction flow if not already set
             if 'correcao_step' not in st.session_state:
-                st.session_state.correcao_step = "scan_id"
+                st.session_state.correcao_step = "scan_id" # Default to scanning ID
+            if 'selected_turma_av' not in st.session_state:
+                st.session_state.selected_turma_av = None
+            if 'selected_aluno_av' not in st.session_state:
+                st.session_state.selected_aluno_av = None
+            if 'id_prova_scanned' not in st.session_state:
+                st.session_state.id_prova_scanned = None
+            if 'prova_data' not in st.session_state:
+                st.session_state.prova_data = None
+            if 'respostas_aluno_simuladas' not in st.session_state:
+                st.session_state.respostas_aluno_simuladas = None
+            if 'nota_obtida' not in st.session_state:
+                st.session_state.nota_obtida = None
+            if 'detalhes_respostas' not in st.session_state:
+                st.session_state.detalhes_respostas = None
+
+            # Helper function to reset correction state
+            def reset_correcao_state():
+                st.session_state.correcao_step = "scan_id" # Reset to ID scanning for the current student
+                st.session_state.id_prova_scanned = None
+                st.session_state.prova_data = None
+                st.session_state.respostas_aluno_simuladas = None
+                st.session_state.nota_obtida = None
+                st.session_state.detalhes_respostas = None
 
             st.subheader("📸 Leitura Automatizada e Correção por ID")
+            st.write("Este módulo permite a correção de avaliações em duas etapas: primeiro a identificação da prova, depois a leitura das respostas do aluno.")
             
-            todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str)) if st.session_state.get('is_master_admin', False) else sorted([t.strip() for t in str(st.session_state.user_data.get('Disciplinas', "")).split(", ") if t.strip()])
+            # Lógica para carregar turmas e alunos (sempre visível)
+            if st.session_state.get('is_master_admin', False):
+                todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str))
+            else:
+                turmas_vinc_av = str(st.session_state.user_data.get('Turmas', "")).split(", ")
+                todas_turmas_av = sorted([t.strip() for t in turmas_vinc_av if t.strip()])
+                
             col_av_t1, col_av_t2 = st.columns([1, 4])
             with col_av_t1:
                 turma_sel_av = st.selectbox("1. Turma do Aluno", todas_turmas_av, key="turma_aluno_av_correcao")
@@ -1589,11 +1641,65 @@ else:
                 alunos_da_turma_av = df_alunos[df_alunos['Turma'].astype(str) == turma_sel_av]['Nome_Aluno'].tolist()
                 aluno_sel_av = st.selectbox("2. Aluno", sorted(alunos_da_turma_av), key="aluno_av_correcao")
 
+            # Check for changes in student/turma selection and reset state if needed
+            # This ensures that if a new student is selected, the process restarts from ID scan.
+            if turma_sel_av != st.session_state.selected_turma_av or aluno_sel_av != st.session_state.selected_aluno_av:
+                st.session_state.selected_turma_av = turma_sel_av
+                st.session_state.selected_aluno_av = aluno_sel_av
+                reset_correcao_state() # Reset everything related to the exam, but keep student selected
+                st.rerun() # Rerun to update UI based on new student selection
+
             st.markdown("---")
 
-            if st.session_state.correcao_step == "scan_id":
+            # Funções de simulação para demonstração (substituir por lógica OpenCV real)
+            def simular_respostas_aluno(num_questoes):
+                import random
+                opcoes = ["A", "B", "C", "D"]
+                respostas = {}
+                for i in range(1, num_questoes + 1):
+                    # Simula algumas respostas corretas, algumas erradas, algumas em branco
+                    if random.random() < 0.7:
+                        respostas[i] = random.choice(opcoes)
+                    else:
+                        respostas[i] = None
+                return respostas
+
+            def calcular_nota(gabarito_oficial, pesos_questoes, respostas_aluno):
+                nota_obtida = 0.0
+                respostas_detalhadas = {}
+                for q_num, resposta_correta in gabarito_oficial.items():
+                    peso = pesos_questoes.get(str(q_num), 0.0) # Ensure key is string for dict lookup
+                    resposta_aluno = respostas_aluno.get(q_num)
+                    
+                    if resposta_aluno == resposta_correta:
+                        nota_obtida += peso
+                        status = "Correta"
+                    elif resposta_aluno is None:
+                        status = "Em Branco"
+                    else:
+                        status = "Incorreta"
+                    
+                    respostas_detalhadas[q_num] = {
+                        "Resposta Aluno": resposta_aluno,
+                        "Resposta Correta": resposta_correta,
+                        "Status": status,
+                        "Pontos": peso if status == "Correta" else 0.0
+                    }
+                return nota_obtida, respostas_detalhadas
+            
+            # Main correction flow based on session state step
+            if not st.session_state.selected_aluno_av or not st.session_state.selected_turma_av:
+                st.info("⚠️ Por favor, selecione a Turma e o Aluno para iniciar a correção.")
+            elif st.session_state.correcao_step == "scan_id":
                 st.subheader("Passo 1: Identificar Avaliação (ID da Prova)")
+                st.write(f"Aluno: **{st.session_state.selected_aluno_av}** | Turma: **{st.session_state.selected_turma_av}**")
+                
                 id_manual_input = st.text_input("🔢 Digite o ID da Avaliação (ou use a câmera abaixo):", key="id_prova_manual_input", placeholder="Ex: 1001")
+
+                # Inicializa a variável para o sistema não quebrar
+                scanned_id_from_camera = None
+
+                # Abre a câmera oficial do Streamlit (garante que o botão de tirar foto funcione)
                 foto_registro = st.camera_input("Tire a foto do código de barras da prova")
 
                 if foto_registro is not None:
@@ -2622,4 +2728,3 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
