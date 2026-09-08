@@ -6,8 +6,6 @@ from google.oauth2.service_account import Credentials
 import time
 import io
 import pytz
-import json # Adicionado para corrigir NameError
-import base64
 
 # Configuração do fuso horário correto de Roraima
 fuso_roraima = pytz.timezone('America/Boa_Vista')
@@ -208,21 +206,14 @@ else:
         st.session_state.pagina = "Registro"
         st.rerun()
 
-    is_soe = "SOE" in str(st.session_state.user_data.get('Disciplinas', ""))
-
     if st.sidebar.button("Ocorrências", key="btn_ocorrencias_nav", use_container_width=True):
         st.session_state.pagina = "Ocorrencias"
         st.rerun()
 
-    if not is_soe: # Esconde para usuários SOE
-        if st.sidebar.button("Avaliações", key="btn_avaliacoes_nav", use_container_width=True):
-            st.session_state.pagina = "Avaliações"
-            st.rerun()
-
-        # NOVO LOCAL: Botão posicionado logo abaixo de Ocorrências
-        if st.sidebar.button('📅 Agendar Equipamentos', key="btn_agendar_equipamentos_nav", use_container_width=True):
-            st.session_state.pagina = 'Agendamento de Equipamentos'
-            st.rerun()
+    # NOVO LOCAL: Botão posicionado logo abaixo de Ocorrências
+    if st.sidebar.button('📅 Agendar Equipamentos', key="btn_agendar_equipamentos_nav", use_container_width=True):
+        st.session_state.pagina = 'Agendamento de Equipamentos'
+        st.rerun()
 
     # All logged-in users can see "Segurança" to change their own password
     if st.sidebar.button("Segurança", key="btn_seguranca", use_container_width=True):
@@ -246,19 +237,17 @@ else:
         st.session_state.pagina = "Registro"
         st.rerun()
 
+    is_soe = "SOE" in str(st.session_state.user_data.get('Disciplinas', ""))
+
     pagina_atual = st.session_state.get("pagina", "Registro")
 
     if pagina_atual == "Registro":
         st.title("📊 Desempenho do Aluno")
         
         # Cria a navegação interna por abas na parte superior da tela
-        opcoes_abas_registro = ["Visualizar registros"] if is_soe else ["Novo registro", "Visualizar registros"]
-        default_index_registro = 0 # Default para a primeira opção disponível
-
         aba_selecionada = st.radio(
             "Selecione a ação desejada:",
-            options=opcoes_abas_registro,
-            index=default_index_registro,
+            ["Novo registro", "Visualizar registros"],
             horizontal=True
         )
         
@@ -507,7 +496,7 @@ else:
                     st.subheader("📝 Editar ou 🗑️ Excluir Registros de Desempenho")
                     
                     if is_soe:
-                        st.info("Usuários SOE não possuem permissão para realizar registros.")
+                        st.info("Usuários SOE não possuem permissão para editar ou excluir registros.")
                     else:
                         col_exc1, col_exc2 = st.columns(2)
                         
@@ -648,7 +637,8 @@ else:
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
         with tab_oc1:
-            # Removido: st.info("Você está logado como SOE. Este módulo é apenas para visualização.")
+            if is_soe:
+                st.info("Você está logado como SOE. Este módulo é apenas para visualização.")
             hoje = data_atual
             bimestres_disponiveis = []
             if not df_periodos.empty:
@@ -696,73 +686,39 @@ else:
                 periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True, key="bim_oc")
                 
                 data_ocorrido = st.date_input("Data do ocorrido", value=data_atual, format="DD/MM/YYYY")
+                tempo_aula = st.selectbox("Tempo de aula", ["1º tempo", "2º tempo", "3º tempo", "4º tempo"])
                 
-                tempos_de_aula_opcoes = ["1º tempo", "2º tempo", "3º tempo", "4º tempo"]
-                
-                if is_soe:
-                    opcoes_ocorrencias = ["Chegada atrasafa", "Saída antecipada", "Outras"]
-                else:
-                    opcoes_ocorrencias = [
-                        "Agrediu o colega verbalmente", 
-                        "Agrediu o colega fisicamente", 
-                        "Agrediu o professor verbalmente", 
-                        "Agrediu o professor fisicamente", 
-                        "Não trouxe o livro",
-                        "Dormiu em sala", 
-                        "Usou o celular em sala", 
-                        "Não fez a tarefa em sala", 
-                        "Não fez a tarefa em casa", 
-                        "Não trouxe o material", 
-                        "Excesso de faltas",
-                        "Outras"
-                    ]
+                opcoes_ocorrencias = [
+                    "Agrediu o colega verbalmente", 
+                    "Agrediu o colega fisicamente", 
+                    "Agrediu o professor verbalmente", 
+                    "Agrediu o professor fisicamente", 
+                    "Não trouxe o livro",
+                    "Dormiu em sala", 
+                    "Usou o celular em sala", 
+                    "Não fez a tarefa em sala", 
+                    "Não fez a tarefa em casa", 
+                    "Não trouxe o material", 
+                    "Excesso de faltas",
+                    "Outras"
+                ]
                 
                 selecao_oc = st.multiselect("Selecione as ocorrências", options=opcoes_ocorrencias)
-                
-                justificativa_selecionada = None
-                disciplinas_envolvidas_soe = []
-                if is_soe:
-                    justificativa_opcoes = ["Problema de saúde", "Consulta médica", "Exame médico", "Transporte/Trânsito", "Problemas familiares", "Situação em casa", "Sem justificativa", "Outras"]
-                    justificativa_selecionada = st.selectbox("Justificativa", options=[""] + justificativa_opcoes, key="justificativa_oc")
-                    
-                    # NOVO: Multiselect para Disciplinas Envolvidas (apenas para SOE)
-                    if not df_discs.empty:
-                        todas_disciplinas_disponiveis = sorted(df_discs['Disciplina'].unique().astype(str))
-                    else:
-                        todas_disciplinas_disponiveis = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida", "SOE"] # Fallback
-                    disciplinas_envolvidas_soe = st.multiselect("Disciplinas Envolvidas", options=todas_disciplinas_disponiveis, key="disciplinas_envolvidas_oc_soe")
-
-                    tempo_aula = st.multiselect("Tempo de aula", options=tempos_de_aula_opcoes, key="tempo_aula_oc_soe")
-                else:
-                    tempo_aula = st.selectbox("Tempo de aula", options=tempos_de_aula_opcoes, key="tempo_aula_oc_prof")
-
                 obs_oc = st.text_area("Observações detalhadas")
                 
-                btn_salvar_oc = st.form_submit_button("GRAVAR OCORRÊNCIA", disabled=(bimestre_ativo == "Bloqueado"))
+                btn_salvar_oc = st.form_submit_button("GRAVAR OCORRÊNCIA", disabled=(bimestre_ativo == "Bloqueado" or is_soe))
 
             if btn_salvar_oc:
-                if not selecao_oc and (not is_soe or (not justificativa_selecionada or justificativa_selecionada == "") and not disciplinas_envolvidas_soe):
-                    st.error("Selecione pelo menos uma ocorrência, ou uma justificativa/disciplina envolvida (para SOE).")
+                if is_soe:
+                    st.error("Usuários SOE não possuem permissão para realizar registros.")
+                elif not selecao_oc:
+                    st.error("Selecione pelo menos uma ocorrência.")
                 else:
                     try:
                         sh = conectar_google_sheets()
                         wks = sh.worksheet("Registros_Ocorrencias")
                         tipo_formatado = ", ".join(selecao_oc)
-                        
-                        # Formata tempo_aula para string, caso seja uma lista
-                        if isinstance(tempo_aula, list):
-                            tempo_aula_str = ", ".join(tempo_aula)
-                        else:
-                            tempo_aula_str = tempo_aula
-
-                        detalhes_extras = f"DATA: {data_ocorrido.strftime('%d/%m/%Y')} | TEMPO: {tempo_aula_str} | {obs_oc}"
-                        
-                        if is_soe:
-                            if justificativa_selecionada and justificativa_selecionada != "":
-                                detalhes_extras += f" | JUSTIFICATIVA: {justificativa_selecionada}"
-                            if disciplinas_envolvidas_soe:
-                                detalhes_extras += f" | DISCIPLINAS ENVOLVIDAS: {', '.join(disciplinas_envolvidas_soe)}"
-
+                        detalhes_extras = f"DATA: {data_ocorrido.strftime('%d/%m/%Y')} | TEMPO: {tempo_aula} | {obs_oc}"
                         nova_linha = [
                             datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
                             prof_nome,
@@ -913,69 +869,74 @@ else:
                         st.divider()
                         st.subheader("📝 Editar ou 🗑️ Excluir Ocorrências")
                         
-                        # Changed: Use is_master_admin for admin check
-                        if st.session_state.get('is_master_admin', False):
-                            df_edit_oc_propria = df_oc_filtrado
+                        if is_soe:
+                            st.info("Usuários SOE não possuem permissão para editar ou excluir registros.")
                         else:
-                            discs_usuario = [d.strip().lower() for d in str(st.session_state.user_data.get('Disciplinas', "")).split(", ") if d.strip()]
-                            df_edit_oc_propria = df_oc_filtrado[df_oc_filtrado[colunas_df[4]].astype(str).str.lower().isin(discs_usuario)]
-                        
-                        if not df_edit_oc_propria.empty:
-                            col_data_oc = colunas_df[0]
-                            opcoes_edit_oc = {f"{row[col_data_oc]} - {row[colunas_df[3]]} ({row[colunas_df[4]]})": row['ID_Original'] for _, row in df_edit_oc_propria.iterrows()}
-                            selecionado_oc_edit = st.selectbox("Selecione a ocorrência para gerenciar (Apenas suas disciplinas)", [""] + list(opcoes_edit_oc.keys()))
+                            # Changed: Use is_master_admin for admin/rodrigo check
+                            if st.session_state.get('is_master_admin', False):
+                                df_edit_oc_propria = df_oc_filtrado
+                            else:
+                                discs_usuario = [d.strip().lower() for d in str(st.session_state.user_data.get('Disciplinas', "")).split(", ") if d.strip()]
+                                df_edit_oc_propria = df_oc_filtrado[df_oc_filtrado[colunas_df[4]].astype(str).str.lower().isin(discs_usuario)]
                             
-                            if selecionado_oc_edit != "":
-                                linha_idx_oc = opcoes_edit_oc[selecionado_oc_edit]
-                                dados_oc_edit = df_edit_oc_propria[df_edit_oc_propria['ID_Original'] == linha_idx_oc].iloc[0]
+                            if not df_edit_oc_propria.empty:
+                                col_data_oc = colunas_df[0]
+                                opcoes_edit_oc = {f"{row[col_data_oc]} - {row[colunas_df[3]]} ({row[colunas_df[4]]})": row['ID_Original'] for _, row in df_edit_oc_propria.iterrows()}
+                                selecionado_oc_edit = st.selectbox("Selecione a ocorrência para gerenciar (Apenas suas disciplinas)", [""] + list(opcoes_edit_oc.keys()))
                                 
-                                with st.form("form_editar_ocorrencia"):
-                                    st.markdown(f"Gerenciando ocorrência de: **{dados_oc_edit[colunas_df[3]]}**")
+                                if selecionado_oc_edit != "":
+                                    linha_idx_oc = opcoes_edit_oc[selecionado_oc_edit]
+                                    dados_oc_edit = df_edit_oc_propria[df_edit_oc_propria['ID_Original'] == linha_idx_oc].iloc[0]
                                     
-                                    texto_oc_atual = str(dados_oc_edit[colunas_df[6]]).replace("OCORRÊNCIA: ", "")
-                                    lista_oc_atual = [i.strip() for i in texto_oc_atual.split(",")]
-                                    
-                                    opcoes_oc_edit = [
-                                        "Agrediu o colega verbalmente", "Agrediu o colega fisicamente", 
-                                        "Agrediu o professor verbalmente", "Agrediu o professor fisicamente", 
-                                        "Não trouxe o livro", "Dormiu em sala", "Usou o celular em sala", 
-                                        "Não fez a tarefa em sala", "Não fez a tarefa em casa", 
-                                        "Não trouxe o material", "Excesso de faltas", "Outras"
-                                    ]
-                                    
-                                    edit_selecao_oc = st.multiselect("Selecione as ocorrências", options=opcoes_oc_edit, default=[i for i in lista_oc_atual if i in opcoes_oc_edit])
-                                    edit_detalhes_oc = st.text_area("Detalhes (Data/Tempo/Obs)", value=dados_oc_edit[colunas_df[7]])
-                                    
-                                    col_at_oc1, col_at_oc2 = st.columns(2)
-                                    with col_at_oc1:
-                                        btn_confirmar_edit_oc = st.form_submit_button("SALVAR ALTERAÇÕES")
-                                    with col_at_oc2:
-                                        btn_confirmar_exc_oc = st.form_submit_button("❌ EXCLUIR OCORRÊNCIA")
+                                    with st.form("form_editar_ocorrencia"):
+                                        st.markdown(f"Gerenciando ocorrência de: **{dados_oc_edit[colunas_df[3]]}**")
                                         
-                                    if btn_confirmar_edit_oc:
-                                        try:
-                                            tipo_formatado_edit_oc = "OCORRÊNCIA: " + ", ".join(edit_selecao_oc)
-                                            wks_reg.update_cell(linha_idx_oc, 7, tipo_formatado_edit_oc)
-                                            wks_reg.update_cell(linha_idx_oc, 8, edit_detalhes_oc)
-                                            st.success("Ocorrência atualizada!")
-                                            time.sleep(2)
-                                            st.rerun()
-                                        except Exception as e:
-                                            st.error(f"Erro ao editar: {e}")
+                                        texto_oc_atual = str(dados_oc_edit[colunas_df[6]]).replace("OCORRÊNCIA: ", "")
+                                        lista_oc_atual = [i.strip() for i in texto_oc_atual.split(",")]
+                                        
+                                        opcoes_oc_edit = [
+                                            "Agrediu o colega verbalmente", "Agrediu o colega fisicamente", 
+                                            "Agrediu o professor verbalmente", "Agrediu o professor fisicamente", 
+                                            "Não trouxe o livro", "Dormiu em sala", "Usou o celular em sala", 
+                                            "Não fez a tarefa em sala", "Não fez a tarefa em casa", 
+                                            "Não trouxe o material", "Excesso de faltas", "Outras"
+                                        ]
+                                        
+                                        edit_selecao_oc = st.multiselect("Selecione as ocorrências", options=opcoes_oc_edit, default=[i for i in lista_oc_atual if i in opcoes_oc_edit])
+                                        edit_detalhes_oc = st.text_area("Detalhes (Data/Tempo/Obs)", value=dados_oc_edit[colunas_df[7]])
+                                        
+                                        col_at_oc1, col_at_oc2 = st.columns(2)
+                                        with col_at_oc1:
+                                            btn_confirmar_edit_oc = st.form_submit_button("SALVAR ALTERAÇÕES")
+                                        with col_at_oc2:
+                                            btn_confirmar_exc_oc = st.form_submit_button("❌ EXCLUIR OCORRÊNCIA")
                                             
-                                    if btn_confirmar_exc_oc:
-                                        try:
-                                            wks_reg.delete_rows(linha_idx_oc)
-                                            st.success("Ocorrência excluída!")
-                                            time.sleep(2)
-                                            st.rerun()
-                                        except Exception as e:
-                                            st.error(f"Erro ao excluir: {e}")
-                        else:
-                            st.info("Nenhuma ocorrência de suas disciplinas disponível para editar ou excluir.")
+                                        if btn_confirmar_edit_oc:
+                                            try:
+                                                tipo_formatado_edit_oc = "OCORRÊNCIA: " + ", ".join(edit_selecao_oc)
+                                                wks_reg.update_cell(linha_idx_oc, 7, tipo_formatado_edit_oc)
+                                                wks_reg.update_cell(linha_idx_oc, 8, edit_detalhes_oc)
+                                                st.success("Ocorrência atualizada!")
+                                                time.sleep(2)
+                                                st.rerun()
+                                            except Exception as e:
+                                                st.error(f"Erro ao editar: {e}")
+                                                
+                                        if btn_confirmar_exc_oc:
+                                            try:
+                                                wks_reg.delete_rows(linha_idx_oc)
+                                                st.success("Ocorrência excluída!")
+                                                time.sleep(2)
+                                                st.rerun()
+                                            except Exception as e:
+                                                st.error(f"Erro ao excluir: {e}")
+                            else:
+                                st.info("Nenhuma ocorrência de suas disciplinas disponível para editar ou excluir.")
 
                     else:
-                        st.info("A planilha de registros está vazia.")
+                        st.info("Nenhuma ocorrência encontrada.")
+                else:
+                    st.info("A planilha de registros está vazia.")
             except Exception as e:
                 st.error(f"Erro ao carregar ocorrências: {e}")
 
@@ -1028,877 +989,7 @@ else:
                         except Exception as e:
                             st.error(f"Erro ao atualizar a senha na planilha: {e}")
 
-    # =========================================================================
-    # MÓDULO INDEPENDENTE: AVALIAÇÕES (COM CAPTURA DE CÂMERA E HISTÓRICO SALVO)
-    # =========================================================================
-    elif pagina_atual == "Avaliações":
-        # Inicializa a lista de histórico global na memória caso não exista
-        if 'historico_correcoes' not in st.session_state:
-            st.session_state['historico_correcoes'] = []
-        # NEW: Initialize print trigger for visualization
-        if 'trigger_print_visualizar' not in st.session_state:
-            st.session_state['trigger_print_visualizar'] = False
-
-        # Captura dinamicamente o nome do professor logado para o cabeçalho
-        if 'user_data' in st.session_state and st.session_state.user_data.get('Professor'):
-            nome_professor_cabecalho = st.session_state.user_data.get('Professor')
-        else:
-            nome_professor_cabecalho = st.session_state.get('username', 'Administrador')
-
-        st.title("📝 Sistema de Gestão de Avaliações")
-        aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Visualizar", "Histórico de Notas"], horizontal=True)
-        st.markdown("---")
-        
-        if aba_av_escolhida == "Criar":
-            if st.session_state.get('is_master_admin', False):
-                st.subheader("✨ Elaborar Nova Avaliação e Gabarito")
-                
-                # For master admin, show all available disciplines
-                disciplinas_av = sorted(df_discs['Disciplina'].unique().astype(str)) if not df_discs.empty else ["Geografia", "História", "Português", "Matemática"]
-                st.info("📚 Como administrador, você pode criar avaliações para qualquer disciplina.")
-                
-                col_cfg1, col_cfg2 = st.columns(2)
-                with col_cfg1:
-                    disciplina_sel_av = st.selectbox("Selecione a Disciplina correspondente", disciplinas_av, key="disciplina_sel_av")
-                    nota_maxima = st.number_input("Defina a Nota Máxima da Avaliação:", min_value=1.0, max_value=100.0, value=10.0, step=0.5)
-                with col_cfg2:
-                    num_questoes = st.number_input("Quantidade Total de Questões:", min_value=1, max_value=20, value=5, step=1)
-                    
-                st.info(f"ℹ️ Configure os valores individuais. A soma deve totalizar exatamente **{nota_maxima:.2f}** pontos.")
-                st.markdown("### 📋 Formulação das Questões")
-                
-                questoes_dados = []
-                soma_valores_atual = 0.0
-                valor_sugerido = round(nota_maxima / int(num_questoes), 2)
-                
-                for i in range(int(num_questoes)):
-                    with st.expander(f"📝 Questão {i+1}", expanded=True):
-                        col_enum, col_val = st.columns([4, 1])
-                        with col_enum:
-                            enunciado = st.text_area(f"Enunciado da Questão {i+1}:", key=f"enunciado_av_{i}", placeholder="Texto da questão...")
-                        with col_val:
-                            valor_questao = st.number_input(f"Valor (Pts):", min_value=0.0, max_value=float(nota_maxima), value=float(valor_sugerido), step=0.1, key=f"valor_av_{i}")
-                        
-                        soma_valores_atual += valor_questao
-
-                        uploaded_image = st.file_uploader(f"Upload de Imagem para Questão {i+1} (Opcional):", type=["png", "jpg", "jpeg"], key=f"image_av_{i}")
-                        image_base64 = None
-                        if uploaded_image is not None:
-                            image_bytes = uploaded_image.getvalue()
-                            image_base64 = base64.b64encode(image_bytes).decode('utf-8')
-                            st.image(uploaded_image, caption=f"Pré-visualização da Imagem da Questão {i+1}", width=200)
-                        
-                        col_alt_esq, col_alt_dir = st.columns(2)
-                        with col_alt_esq:
-                            alt_a = st.text_input(f"Alternativa A:", key=f"alt_a_av_{i}", placeholder="Texto A")
-                            alt_b = st.text_input(f"Alternativa B:", key=f"alt_b_av_{i}", placeholder="Texto B")
-                        with col_alt_dir:
-                            alt_c = st.text_input(f"Alternativa C:", key=f"alt_c_av_{i}", placeholder="Texto C")
-                            alt_d = st.text_input(f"Alternativa D:", key=f"alt_d_av_{i}", placeholder="Texto D")
-                        
-                        opcao_correta = st.radio(f"Alternativa CORRETA da Questão {i+1}?", options=["A", "B", "C", "D"], key=f"correta_av_{i}", horizontal=True)
-                        questoes_dados.append({
-                            "numero": i+1,
-                            "enunciado": enunciado,
-                            "valor": valor_questao,
-                            "correta": opcao_correta,
-                            "A": alt_a,
-                            "B": alt_b,
-                            "C": alt_c,
-                            "D": alt_d,
-                            "imagem": image_base64
-                        })
-                
-                st.markdown("---")
-                
-                if round(soma_valores_atual, 2) == round(nota_maxima, 2):
-                    st.success(f"✅ Soma correta: {soma_valores_atual:.2f} / {nota_maxima:.2f} pontos.")
-                else:
-                    st.warning(f"⚠️ Soma incorreta: totalizando {soma_valores_atual:.2f} de {nota_maxima:.2f} pontos.")
-                
-                if st.button("📄 Gerar e Exportar Folha de Prova com Cartão-Resposta", type="primary", use_container_width=True):
-                    if round(soma_valores_atual, 2) != round(nota_maxima, 2):
-                        st.error("❌ Ajuste a soma dos valores das questões antes de prosseguir.")
-                    else:
-                        import random
-                        # Conecta ao Google Sheets e garante que a aba e o cabeçalho existam
-                        sh = conectar_google_sheets()
-                        try:
-                            wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
-                        except gspread.exceptions.WorksheetNotFound:
-                            wks_gav = sh.add_worksheet(title="Gabaritos_Avaliacoes", rows="1000", cols="9")
-                            
-                        expected_header = ['ID_Prova', 'Disciplina', 'Professor', 'Total_Questoes', 'Valor_Por_Questao', 'Valor_Total_Prova', 'Data_Criacao', 'Gabarito_Completo', 'Questoes_Detalhes']
-                        current_header = wks_gav.row_values(1)
-                        if current_header != expected_header:
-                            wks_gav.update('A1', [expected_header])
-
-                        # Gera um ID único de 4 dígitos para a prova
-                        existing_ids = [str(r[0]) for r in wks_gav.get_all_values()[1:] if r and r[0]]
-                        id_prova_gerado = random.randint(1000, 9999)
-                        while str(id_prova_gerado) in existing_ids:
-                            id_prova_gerado = random.randint(1000, 9999)
-                        
-                        # Atualiza o session_state com o ID único e outros dados da prova
-                        st.session_state['id_avaliacao_ativa'] = id_prova_gerado
-                        st.session_state['gabarito_oficial'] = {q['numero']: q['correta'] for q in questoes_dados}
-                        st.session_state['pesos_questoes'] = {q['numero']: q['valor'] for q in questoes_dados}
-                        st.session_state['total_questoes_ativa'] = int(num_questoes)
-                        st.session_state['nota_maxima_ativa'] = float(nota_maxima)
-                        st.session_state['disciplina_ativa'] = disciplina_sel_av
-
-                        # Prepara os dados para salvar na planilha
-                        # Cria uma cópia dos dados das questões e remove as imagens para salvar no Sheets
-                        import copy
-                        questoes_dados_sem_imagem = copy.deepcopy(questoes_dados)
-                        for q_data in questoes_dados_sem_imagem:
-                            if 'imagem' in q_data:
-                                del q_data['imagem']
-
-                        new_row_data = [
-                            str(id_prova_gerado),
-                            disciplina_sel_av,
-                            nome_professor_cabecalho,
-                            int(num_questoes),
-                            json.dumps(st.session_state['pesos_questoes']),
-                            float(nota_maxima),
-                            datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
-                            json.dumps(st.session_state['gabarito_oficial']),
-                            json.dumps(questoes_dados_sem_imagem)
-                        ]
-                        
-                        # Salva os dados na planilha
-                        wks_gav.append_row(new_row_data)
-                        
-                        html_questoes = ""
-                        html_linhas_gabarito = ""
-                        html_gabarito_professor = ""
-                        
-                        for q in questoes_dados:
-                            image_html = ""
-                            if q['imagem']:
-                                image_html = f'<img src="data:image/png;base64,{q["imagem"]}" style="max-width:100%; height:auto; margin:10px 0;">'
-
-                            html_questoes += f"""
-                            <div class="question-block">
-                                <p class="question-title"><b>Questão {q['numero']} ({q['valor']:.2f} pts)</b></p>
-                                <p class="enunciado">{q['enunciado']}</p>
-                                {image_html}
-                                <div class="alternatives">
-                                    <p><b>A)</b> {q['A']}</p>
-                                    <p><b>B)</b> {q['B']}</p>
-                                    <p><b>C)</b> {q['C']}</p>
-                                    <p><b>D)</b> {q['D']}</p>
-                                </div>
-                            </div>
-                            """
-                            html_linhas_gabarito += f"""
-                            <div class="gabarito-row">
-                                <span class="gabarito-num">{str(q['numero']).zfill(2)}</span>
-                                <span class="gabarito-bubble">A</span>
-                                <span class="gabarito-bubble">B</span>
-                                <span class="gabarito-bubble">C</span>
-                                <span class="gabarito-bubble">D</span>
-                            </div>
-                            """
-                            c_a = "filled" if q['correta'] == "A" else ""
-                            c_b = "filled" if q['correta'] == "B" else ""
-                            c_c = "filled" if q['correta'] == "C" else ""
-                            c_d = "filled" if q['correta'] == "D" else ""
-                            
-                            html_gabarito_professor += f"""
-                            <div class="gabarito-row">
-                                <span class="gabarito-num">{str(q['numero']).zfill(2)}</span>
-                                <span class="gabarito-bubble {c_a}">A</span>
-                                <span class="gabarito-bubble {c_b}">B</span>
-                                <span class="gabarito-bubble {c_c}">C</span>
-                                <span class="gabarito-bubble {c_d}">D</span>
-                                <span class="gabarito-points">({q['valor']:.2f} pts)</span>
-                            </div>
-                            """
-                        
-                        html_id_display_block = f'<link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap" rel="stylesheet"><p style="font-family:\'Libre Barcode 39\',sans-serif;font-size:90px;text-align:center;margin:0;line-height:1;">*{str(id_prova_gerado).strip().zfill(4)}*</p>'
-                        
-                        html_prova = f"""
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                        <meta charset="utf-8">
-                        <style>
-                            @media print {{
-                                body {{ 
-                                    margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 11pt; color: #000; 
-                                    -webkit-print-color-adjust: exact !important; 
-                                    print-color-adjust: exact !important; 
-                                }}
-                                .print-container {{ width: 100%; padding: 15mm; box-sizing: border-box; }}
-                                .no-print {{ display: none !important; }}
-                                .page-break {{ page-break-before: always; }}
-                            }}
-                            body {{ 
-                                font-family: Arial, sans-serif; background-color: #fafafa; padding: 10px; 
-                                -webkit-print-color-adjust: exact !important; 
-                                print-color-adjust: exact !important; 
-                            }}
-                            .print-container {{ max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border: 1px solid #ccc; }}
-                            .header-table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
-                            .header-table td {{ border: 1px solid #000; padding: 8px; font-size: 11pt; }}
-                            .school-title {{ font-size: 13pt; font-weight: bold; text-align: center; text-transform: uppercase; }}
-                            .question-block {{ margin-bottom: 15px; page-break-inside: avoid; }}
-                            .enunciado {{ margin-bottom: 8px; text-align: justify; white-space: pre-wrap; }}
-                            .alternatives p {{ margin: 3px 0; }}
-                            .questions-border-box {{
-                                border: 2px solid #000; /* Black border */
-                                padding: 15px; /* Some padding inside the box */
-                                margin-bottom: 20px; /* Space below the box */
-                                page-break-inside: avoid; /* Keep the box together on print */
-                            }}
-
-                            .cartao-title {{ text-align: center; font-weight: bold; font-size: 14pt; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }}
-                            
-                            /* Estilo do container-id-prova foi movido inline para flexbox */
-                            .id-title {{ font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px; }}
-                            .id-cols {{ display: flex; justify-content: space-around; font-size: 8pt; font-weight: bold; margin-bottom: 5px; }}
-                            .id-label-num {{ font-size: 9pt; font-weight: bold; margin-right: 8px; width: 12px; display: inline-block; }}
-                            
-                            .gabarito-row {{ display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }}
-                            .gabarito-num {{ font-weight: bold; font-size: 12pt; margin-right: 15px; width: 25px; text-align: right; }}
-                            .gabarito-bubble {{ display: inline-block; width: 24px; height: 24px; border: 2px solid #000; border-radius: 50%; text-align: center; line-height: 24px; font-weight: bold; font-size: 10pt; margin: 0 6px; color: #333; }}
-                            .gabarito-bubble.filled {{ background-color: #000 !important; background: #000 !important; color: #fff !important; border-color: #000 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }}
-                            .gabarito-points {{ font-size: 10pt; color: #555; margin-left: 15px; width: 70px; text-align: left; }}
-                            .btn-print {{ display: block; width: 100%; padding: 12px; background-color: #2e7d32; color: white; border: none; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; margin-bottom: 20px; text-transform: uppercase; }}
-                            .prof-section {{ border: 4px dashed #777; margin-top: 50px; padding: 20px; background-color: #fff; page-break-before: always; }}
-                        </style>
-                        </head>
-                        <body>
-                            <button class="btn-print no-print" onclick="window.print()">🖨️ Imprimir Prova e Cartões de Resposta (A4)</button>
-                            
-                            <div class="print-container">
-                                <table class="header-table">
-                                    <tr><td colspan="3" class="school-title">Escola Estadual Profª Diva Alves de Lima</td></tr>
-                                    <tr>
-                                        <td width="50%"><b>Aluno(a):</b> _________________________________________________</td>
-                                        <td width="25%"><b>Turma:</b> __________________</td>
-                                        <td width="25%"><b>Nota:</b> _________</td>
-                                    </tr>
-                                    <tr>
-                                        <td colspan="2"><b>Disciplina:</b> {disciplina_sel_av} <span style="font-size: 11pt; margin-left: 15px;">| <b>Professor:</b> {nome_professor_cabecalho}</span></td>
-                                        <td><b>Data:</b> ____/____/______</td>
-                                    </tr>
-                                </table>
-                                
-                                <div class="questions-border-box">
-                                    {html_questoes}
-                                </div>
-                                
-                                <div class="page-break"></div>
-                                
-                                <div style="margin-top: 20px; max-width: 480px; margin-left: auto; margin-right: auto; page-break-inside: avoid; text-align: center;">
-                                    <div class="cartao-title">FOLHA DE RESPOSTAS OFICIAL</div>
-                                    <p style="font-size:9pt; margin-top:0px; margin-bottom:15px;">Use caneta azul ou preta para marcar as respostas.</p>
-                                    {html_id_display_block}
-                                </div>
-                                <div class="cartao-resposta-bubbles-box">
-                                    <div class="anchor-marker tl"></div><div class="anchor-marker tr"></div>
-                                    <div class="anchor-marker bl"></div><div class="anchor-marker br"></div>
-                                    {html_linhas_gabarito}
-                                </div>
-                                
-                                <div class="prof-section">
-                                    <div class="cartao-title" style="color: #000;">📌 GABARITO DE CONFERÊNCIA DIGITAL (ID: {str(id_prova_gerado).zfill(4)})</div>
-                                    <p style="font-size:9.5pt; text-align:center; margin-top:0px; margin-bottom:25px; font-weight: bold; color: #444;">Mapa exato de leitura das 4 âncoras para validação da câmera do dispositivo.</p>
-                                    {html_gabarito_professor}
-                                </div>
-                            </div>
-                            <script>setTimeout(function() {{ window.print(); }}, 600);</script>
-                        </body>
-                        </html>
-                        """
-                        st.markdown("### 🖨️ Pré-visualização")
-                        st.components.v1.html(html_prova, height=600, scrolling=True)
-                        st.success(f"🎉 Avaliação e Cartão-Resposta com ID {str(id_prova_gerado).zfill(4)} Gerados com Sucesso!")
-                        st.cache_data.clear()
-                        time.sleep(2)
-                        st.rerun()
-            else:
-                st.info("ℹ️ A criação de novas avaliações é uma funcionalidade exclusiva para administradores.")
-
-            # --- SUB-ABA: VISUALIZAR AVALIAÇÕES ---
-        elif aba_av_escolhida == "Visualizar":
-            if st.session_state.get('is_master_admin', False):
-                st.subheader("👁️ Visualizar Avaliações Criadas")
-                st.write("Selecione uma avaliação para ver seu conteúdo e gabarito.")
-
-                try:
-                    sh = conectar_google_sheets()
-                    wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
-                    # Get all values to find the exact row index for deletion
-                    all_sheet_values = wks_gav.get_all_values()
-                    
-                    if len(all_sheet_values) > 1: # Check if there's data beyond the header
-                        df_gabaritos = pd.DataFrame(all_sheet_values[1:], columns=all_sheet_values[0])
-                        # Add a column for the actual sheet row number (1-based, starting from 2 for data rows)
-                        df_gabaritos['Sheet_Row_Index'] = range(2, len(all_sheet_values) + 1)
-                    else:
-                        df_gabaritos = pd.DataFrame()
-                except Exception as e:
-                    df_gabaritos = pd.DataFrame()
-                    st.error(f"Erro ao conectar ao banco de dados de avaliações: {e}")
-                
-                if not df_gabaritos.empty:
-                    df_gabaritos['ID_Prova'] = df_gabaritos['ID_Prova'].astype(str).str.strip()
-                    
-                    # Cria opções legíveis para o selectbox
-                    opcoes_avaliacoes = [""] + [
-                        f"{row['ID_Prova']} - {row['Disciplina']} - {row['Data_Criacao'].split(' ')[0]}"
-                        for _, row in df_gabaritos.iterrows()
-                    ]
-                    
-                    avaliacao_selecionada_str = st.selectbox(
-                        "Selecione a Avaliação para Visualizar:",
-                        options=opcoes_avaliacoes,
-                        key="visualizar_avaliacao_sel"
-                    )
-
-                    if avaliacao_selecionada_str:
-                        id_selecionado = avaliacao_selecionada_str.split(' - ')[0]
-                        prova_alvo = df_gabaritos[df_gabaritos['ID_Prova'] == id_selecionado].iloc[0]
-                        
-                        # Store the actual sheet row index for deletion
-                        sheet_row_to_delete = int(prova_alvo['Sheet_Row_Index']) # Convert to standard int
-
-                        # Reconstroi os dados da prova a partir do JSON armazenado
-                        # import json (já deve estar no topo do arquivo)
-                        questoes_detalhes_raw = prova_alvo.get('Questoes_Detalhes', '[]')
-                        if questoes_detalhes_raw.strip():
-                            try:
-                                questoes_dados_visualizar = json.loads(questoes_detalhes_raw)
-                            except json.JSONDecodeError:
-                                st.error(f"Erro ao carregar detalhes das questões para ID {id_selecionado}. Dados corrompidos na planilha.")
-                                questoes_dados_visualizar = []
-                        else:
-                            questoes_dados_visualizar = []
-                        
-                        disciplina_sel_av_visualizar = prova_alvo['Disciplina']
-                        nome_professor_cabecalho_visualizar = prova_alvo['Professor']
-                        id_prova_gerado_visualizar = prova_alvo['ID_Prova']
-                        nota_maxima_visualizar = prova_alvo['Valor_Total_Prova']
-
-                        html_questoes_visualizar = ""
-                        html_gabarito_professor_visualizar = ""
-                        
-                        for q in questoes_dados_visualizar:
-                            html_questoes_visualizar += f"""
-                            <div class="question-block">
-                                <p class="question-title"><b>Questão {q['numero']} ({q['valor']:.2f} pts)</b></p>
-                                <p class="enunciado">{q['enunciado']}</p>
-                                <div class="alternatives">
-                                    <p><b>A)</b> {q['A']}</p>
-                                    <p><b>B)</b> {q['B']}</p>
-                                    <p><b>C)</b> {q['C']}</p>
-                                    <p><b>D)</b> {q['D']}</p>
-                                </div>
-                            </div>
-                            """
-                            c_a = "filled" if q['correta'] == "A" else ""
-                            c_b = "filled" if q['correta'] == "B" else ""
-                            c_c = "filled" if q['correta'] == "C" else ""
-                            c_d = "filled" if q['correta'] == "D" else ""
-                            
-                            html_gabarito_professor_visualizar += f"""
-                            <div class="gabarito-row">
-                                <span class="gabarito-num">{str(q['numero']).zfill(2)}</span>
-                                <span class="gabarito-bubble {c_a}">A</span>
-                                <span class="gabarito-bubble {c_b}">B</span>
-                                <span class="gabarito-bubble {c_c}">C</span>
-                                <span class="gabarito-bubble {c_d}">D</span>
-                                <span class="gabarito-points">({q['valor']:.2f} pts)</span>
-                            </div>
-                            """
-                        
-                        html_id_display_block_visualizar = f"""
-                        <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap" rel="stylesheet">
-                        <div style="text-align: center; margin-bottom: 20px;">
-                            <div style="font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px;">ID DA AVALIAÇÃO</div>
-                            <p style="font-family: 'Libre Barcode 39', sans-serif; font-size: 80px; text-align: center; margin: 0;">
-                                *{str(id_prova_gerado_visualizar).zfill(4)}*
-                            </p>
-                        </div>
-                        """
-                        
-                        html_linhas_gabarito_visualizar = ""
-                        for q in questoes_dados_visualizar:
-                            html_linhas_gabarito_visualizar += f"""
-                            <div class="gabarito-row">
-                                <span class="gabarito-num">{str(q['numero']).zfill(2)}</span>
-                                <span class="gabarito-bubble">A</span>
-                                <span class="gabarito-bubble">B</span>
-                                <span class="gabarito-bubble">C</span>
-                                <span class="gabarito-bubble">D</span>
-                            </div>
-                            """
-                        
-                        # Add the print script if triggered
-                        print_script = ""
-                        if st.session_state.trigger_print_visualizar:
-                            print_script = "<script>setTimeout(function() { window.print(); }, 600);</script>"
-                            st.session_state.trigger_print_visualizar = False
-
-                        html_prova_visualizar = f"""
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                        <meta charset="utf-8">
-                        <style>
-                            @media print {{
-                                body {{ 
-                                    margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 11pt; color: #000; 
-                                    -webkit-print-color-adjust: exact !important; 
-                                    print-color-adjust: exact !important; 
-                                }}
-                                .print-container {{ width: 100%; padding: 15mm; box-sizing: border-box; }}
-                                .no-print {{ display: none !important; }}
-                                .page-break {{ page-break-before: always; }}
-                            }}
-                            body {{ 
-                                font-family: Arial, sans-serif; background-color: #fafafa; padding: 10px; 
-                                -webkit-print-color-adjust: exact !important; 
-                                print-color-adjust: exact !important; 
-                            }}
-                            .print-container {{ max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border: 1px solid #ccc; }}
-                            .header-table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
-                            .header-table td {{ border: 1px solid #000; padding: 8px; font-size: 11pt; }}
-                            .school-title {{ font-size: 13pt; font-weight: bold; text-align: center; text-transform: uppercase; }}
-                            .question-block {{ margin-bottom: 15px; page-break-inside: avoid; }}
-                            .enunciado {{ margin-bottom: 8px; text-align: justify; white-space: pre-wrap; }}
-                            .alternatives p {{ margin: 3px 0; }}
-                            .questions-border-box {{
-                                border: 2px solid #000; /* Black border */
-                                padding: 15px; /* Some padding inside the box */
-                                margin-bottom: 20px; /* Space below the box */
-                                page-break-inside: avoid; /* Keep the box together on print */
-                            }}
-                            
-                            .cartao-resposta-box {{ border: 4px solid #000; padding: 25px; margin-top: 20px; background: #fff; position: relative; max-width: 480px; margin-left: auto; margin-right: auto; page-break-inside: avoid; }}
-                            .cartao-resposta-bubbles-box {{ 
-                                border: 4px solid #000; 
-                                padding: 25px; 
-                                margin-top: 20px; 
-                                background: #fff; 
-                                position: relative; 
-                                max-width: 480px; 
-                                margin-left: auto; 
-                                margin-right: auto; 
-                                page-break-inside: avoid; 
-                            }}
-                            .anchor-marker {{ width: 20px; height: 20px; background-color: #000 !important; background: #000 !important; position: absolute; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }}
-                            .tl {{ top: 5px; left: 5px; }} .tr {{ top: 5px; right: 5px; }}
-                            .bl {{ bottom: 5px; left: 5px; }} .br {{ bottom: 5px; right: 5px; }}
-                            .cartao-title {{ text-align: center; font-weight: bold; font-size: 14pt; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }}
-                            
-                            /* Estilo do container-id-prova foi movido inline para flexbox */
-                            .id-title {{ font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px; }}
-                            .id-cols {{ display: flex; justify-content: space-around; font-size: 8pt; font-weight: bold; margin-bottom: 5px; }}
-                            .id-label-num {{ font-size: 9pt; font-weight: bold; margin-right: 8px; width: 12px; display: inline-block; }}
-                            
-                            .gabarito-row {{ display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }}
-                            .gabarito-num {{ font-weight: bold; font-size: 12pt; margin-right: 15px; width: 25px; text-align: right; }}
-                            .gabarito-bubble {{ display: inline-block; width: 24px; height: 24px; border: 2px solid #000; border-radius: 50%; text-align: center; line-height: 24px; font-weight: bold; font-size: 10pt; margin: 0 6px; color: #333; }}
-                            .gabarito-bubble.filled {{ background-color: #000 !important; background: #000 !important; color: #fff !important; border-color: #000 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }}
-                            .gabarito-points {{ font-size: 10pt; color: #555; margin-left: 15px; width: 70px; text-align: left; }}
-                            .btn-print {{ display: block; width: 100%; padding: 12px; background-color: #2e7d32; color: white; border: none; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; margin-bottom: 20px; text-transform: uppercase; }}
-                            .prof-section {{ border: 4px dashed #777; margin-top: 50px; padding: 20px; background-color: #fff; page-break-before: always; }}
-                        </style>
-                        </head>
-                        <body>
-                            <div class="print-container">
-                                <table class="header-table">
-                                    <tr><td colspan="3" class="school-title">Escola Estadual Profª Diva Alves de Lima</td></tr>
-                                    <tr>
-                                        <td width="50%"><b>Aluno(a):</b> _________________________________________________</td>
-                                        <td width="25%"><b>Turma:</b> __________________</td>
-                                        <td width="25%"><b>Nota:</b> _________</td>
-                                    </tr>
-                                    <tr>
-                                        <td colspan="2"><b>Disciplina:</b> {disciplina_sel_av_visualizar} <span style="font-size: 11pt; margin-left: 15px;">| <b>Professor:</b> {nome_professor_cabecalho_visualizar}</span></td>
-                                        <td><b>Data:</b> ____/____/______</td>
-                                    </tr>
-                                </table>
-                                
-                                <div class="questions-border-box">
-                                    {html_questoes_visualizar}
-                                </div>
-                                
-                                <div class="page-break"></div>
-                                
-                                <div style="margin-top: 20px; max-width: 480px; margin-left: auto; margin-right: auto; page-break-inside: avoid; text-align: center;">
-                                    <div class="cartao-title">FOLHA DE RESPOSTAS OFICIAL</div>
-                                    <p style="font-size:9pt; margin-top:0px; margin-bottom:15px;">Use caneta azul ou preta para marcar as respostas.</p>
-                                    {html_id_display_block_visualizar}
-                                </div>
-                                <div class="cartao-resposta-bubbles-box">
-                                    <div class="anchor-marker tl"></div><div class="anchor-marker tr"></div>
-                                    <div class="anchor-marker bl"></div><div class="anchor-marker br"></div>
-                                    {html_linhas_gabarito_visualizar}
-                                </div>
-                                
-                                <div class="prof-section">
-                                    <div class="cartao-title" style="color: #000;">📌 GABARITO DE CONFERÊNCIA DIGITAL (ID: {str(id_prova_gerado_visualizar).zfill(4)})</div>
-                                    <p style="font-size:9.5pt; text-align:center; margin-top:0px; margin-bottom:25px; font-weight: bold; color: #444;">Mapa exato de leitura das 4 âncoras para validação da câmera do dispositivo.</p>
-                                    {html_gabarito_professor_visualizar}
-                                </div>
-                            </div>
-                            {print_script}
-                        </body>
-                        </html>
-                        """
-                        st.markdown("### 🖨️ Pré-visualização da Avaliação")
-                        st.components.v1.html(html_prova_visualizar, height=600, scrolling=True)
-
-                        # Add the Streamlit print button
-                        if st.button("🖨️ Imprimir Avaliação e Gabarito", use_container_width=True, key="btn_print_visualizar"):
-                            st.session_state.trigger_print_visualizar = True
-                            st.rerun()
-
-                        # NEW: Delete button for master admin
-                        if st.session_state.get('is_master_admin', False):
-                            st.markdown("---")
-                            st.subheader("🗑️ Gerenciar Avaliação")
-                            if st.button(f"❌ Excluir Avaliação ID: {id_selecionado}", type="secondary", use_container_width=True):
-                                try:
-                                    wks_gav.delete_rows(sheet_row_to_delete)
-                                    st.success(f"✅ Avaliação ID {id_selecionado} excluída com sucesso!")
-                                    st.cache_data.clear()
-                                    time.sleep(1.5)
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Erro ao excluir avaliação: {e}")
-                            
-                            st.divider()
-                            st.subheader("🚨 Exclusão em Massa de Avaliações")
-                            st.warning("⚠️ Esta ação irá APAGAR TODAS as avaliações cadastradas no sistema. Esta operação é irreversível.")
-                            confirmar_exclusao_total = st.checkbox("Confirmo que desejo excluir TODAS as avaliações.")
-                            if st.button("💥 Excluir Todas as Avaliações", type="primary", use_container_width=True, disabled=not confirmar_exclusao_total):
-                                try:
-                                    # Limpa todas as linhas mantendo apenas o cabeçalho (linha 1)
-                                    wks_gav.resize(rows=1)
-                                    wks_gav.resize(rows=1000)
-                                    st.success("💥 Todas as avaliações foram excluídas com sucesso!")
-                                    st.cache_data.clear()
-                                    time.sleep(1.5)
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Erro ao excluir todas as avaliações: {e}")
-
-                else:
-                    st.info("ℹ️ Nenhuma avaliação foi criada ainda. Use a aba 'Criar' para começar.")
-            else:
-                st.info("ℹ️ A visualização e gerenciamento de avaliações criadas é uma funcionalidade exclusiva para administradores.")
-
-            # --- SUB-ABA: CORREÇÃO DE AVALIAÇÕES ---
-        elif aba_av_escolhida == "Correção":
-            # Initialize session state for correction flow if not already set
-            if 'correcao_step' not in st.session_state:
-                st.session_state.correcao_step = "scan_id" # Default to scanning ID
-            if 'selected_turma_av' not in st.session_state:
-                st.session_state.selected_turma_av = None
-            if 'selected_aluno_av' not in st.session_state:
-                st.session_state.selected_aluno_av = None
-            if 'id_prova_scanned' not in st.session_state:
-                st.session_state.id_prova_scanned = None
-            if 'prova_data' not in st.session_state:
-                st.session_state.prova_data = None
-            if 'respostas_aluno_simuladas' not in st.session_state:
-                st.session_state.respostas_aluno_simuladas = None
-            if 'nota_obtida' not in st.session_state:
-                st.session_state.nota_obtida = None
-            if 'detalhes_respostas' not in st.session_state:
-                st.session_state.detalhes_respostas = None
-
-            # Helper function to reset correction state
-            def reset_correcao_state():
-                st.session_state.correcao_step = "scan_id" # Reset to ID scanning for the current student
-                st.session_state.id_prova_scanned = None
-                st.session_state.prova_data = None
-                st.session_state.respostas_aluno_simuladas = None
-                st.session_state.nota_obtida = None
-                st.session_state.detalhes_respostas = None
-
-            st.subheader("📸 Leitura Automatizada e Correção por ID")
-            st.write("Este módulo permite a correção de avaliações em duas etapas: primeiro a identificação da prova, depois a leitura das respostas do aluno.")
-            
-            # Lógica para carregar turmas e alunos (sempre visível)
-            if st.session_state.get('is_master_admin', False):
-                todas_turmas_av = sorted(df_alunos['Turma'].unique().astype(str))
-            else:
-                turmas_vinc_av = str(st.session_state.user_data.get('Turmas', "")).split(", ")
-                todas_turmas_av = sorted([t.strip() for t in turmas_vinc_av if t.strip()])
-                
-            col_av_t1, col_av_t2 = st.columns([1, 4])
-            with col_av_t1:
-                turma_sel_av = st.selectbox("1. Turma do Aluno", todas_turmas_av, key="turma_aluno_av_correcao")
-            with col_av_t2:
-                alunos_da_turma_av = df_alunos[df_alunos['Turma'].astype(str) == turma_sel_av]['Nome_Aluno'].tolist()
-                aluno_sel_av = st.selectbox("2. Aluno", sorted(alunos_da_turma_av), key="aluno_av_correcao")
-
-            # Check for changes in student/turma selection and reset state if needed
-            # This ensures that if a new student is selected, the process restarts from ID scan.
-            if turma_sel_av != st.session_state.selected_turma_av or aluno_sel_av != st.session_state.selected_aluno_av:
-                st.session_state.selected_turma_av = turma_sel_av
-                st.session_state.selected_aluno_av = aluno_sel_av
-                reset_correcao_state() # Reset everything related to the exam, but keep student selected
-                st.rerun() # Rerun to update UI based on new student selection
-
-            st.markdown("---")
-
-            # Funções de simulação para demonstração (substituir por lógica OpenCV real)
-            def simular_respostas_aluno(num_questoes):
-                import random
-                opcoes = ["A", "B", "C", "D"]
-                respostas = {}
-                for i in range(1, num_questoes + 1):
-                    # Simula algumas respostas corretas, algumas erradas, algumas em branco
-                    if random.random() < 0.7:
-                        respostas[i] = random.choice(opcoes)
-                    else:
-                        respostas[i] = None
-                return respostas
-
-            def calcular_nota(gabarito_oficial, pesos_questoes, respostas_aluno):
-                nota_obtida = 0.0
-                respostas_detalhadas = {}
-                for q_num, resposta_correta in gabarito_oficial.items():
-                    peso = pesos_questoes.get(str(q_num), 0.0) # Ensure key is string for dict lookup
-                    resposta_aluno = respostas_aluno.get(q_num)
-                    
-                    if resposta_aluno == resposta_correta:
-                        nota_obtida += peso
-                        status = "Correta"
-                    elif resposta_aluno is None:
-                        status = "Em Branco"
-                    else:
-                        status = "Incorreta"
-                    
-                    respostas_detalhadas[q_num] = {
-                        "Resposta Aluno": resposta_aluno,
-                        "Resposta Correta": resposta_correta,
-                        "Status": status,
-                        "Pontos": peso if status == "Correta" else 0.0
-                    }
-                return nota_obtida, respostas_detalhadas
-            
-            # Main correction flow based on session state step
-            if not st.session_state.selected_aluno_av or not st.session_state.selected_turma_av:
-                st.info("⚠️ Por favor, selecione a Turma e o Aluno para iniciar a correção.")
-            elif st.session_state.correcao_step == "scan_id":
-                st.subheader("Passo 1: Identificar Avaliação (ID da Prova)")
-                st.write(f"Aluno: **{st.session_state.selected_aluno_av}** | Turma: **{st.session_state.selected_turma_av}**")
-                
-                id_manual_input = st.text_input("🔢 Digite o ID da Avaliação (ou use a câmera abaixo):", key="id_prova_manual_input", placeholder="Ex: 1001")
-
-                # Inicializa a variável para o sistema não quebrar
-                scanned_id_from_camera = None
-
-                # Abre a câmera oficial do Streamlit (garante que o botão de tirar foto funcione)
-                foto_registro = st.camera_input("Tire a foto do código de barras da prova")
-
-                if foto_registro is not None:
-                    try:
-                        import base64
-                        import cv2
-                        import numpy as np
-                        from pyzbar.pyzbar import decode
-
-                        bytes_data = foto_registro.getvalue()
-                        np_img = np.frombuffer(bytes_data, dtype=np.uint8)
-                        img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
-
-                        # Tenta decodificar o código de barras
-                        codigos_detectados = decode(img)
-
-                        if codigos_detectados:
-                            id_detectado = codigos_detectados[0].data.decode('utf-8').replace('*', '').strip()
-                            st.success(f"✅ Código identificado: {id_detectado}")
-                            st.session_state['id_prova_atual'] = id_detectado
-                            scanned_id_from_camera = id_detectado
-                        else:
-                            st.warning("⚠️ Foto tirada, mas o código de barras não foi detectado. Se o erro persistir, digite o ID manualmente.")
-                    except Exception as e:
-                        st.error(f"Erro ao processar a imagem tirada: {e}")
-
-                detected_id = id_manual_input if id_manual_input else scanned_id_from_camera
-
-                if detected_id:
-                    st.session_state.id_prova_scanned = detected_id
-                    # Load exam data
-                    try:
-                        sh = conectar_google_sheets()
-                        wks_gav = sh.worksheet("Gabaritos_Avaliacoes")
-                        dados_gabaritos = wks_gav.get_all_records()
-                        df_gabaritos = pd.DataFrame(dados_gabaritos)
-                    except Exception as e:
-                        df_gabaritos = pd.DataFrame()
-                        st.error(f"Erro ao conectar ao banco de dados de gabaritos: {e}")
-
-                    if not df_gabaritos.empty:
-                        df_gabaritos['ID_Prova'] = df_gabaritos['ID_Prova'].astype(str).str.strip()
-                        prova_alvo = df_gabaritos[df_gabaritos['ID_Prova'] == str(st.session_state.id_prova_scanned).strip()]
-                        
-                        if prova_alvo.empty:
-                            st.error(f"❌ Nenhuma avaliação com o ID '{st.session_state.id_prova_scanned}' foi localizada no banco de dados.")
-                            st.session_state.id_prova_scanned = None # Reset for re-scan
-                        else:
-                            st.session_state.prova_data = prova_alvo.iloc[0]
-                            st.success(f"🎯 Prova ID **{st.session_state.id_prova_scanned}** identificada! Disciplina: {st.session_state.prova_data.get('Disciplina')} | Professor: {st.session_state.prova_data.get('Professor')}")
-                            st.session_state.correcao_step = "scan_answers"
-                            st.rerun()
-                else:
-                    st.info("Aguardando o ID da avaliação (digite ou escaneie o barcode).")
-
-            elif st.session_state.correcao_step == "scan_answers":
-                st.subheader("Passo 2: Capturar Respostas do Aluno")
-                st.write(f"Aluno: **{st.session_state.selected_aluno_av}** | Turma: **{st.session_state.selected_turma_av}** | Prova ID: **{st.session_state.id_prova_scanned}**")
-
-                st.markdown("""
-                <style>
-                    [data-testid="stCameraInput"] { max-width: 500px !important; margin: 0 auto !important; }
-                    [data-testid="stCameraInput"] video { outline: 4px solid #00ff00 !important; }
-                </style>
-                """, unsafe_allow_html=True)
-
-                st.info("🎯 Enquadre o novo quadrado compacto de alternativas centralizado na tela.")
-                img_answer_scan = st.camera_input("📸 Capture o gabarito focado", key="camera_answer_scan")
-
-                if img_answer_scan is not None:
-                    try:
-                        import cv2
-                        import numpy as np
-                        import json
-
-                        gabarito_oficial_json = json.loads(st.session_state.prova_data['Gabarito_Completo'])
-                        pesos_convertido = {int(k): float(v) for k, v in json.loads(st.session_state.prova_data['Valor_Por_Questao']).items()}
-                        gabarito_oficial_convertido = {int(k): v.upper().strip() for k, v in gabarito_oficial_json.items()}
-                        total_questoes = int(st.session_state.prova_data['Total_Questoes'])
-
-                        # Carrega a imagem nativa em qualidade máxima
-                        bytes_data = img_answer_scan.getvalue()
-                        np_img = np.frombuffer(bytes_data, dtype=np.uint8)
-                        img_alinhada = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
-                        h_orig, w_orig = img_alinhada.shape[:2]
-
-                        # Tratamento de alta definição para destacar as marcas de caneta
-                        cinza = cv2.cvtColor(img_alinhada, cv2.COLOR_BGR2GRAY)
-                        blur = cv2.medianBlur(cinza, 3)
-                        thresh_final = cv2.adaptiveThreshold(
-                            blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 19, 9
-                        )
-
-                        st.success("🖼️ Analisando Imagem em Alta Resolução (Sem distorções):")
-                        st.image(img_alinhada, channels="BGR", caption="Gabarito compacto detectado.")
-
-                        # COORDENADAS RECALIBRADAS: Como o quadrado agora é justo e compacto,
-                        # as alternativas ficam mais concentradas no centro perfeito da foto vertical
-                        opcoes_x = [int(w_orig * 0.41), int(w_orig * 0.47), int(w_orig * 0.53), int(w_orig * 0.59)]
-                        linhas_y = [int(h_orig * 0.36), int(h_orig * 0.43), int(h_orig * 0.50), int(h_orig * 0.57), int(h_orig * 0.64)]
-                        letras = ['A', 'B', 'C', 'D']
-
-                        respostas_aluno = {}
-                        raio_bolinha = int(w_orig * 0.022)
-
-                        for i in range(min(total_questoes, 5)):
-                            questao_num = i + 1
-                            y = linhas_y[i]
-                            marcada = None
-                            max_pixels = 0
-                            
-                            for j, x in enumerate(opcoes_x):
-                                mascara_bolinha = np.zeros(thresh_final.shape, dtype=np.uint8)
-                                cv2.circle(mascara_bolinha, (x, y), raio_bolinha, 255, -1)
-                                
-                                pixel_count = cv2.countNonZero(cv2.bitwise_and(thresh_final, thresh_final, mask=mascara_bolinha))
-                                
-                                if pixel_count > (raio_bolinha * 11) and pixel_count > max_pixels:
-                                    max_pixels = pixel_count
-                                    marcada = letras[j]
-                            
-                            respostas_aluno[questao_num] = marcada if marcada else ""
-
-                        st.session_state.respostas_aluno_simuladas = respostas_aluno
-                        
-                        st.markdown("### 📝 Respostas Detectadas:")
-                        st.json(respostas_aluno)
-
-                        if st.button("Confirmar Leitura e Ver Nota ➡️", use_container_width=True):
-                            st.session_state.nota_obtida, st.session_state.detalhes_respostas = calcular_nota(
-                                gabarito_oficial_convertido, pesos_convertido, st.session_state.respostas_aluno_simuladas
-                            )
-                            st.session_state.correcao_step = "display_results"
-                            st.rerun()
-
-                    except Exception as e:
-                        st.error(f"Erro no processamento do bloco compacto: {e}")
-                else:
-                    st.info("Aguardando a captura do bloco compacto de alternativas.")
-
-            elif st.session_state.correcao_step == "display_results":
-                st.subheader("✅ Resultado da Correção")
-                st.write(f"Aluno: **{st.session_state.selected_aluno_av}** | Turma: **{st.session_state.selected_turma_av}** | Prova ID: **{st.session_state.id_prova_scanned}**")
-                st.write(f"Disciplina: {st.session_state.prova_data.get('Disciplina')} | Professor: {st.session_state.prova_data.get('Professor')}")
-
-                st.metric(label="Nota Final", value=f"{st.session_state.nota_obtida:.2f} / {st.session_state.prova_data['Valor_Total_Prova']:.2f}")
-                
-                st.markdown("#### Detalhes das Respostas:")
-                for q_num, detalhes in st.session_state.detalhes_respostas.items():
-                    st.write(f"**Questão {q_num}:** Resposta Aluno: {detalhes['Resposta Aluno'] if detalhes['Resposta Aluno'] else 'Em Branco'} | Correta: {detalhes['Resposta Correta']} | Status: {detalhes['Status']} | Pontos: {detalhes['Pontos']:.2f}")
-
-                col_save, col_reset = st.columns(2)
-                with col_save:
-                    if st.button("Salvar Correção no Histórico", use_container_width=True):
-                        st.session_state['historico_correcoes'].append({
-                            "Data/Hora": datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
-                            "Aluno": st.session_state.selected_aluno_av,
-                            "Turma": st.session_state.selected_turma_av,
-                            "Disciplina": st.session_state.prova_data.get('Disciplina'),
-                            "ID Prova": st.session_state.id_prova_scanned,
-                            "Nota Obtida": st.session_state.nota_obtida,
-                            "Nota Máxima": st.session_state.prova_data['Valor_Total_Prova'],
-                            "Detalhes": st.session_state.detalhes_respostas
-                        })
-                        st.success("Correção salva no histórico!")
-                        time.sleep(1)
-                        reset_correcao_state()
-                        st.rerun()
-                with col_reset:
-                    if st.button("Corrigir Outra Avaliação", use_container_width=True, type="secondary"):
-                        reset_correcao_state()
-                        st.rerun()
-
-        elif aba_av_escolhida == "Histórico de Notas":
-            st.subheader("📋 Histórico Completo de Provas Corrigidas")
-            st.markdown("Consulte abaixo todas as avaliações escaneadas pela câmera e arquivadas no sistema:")
-            
-            if not st.session_state['historico_correcoes']:
-                st.info("ℹ️ Nenhuma folha de respostas foi corrigida nesta sessão até o momento.")
-            else:
-                df_historico_exibir = pd.DataFrame(st.session_state['historico_correcoes'])
-                
-                # Formata a visualização da pontuação para melhor leitura do professor
-                df_historico_exibir['Pontuação'] = df_historico_exibir.apply(
-                    lambda r: f"{r['Nota Obtida']:.2f} / {r['Nota Máxima']:.2f}", axis=1
-                )
-                
-                # Remove colunas brutas para deixar a tabela visual limpa
-                tabela_limpa = df_historico_exibir[['Data/Hora', 'Aluno', 'Turma', 'Disciplina', 'ID Prova', 'Pontuação']]
-                
-                st.dataframe(tabela_limpa, use_container_width=True)
-                
-                # Botão extra para limpar o histórico caso desejado
-                if st.button("🗑️ Limpar Histórico de Correções", use_container_width=True):
-                    st.session_state['historico_correcoes'] = []
-                    st.success("Histórico limpo com sucesso!")
-                    time.sleep(1)
-                    st.rerun()
-
+    # Changed: Use is_master_admin for Cadastro page access
     elif pagina_atual == "Cadastro" and st.session_state.get('is_master_admin', False):
         st.title("⚙️ Painel de Cadastro")
         abas = ["Turmas/Alunos", "Disciplinas", "Gerenciar Usuários", "Alterar Senha", "Período de Lançamento"]
