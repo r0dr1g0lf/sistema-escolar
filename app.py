@@ -111,6 +111,8 @@ try:
 except Exception as e:
     st.error(f"Erro ao carregar dados: {e}")
     st.info("Dica: Verifique se a planilha foi compartilhada como EDITOR com o e-mail da conta de serviço e se as abas têm os nomes corretos.")
+    st.cache_data.clear() # Limpa o cache para tentar recarregar os dados
+    st.rerun() # Reinicia o aplicativo para tentar novamente
     st.stop()
 
 if 'pagina' not in st.session_state:
@@ -2707,3 +2709,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
