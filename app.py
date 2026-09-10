@@ -7,6 +7,7 @@ import time
 import io
 import pytz
 import json # Adicionado para corrigir NameError
+import base64
 
 # Configuração do fuso horário correto de Roraima
 fuso_roraima = pytz.timezone('America/Boa_Vista')
@@ -207,18 +208,21 @@ else:
         st.session_state.pagina = "Registro"
         st.rerun()
 
+    is_soe = "SOE" in str(st.session_state.user_data.get('Disciplinas', ""))
+
     if st.sidebar.button("Ocorrências", key="btn_ocorrencias_nav", use_container_width=True):
         st.session_state.pagina = "Ocorrencias"
         st.rerun()
 
-    if st.sidebar.button("Avaliações", key="btn_avaliacoes_nav", use_container_width=True):
-        st.session_state.pagina = "Avaliações"
-        st.rerun()
+    if not is_soe: # Esconde para usuários SOE
+        if st.sidebar.button("Avaliações", key="btn_avaliacoes_nav", use_container_width=True):
+            st.session_state.pagina = "Avaliações"
+            st.rerun()
 
-    # NOVO LOCAL: Botão posicionado logo abaixo de Ocorrências
-    if st.sidebar.button('📅 Agendar Equipamentos', key="btn_agendar_equipamentos_nav", use_container_width=True):
-        st.session_state.pagina = 'Agendamento de Equipamentos'
-        st.rerun()
+        # NOVO LOCAL: Botão posicionado logo abaixo de Ocorrências
+        if st.sidebar.button('📅 Agendar Equipamentos', key="btn_agendar_equipamentos_nav", use_container_width=True):
+            st.session_state.pagina = 'Agendamento de Equipamentos'
+            st.rerun()
 
     # All logged-in users can see "Segurança" to change their own password
     if st.sidebar.button("Segurança", key="btn_seguranca", use_container_width=True):
@@ -242,17 +246,19 @@ else:
         st.session_state.pagina = "Registro"
         st.rerun()
 
-    is_soe = "SOE" in str(st.session_state.user_data.get('Disciplinas', ""))
-
     pagina_atual = st.session_state.get("pagina", "Registro")
 
     if pagina_atual == "Registro":
         st.title("📊 Desempenho do Aluno")
         
         # Cria a navegação interna por abas na parte superior da tela
+        opcoes_abas_registro = ["Visualizar registros"] if is_soe else ["Novo registro", "Visualizar registros"]
+        default_index_registro = 0 # Default para a primeira opção disponível
+
         aba_selecionada = st.radio(
             "Selecione a ação desejada:",
-            ["Novo registro", "Visualizar registros"],
+            options=opcoes_abas_registro,
+            index=default_index_registro,
             horizontal=True
         )
         
@@ -642,8 +648,7 @@ else:
         tab_oc1, tab_oc2 = st.tabs(["Nova Ocorrência", "Visualizar Ocorrências"])
         
         with tab_oc1:
-            if is_soe:
-                st.info("Você está logado como SOE. Este módulo é apenas para visualização.")
+            # Removido: st.info("Você está logado como SOE. Este módulo é apenas para visualização.")
             hoje = data_atual
             bimestres_disponiveis = []
             if not df_periodos.empty:
@@ -691,39 +696,73 @@ else:
                 periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True, key="bim_oc")
                 
                 data_ocorrido = st.date_input("Data do ocorrido", value=data_atual, format="DD/MM/YYYY")
-                tempo_aula = st.selectbox("Tempo de aula", ["1º tempo", "2º tempo", "3º tempo", "4º tempo"])
                 
-                opcoes_ocorrencias = [
-                    "Agrediu o colega verbalmente", 
-                    "Agrediu o colega fisicamente", 
-                    "Agrediu o professor verbalmente", 
-                    "Agrediu o professor fisicamente", 
-                    "Não trouxe o livro",
-                    "Dormiu em sala", 
-                    "Usou o celular em sala", 
-                    "Não fez a tarefa em sala", 
-                    "Não fez a tarefa em casa", 
-                    "Não trouxe o material", 
-                    "Excesso de faltas",
-                    "Outras"
-                ]
+                tempos_de_aula_opcoes = ["1º tempo", "2º tempo", "3º tempo", "4º tempo"]
+                
+                if is_soe:
+                    opcoes_ocorrencias = ["Chegada atrasafa", "Saída antecipada", "Outras"]
+                else:
+                    opcoes_ocorrencias = [
+                        "Agrediu o colega verbalmente", 
+                        "Agrediu o colega fisicamente", 
+                        "Agrediu o professor verbalmente", 
+                        "Agrediu o professor fisicamente", 
+                        "Não trouxe o livro",
+                        "Dormiu em sala", 
+                        "Usou o celular em sala", 
+                        "Não fez a tarefa em sala", 
+                        "Não fez a tarefa em casa", 
+                        "Não trouxe o material", 
+                        "Excesso de faltas",
+                        "Outras"
+                    ]
                 
                 selecao_oc = st.multiselect("Selecione as ocorrências", options=opcoes_ocorrencias)
+                
+                justificativa_selecionada = None
+                disciplinas_envolvidas_soe = []
+                if is_soe:
+                    justificativa_opcoes = ["Problema de saúde", "Consulta médica", "Exame médico", "Transporte/Trânsito", "Problemas familiares", "Situação em casa", "Sem justificativa", "Outras"]
+                    justificativa_selecionada = st.selectbox("Justificativa", options=[""] + justificativa_opcoes, key="justificativa_oc")
+                    
+                    # NOVO: Multiselect para Disciplinas Envolvidas (apenas para SOE)
+                    if not df_discs.empty:
+                        todas_disciplinas_disponiveis = sorted(df_discs['Disciplina'].unique().astype(str))
+                    else:
+                        todas_disciplinas_disponiveis = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida", "SOE"] # Fallback
+                    disciplinas_envolvidas_soe = st.multiselect("Disciplinas Envolvidas", options=todas_disciplinas_disponiveis, key="disciplinas_envolvidas_oc_soe")
+
+                    tempo_aula = st.multiselect("Tempo de aula", options=tempos_de_aula_opcoes, key="tempo_aula_oc_soe")
+                else:
+                    tempo_aula = st.selectbox("Tempo de aula", options=tempos_de_aula_opcoes, key="tempo_aula_oc_prof")
+
                 obs_oc = st.text_area("Observações detalhadas")
                 
-                btn_salvar_oc = st.form_submit_button("GRAVAR OCORRÊNCIA", disabled=(bimestre_ativo == "Bloqueado" or is_soe))
+                btn_salvar_oc = st.form_submit_button("GRAVAR OCORRÊNCIA", disabled=(bimestre_ativo == "Bloqueado"))
 
             if btn_salvar_oc:
-                if is_soe:
-                    st.error("Usuários SOE não possuem permissão para realizar registros.")
-                elif not selecao_oc:
-                    st.error("Selecione pelo menos uma ocorrência.")
+                if not selecao_oc and (not is_soe or (not justificativa_selecionada or justificativa_selecionada == "") and not disciplinas_envolvidas_soe):
+                    st.error("Selecione pelo menos uma ocorrência, ou uma justificativa/disciplina envolvida (para SOE).")
                 else:
                     try:
                         sh = conectar_google_sheets()
                         wks = sh.worksheet("Registros_Ocorrencias")
                         tipo_formatado = ", ".join(selecao_oc)
-                        detalhes_extras = f"DATA: {data_ocorrido.strftime('%d/%m/%Y')} | TEMPO: {tempo_aula} | {obs_oc}"
+                        
+                        # Formata tempo_aula para string, caso seja uma lista
+                        if isinstance(tempo_aula, list):
+                            tempo_aula_str = ", ".join(tempo_aula)
+                        else:
+                            tempo_aula_str = tempo_aula
+
+                        detalhes_extras = f"DATA: {data_ocorrido.strftime('%d/%m/%Y')} | TEMPO: {tempo_aula_str} | {obs_oc}"
+                        
+                        if is_soe:
+                            if justificativa_selecionada and justificativa_selecionada != "":
+                                detalhes_extras += f" | JUSTIFICATIVA: {justificativa_selecionada}"
+                            if disciplinas_envolvidas_soe:
+                                detalhes_extras += f" | DISCIPLINAS ENVOLVIDAS: {', '.join(disciplinas_envolvidas_soe)}"
+
                         nova_linha = [
                             datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
                             prof_nome,
@@ -874,69 +913,66 @@ else:
                         st.divider()
                         st.subheader("📝 Editar ou 🗑️ Excluir Ocorrências")
                         
-                        if is_soe:
-                            st.info("Usuários SOE não possuem permissão para editar ou excluir registros.")
+                        # Changed: Use is_master_admin for admin check
+                        if st.session_state.get('is_master_admin', False):
+                            df_edit_oc_propria = df_oc_filtrado
                         else:
-                            # Changed: Use is_master_admin for admin check
-                            if st.session_state.get('is_master_admin', False):
-                                df_edit_oc_propria = df_oc_filtrado
-                            else:
-                                discs_usuario = [d.strip().lower() for d in str(st.session_state.user_data.get('Disciplinas', "")).split(", ") if d.strip()]
-                                df_edit_oc_propria = df_oc_filtrado[df_oc_filtrado[colunas_df[4]].astype(str).str.lower().isin(discs_usuario)]
+                            discs_usuario = [d.strip().lower() for d in str(st.session_state.user_data.get('Disciplinas', "")).split(", ") if d.strip()]
+                            df_edit_oc_propria = df_oc_filtrado[df_oc_filtrado[colunas_df[4]].astype(str).str.lower().isin(discs_usuario)]
+                        
+                        if not df_edit_oc_propria.empty:
+                            col_data_oc = colunas_df[0]
+                            opcoes_edit_oc = {f"{row[col_data_oc]} - {row[colunas_df[3]]} ({row[colunas_df[4]]})": row['ID_Original'] for _, row in df_edit_oc_propria.iterrows()}
+                            selecionado_oc_edit = st.selectbox("Selecione a ocorrência para gerenciar (Apenas suas disciplinas)", [""] + list(opcoes_edit_oc.keys()))
                             
-                            if not df_edit_oc_propria.empty:
-                                col_data_oc = colunas_df[0]
-                                opcoes_edit_oc = {f"{row[col_data_oc]} - {row[colunas_df[3]]} ({row[colunas_df[4]]})": row['ID_Original'] for _, row in df_edit_oc_propria.iterrows()}
-                                selecionado_oc_edit = st.selectbox("Selecione a ocorrência para gerenciar (Apenas suas disciplinas)", [""] + list(opcoes_edit_oc.keys()))
+                            if selecionado_oc_edit != "":
+                                linha_idx_oc = opcoes_edit_oc[selecionado_oc_edit]
+                                dados_oc_edit = df_edit_oc_propria[df_edit_oc_propria['ID_Original'] == linha_idx_oc].iloc[0]
                                 
-                                if selecionado_oc_edit != "":
-                                    linha_idx_oc = opcoes_edit_oc[selecionado_oc_edit]
-                                    dados_oc_edit = df_edit_oc_propria[df_edit_oc_propria['ID_Original'] == linha_idx_oc].iloc[0]
+                                with st.form("form_editar_ocorrencia"):
+                                    st.markdown(f"Gerenciando ocorrência de: **{dados_oc_edit[colunas_df[3]]}**")
                                     
-                                    with st.form("form_editar_ocorrencia"):
-                                        st.markdown(f"Gerenciando ocorrência de: **{dados_oc_edit[colunas_df[3]]}**")
+                                    texto_oc_atual = str(dados_oc_edit[colunas_df[6]]).replace("OCORRÊNCIA: ", "")
+                                    lista_oc_atual = [i.strip() for i in texto_oc_atual.split(",")]
+                                    
+                                    opcoes_oc_edit = [
+                                        "Agrediu o colega verbalmente", "Agrediu o colega fisicamente", 
+                                        "Agrediu o professor verbalmente", "Agrediu o professor fisicamente", 
+                                        "Não trouxe o livro", "Dormiu em sala", "Usou o celular em sala", 
+                                        "Não fez a tarefa em sala", "Não fez a tarefa em casa", 
+                                        "Não trouxe o material", "Excesso de faltas", "Outras"
+                                    ]
+                                    
+                                    edit_selecao_oc = st.multiselect("Selecione as ocorrências", options=opcoes_oc_edit, default=[i for i in lista_oc_atual if i in opcoes_oc_edit])
+                                    edit_detalhes_oc = st.text_area("Detalhes (Data/Tempo/Obs)", value=dados_oc_edit[colunas_df[7]])
+                                    
+                                    col_at_oc1, col_at_oc2 = st.columns(2)
+                                    with col_at_oc1:
+                                        btn_confirmar_edit_oc = st.form_submit_button("SALVAR ALTERAÇÕES")
+                                    with col_at_oc2:
+                                        btn_confirmar_exc_oc = st.form_submit_button("❌ EXCLUIR OCORRÊNCIA")
                                         
-                                        texto_oc_atual = str(dados_oc_edit[colunas_df[6]]).replace("OCORRÊNCIA: ", "")
-                                        lista_oc_atual = [i.strip() for i in texto_oc_atual.split(",")]
-                                        
-                                        opcoes_oc_edit = [
-                                            "Agrediu o colega verbalmente", "Agrediu o colega fisicamente", 
-                                            "Agrediu o professor verbalmente", "Agrediu o professor fisicamente", 
-                                            "Não trouxe o livro", "Dormiu em sala", "Usou o celular em sala", 
-                                            "Não fez a tarefa em sala", "Não fez a tarefa em casa", 
-                                            "Não trouxe o material", "Excesso de faltas", "Outras"
-                                        ]
-                                        
-                                        edit_selecao_oc = st.multiselect("Selecione as ocorrências", options=opcoes_oc_edit, default=[i for i in lista_oc_atual if i in opcoes_oc_edit])
-                                        edit_detalhes_oc = st.text_area("Detalhes (Data/Tempo/Obs)", value=dados_oc_edit[colunas_df[7]])
-                                        
-                                        col_at_oc1, col_at_oc2 = st.columns(2)
-                                        with col_at_oc1:
-                                            btn_confirmar_edit_oc = st.form_submit_button("SALVAR ALTERAÇÕES")
-                                        with col_at_oc2:
-                                            btn_confirmar_exc_oc = st.form_submit_button("❌ EXCLUIR OCORRÊNCIA")
+                                    if btn_confirmar_edit_oc:
+                                        try:
+                                            tipo_formatado_edit_oc = "OCORRÊNCIA: " + ", ".join(edit_selecao_oc)
+                                            wks_reg.update_cell(linha_idx_oc, 7, tipo_formatado_edit_oc)
+                                            wks_reg.update_cell(linha_idx_oc, 8, edit_detalhes_oc)
+                                            st.success("Ocorrência atualizada!")
+                                            time.sleep(2)
+                                            st.rerun()
+                                        except Exception as e:
+                                            st.error(f"Erro ao editar: {e}")
                                             
-                                        if btn_confirmar_edit_oc:
-                                            try:
-                                                tipo_formatado_edit_oc = "OCORRÊNCIA: " + ", ".join(edit_selecao_oc)
-                                                wks_reg.update_cell(linha_idx_oc, 7, tipo_formatado_edit_oc)
-                                                wks_reg.update_cell(linha_idx_oc, 8, edit_detalhes_oc)
-                                                st.success("Ocorrência atualizada!")
-                                                time.sleep(2)
-                                                st.rerun()
-                                            except Exception as e:
-                                                st.error(f"Erro ao editar: {e}")
-                                                
-                                        if btn_confirmar_exc_oc:
-                                            try:
-                                                wks_reg.delete_rows(linha_idx_oc)
-                                                st.success("Ocorrência excluída!")
-                                                time.sleep(2)
-                                                st.rerun()
-                                            except Exception as e:
-                                                st.error(f"Erro ao excluir: {e}")
-                            else:
-                                st.info("Nenhuma ocorrência de suas disciplinas disponível para editar ou excluir.")
+                                    if btn_confirmar_exc_oc:
+                                        try:
+                                            wks_reg.delete_rows(linha_idx_oc)
+                                            st.success("Ocorrência excluída!")
+                                            time.sleep(2)
+                                            st.rerun()
+                                        except Exception as e:
+                                            st.error(f"Erro ao excluir: {e}")
+                        else:
+                            st.info("Nenhuma ocorrência de suas disciplinas disponível para editar ou excluir.")
 
                     else:
                         st.info("A planilha de registros está vazia.")
@@ -1010,7 +1046,7 @@ else:
             nome_professor_cabecalho = st.session_state.get('username', 'Administrador')
 
         st.title("📝 Sistema de Gestão de Avaliações")
-        aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Visualizar", "Correção", "Histórico de Notas"], horizontal=True)
+        aba_av_escolhida = st.radio("Selecione a ação desejada:", ["Criar", "Visualizar", "Histórico de Notas"], horizontal=True)
         st.markdown("---")
         
         if aba_av_escolhida == "Criar":
@@ -1044,6 +1080,13 @@ else:
                             valor_questao = st.number_input(f"Valor (Pts):", min_value=0.0, max_value=float(nota_maxima), value=float(valor_sugerido), step=0.1, key=f"valor_av_{i}")
                         
                         soma_valores_atual += valor_questao
+
+                        uploaded_image = st.file_uploader(f"Upload de Imagem para Questão {i+1} (Opcional):", type=["png", "jpg", "jpeg"], key=f"image_av_{i}")
+                        image_base64 = None
+                        if uploaded_image is not None:
+                            image_bytes = uploaded_image.getvalue()
+                            image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+                            st.image(uploaded_image, caption=f"Pré-visualização da Imagem da Questão {i+1}", width=200)
                         
                         col_alt_esq, col_alt_dir = st.columns(2)
                         with col_alt_esq:
@@ -1062,7 +1105,8 @@ else:
                             "A": alt_a,
                             "B": alt_b,
                             "C": alt_c,
-                            "D": alt_d
+                            "D": alt_d,
+                            "imagem": image_base64
                         })
                 
                 st.markdown("---")
@@ -1104,6 +1148,13 @@ else:
                         st.session_state['disciplina_ativa'] = disciplina_sel_av
 
                         # Prepara os dados para salvar na planilha
+                        # Cria uma cópia dos dados das questões e remove as imagens para salvar no Sheets
+                        import copy
+                        questoes_dados_sem_imagem = copy.deepcopy(questoes_dados)
+                        for q_data in questoes_dados_sem_imagem:
+                            if 'imagem' in q_data:
+                                del q_data['imagem']
+
                         new_row_data = [
                             str(id_prova_gerado),
                             disciplina_sel_av,
@@ -1113,7 +1164,7 @@ else:
                             float(nota_maxima),
                             datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"),
                             json.dumps(st.session_state['gabarito_oficial']),
-                            json.dumps(questoes_dados)
+                            json.dumps(questoes_dados_sem_imagem)
                         ]
                         
                         # Salva os dados na planilha
@@ -1124,10 +1175,15 @@ else:
                         html_gabarito_professor = ""
                         
                         for q in questoes_dados:
+                            image_html = ""
+                            if q['imagem']:
+                                image_html = f'<img src="data:image/png;base64,{q["imagem"]}" style="max-width:100%; height:auto; margin:10px 0;">'
+
                             html_questoes += f"""
                             <div class="question-block">
                                 <p class="question-title"><b>Questão {q['numero']} ({q['valor']:.2f} pts)</b></p>
                                 <p class="enunciado">{q['enunciado']}</p>
+                                {image_html}
                                 <div class="alternatives">
                                     <p><b>A)</b> {q['A']}</p>
                                     <p><b>B)</b> {q['B']}</p>
