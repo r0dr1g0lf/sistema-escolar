@@ -2595,9 +2595,13 @@ else:
                                 combined_condition = combined_condition | cond
                             df_exibicao = df_exibicao[combined_condition]
 
+                    # Prepara o DataFrame para exibição, modificando a coluna 'Equipamento' para o display
+                    df_para_exibir = df_exibicao.copy()
+                    df_para_exibir['Equipamento'] = df_para_exibir['Equipamento'].astype(str).str.replace(' (Maleta)', '', regex=False)
+
                     # Exibe a tabela sem mostrar a coluna de controle interno 'linha_sheets' para o usuário
                     st.dataframe(
-                        df_exibicao.drop(columns=["linha_sheets"], errors="ignore"), 
+                        df_para_exibir.drop(columns=["linha_sheets"], errors="ignore"), 
                         use_container_width=True, 
                         hide_index=True
                     )
@@ -2722,6 +2726,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
