@@ -9,6 +9,9 @@ import pytz
 import json
 import streamlit_autorefresh as st_autorefresh
 
+# Adiciona meta tag para prevenir tradução automática do navegador
+st.markdown('<meta name="google" content="notranslate">', unsafe_allow_html=True)
+
 # Configuração do fuso horário correto de Roraima
 fuso_roraima = pytz.timezone('America/Boa_Vista')
 
@@ -2719,6 +2722,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
