@@ -6,3 +6,4 @@ xlsxwriter
 pytz
 opencv-python-headless
 pyzbar
+streamlit-autorefresh
