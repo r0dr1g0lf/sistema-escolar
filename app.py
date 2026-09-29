@@ -195,8 +195,8 @@ else:
         
         # Iterate over a copy of the dictionary items to allow modification during iteration
         for user, last_access_time in list(st.session_state["USUARIOS_ONLINE_RAM"].items()):
-            if (current_time - last_access_time) < timedelta(minutes=3): # Active within last 3 minutes
-                active_users_display.append((user, last_access_time))
+            if (current_time - last_access_time) < timedelta(minutes=5): # Active within last 5 minutes
+                active_users_display.append(user)
             else:
                 users_to_remove.append(user)
         
@@ -204,12 +204,12 @@ else:
         for user in users_to_remove:
             del st.session_state["USUARIOS_ONLINE_RAM"][user]
 
-        # Sort active users by last access time (optional, but good for consistent display)
-        active_users_display.sort(key=lambda x: x[1])
+        # Sort active users alphabetically for consistent display
+        active_users_display.sort()
 
         if active_users_display:
-            for user, last_access_time in active_users_display:
-                st.sidebar.caption(f"👤 {user} (último acesso: {last_access_time.strftime('%H:%M:%S')})")
+            for user in active_users_display:
+                st.sidebar.caption(f"👤 {user}")
         else:
             st.sidebar.caption("Nenhum usuário online.")
 
@@ -2719,4 +2719,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
