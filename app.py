@@ -1,12 +1,13 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import gspread
 from google.oauth2.service_account import Credentials
 import time
 import io
 import pytz
-import json # Adicionado para corrigir NameError
+import json
+import streamlit_autorefresh as st_autorefresh
 
 # Configuração do fuso horário correto de Roraima
 fuso_roraima = pytz.timezone('America/Boa_Vista')
@@ -15,6 +16,13 @@ fuso_roraima = pytz.timezone('America/Boa_Vista')
 data_atual = datetime.now(fuso_roraima).date()
 
 SHEET_ID = "153ohv6YsmfOZHjoLpb8He2VM2P-DYTVGh9zDVNRBdS0"
+
+# Initialize session state for online users in RAM
+if 'USUARIOS_ONLINE_RAM' not in st.session_state:
+    st.session_state["USUARIOS_ONLINE_RAM"] = {}
+
+# Auto-refresh for heartbeat (every 60 seconds)
+st_autorefresh.st_autorefresh(interval=60 * 1000, key="heartbeat_servidor")
 
 def conectar_google_sheets():
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -71,30 +79,14 @@ def verificar_conflito(equipamento, data_uso, turno, horario):
     return not conflito.empty
 
 def atualizar_presenca(usuario, acao):
-    try:
-        sh = conectar_google_sheets()
-        try:
-            wks_on = sh.worksheet("Usuarios_Online")
-        except:
-            wks_on = sh.add_worksheet(title="Usuarios_Online", rows="100", cols="2")
-            wks_on.append_row(["Usuario", "Ultimo_Acesso"])
-        
-        celula = None
-        try:
-            celula = wks_on.find(str(usuario))
-        except:
-            pass
+    # This function now only manages explicit login/logout in RAM
+    current_time = datetime.now(fuso_roraima)
 
-        if acao == "login":
-            if celula:
-                wks_on.update_cell(celula.row, 2, datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S"))
-            else:
-                wks_on.append_row([usuario, datetime.now(fuso_roraima).strftime("%d/%m/%Y %H:%M:%S")])
-        elif acao == "logout":
-            if celula:
-                wks_on.delete_rows(celula.row)
-    except:
-        pass
+    if acao == "login":
+        st.session_state["USUARIOS_ONLINE_RAM"][usuario] = current_time
+    elif acao == "logout":
+        if usuario in st.session_state["USUARIOS_ONLINE_RAM"]:
+            del st.session_state["USUARIOS_ONLINE_RAM"][usuario]
 
 if 'logado' not in st.session_state:
     st.session_state.logado = False
@@ -180,6 +172,10 @@ if not st.session_state.logado:
                     st.error("Usuário ou senha incorretos.")
 
 else:
+    # Heartbeat for the currently logged-in user
+    current_user_id = st.session_state.user_data['Usuario']
+    st.session_state["USUARIOS_ONLINE_RAM"][current_user_id] = datetime.now(fuso_roraima)
+
     col_side1, col_side2, col_side3 = st.sidebar.columns([1, 2, 1])
     with col_side2:
         st.image("logo.png", width=80)
@@ -187,19 +183,35 @@ else:
     prof_nome = st.session_state.user_data['Professor']
     st.sidebar.markdown(f"<div style='text-align: center'>Professor: <b>{prof_nome}</b></div>", unsafe_allow_html=True)
     
-    try:
-        sh_on = conectar_google_sheets()
-        wks_online = sh_on.worksheet("Usuarios_Online")
-        users_on = wks_online.get_all_records()
-        if users_on:
-            st.sidebar.markdown("---")
-            st.sidebar.markdown("🟢 **Usuários Online**")
-            hoje_data = datetime.now(fuso_roraima).strftime("%d/%m/%Y")
-            for u in users_on:
-                if u['Ultimo_Acesso'].startswith(hoje_data):
-                    st.sidebar.caption(f"👤 {u['Usuario']}")
-    except:
-        pass
+    # Display online users from RAM
+    if st.session_state["USUARIOS_ONLINE_RAM"]:
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("🟢 **Usuários Online**")
+        
+        current_time = datetime.now(fuso_roraima)
+        
+        active_users_display = []
+        users_to_remove = []
+        
+        # Iterate over a copy of the dictionary items to allow modification during iteration
+        for user, last_access_time in list(st.session_state["USUARIOS_ONLINE_RAM"].items()):
+            if (current_time - last_access_time) < timedelta(minutes=3): # Active within last 3 minutes
+                active_users_display.append((user, last_access_time))
+            else:
+                users_to_remove.append(user)
+        
+        # Remove inactive users from the dictionary
+        for user in users_to_remove:
+            del st.session_state["USUARIOS_ONLINE_RAM"][user]
+
+        # Sort active users by last access time (optional, but good for consistent display)
+        active_users_display.sort(key=lambda x: x[1])
+
+        if active_users_display:
+            for user, last_access_time in active_users_display:
+                st.sidebar.caption(f"👤 {user} (último acesso: {last_access_time.strftime('%H:%M:%S')})")
+        else:
+            st.sidebar.caption("Nenhum usuário online.")
 
     st.sidebar.divider()
     
@@ -2707,3 +2719,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
