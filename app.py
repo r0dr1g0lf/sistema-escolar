@@ -2488,7 +2488,7 @@ else:
                                 "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", 
                                 "3º Tempo (Vespertino)", "4º Tempo (Vespertino)"
                             ]
-                        tempo_aula = st.selectbox("Tempo de Aula:", tempos_disponiveis, key="agend_tempo")
+                        tempo_aula = st.multiselect("Tempo de Aula:", tempos_disponiveis, key="agend_tempo")
                         
                     with col2:
                         # Data de Registro automática capturada do Relógio do Sistema Operacional
@@ -2519,20 +2519,24 @@ else:
                             # Verifica duplicidade (Evita conflito de agendamento do mesmo equipamento no mesmo dia/tempo)
                             dados_agendados = wks_a.get_all_records()
                             conflito = False
+                            conflicting_tempo = "" # Variável para armazenar o tempo que causou o conflito
                             
                             if dados_agendados:
                                 df_agendados = pd.DataFrame(dados_agendados)
-                                # Verifica se o mesmo equipamento já está reservado no mesmo dia e tempo
-                                filtro_conflito = df_agendados[
-                                    (df_agendados["Equipamento"] == equipamento) & 
-                                    (df_agendados["Data Uso"] == data_uso_formatada) & 
-                                    (df_agendados["Tempo"] == tempo_aula)
-                                ]
-                                if not filtro_conflito.empty:
-                                    conflito = True
+                                for single_tempo in tempo_aula: # Itera por cada tempo selecionado
+                                    # Verifica se o mesmo equipamento já está reservado no mesmo dia e tempo
+                                    filtro_conflito = df_agendados[
+                                        (df_agendados["Equipamento"] == equipamento) & 
+                                        (df_agendados["Data Uso"] == data_uso_formatada) & 
+                                        (df_agendados["Tempo"] == single_tempo)
+                                    ]
+                                    if not filtro_conflito.empty:
+                                        conflito = True
+                                        conflicting_tempo = single_tempo # Armazena o tempo específico
+                                        break # Encontrou um conflito, não precisa verificar mais
                             
                             if conflito:
-                                st.error(f"❌ Não é possível agendar! O equipamento '{equipamento}' já está reservado para o dia {data_uso_formatada} no {tempo_aula}.")
+                                st.error(f"❌ Não é possível agendar! O equipamento '{equipamento}' já está reservado para o dia {data_uso_formatada} no {conflicting_tempo}.")
                             else:
                                 # Registra a nova linha se estiver livre
                                 wks_a.append_row([
@@ -2541,7 +2545,7 @@ else:
                                     str(equipamento),
                                     str(data_registro),
                                     str(data_uso_formatada),
-                                    str(tempo_aula),
+                                    ", ".join(tempo_aula), # Converte a lista de tempos em uma string separada por vírgulas
                                     str(observacoes)
                                 ])
                                 st.success(f"✅ Agendamento de {equipamento} realizado com sucesso!")
@@ -2726,6 +2730,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
