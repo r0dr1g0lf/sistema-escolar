@@ -2578,9 +2578,22 @@ else:
                         df_exibicao = df_tabela.copy()
                     
                     # Filtro por equipamento
-                    filtro_equip = st.multiselect("Filtrar por Equipamento:", options=["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"], default=[], key="adm_filtro_equip")
+                    filtro_equip = st.multiselect("Filtrar por Equipamento:", options=["Tablets", "TV", "Datashow", "Notebook", "Caixa de som"], default=[], key="adm_filtro_equip")
+                    
                     if filtro_equip:
-                        df_exibicao = df_exibicao[df_exibicao["Equipamento"].isin(filtro_equip)]
+                        filter_conditions = []
+                        if "Tablets" in filtro_equip:
+                            filter_conditions.append(df_exibicao["Equipamento"].str.startswith("Tablets (Maleta)"))
+                        
+                        other_equipments = [opt for opt in filtro_equip if opt != "Tablets"]
+                        if other_equipments:
+                            filter_conditions.append(df_exibicao["Equipamento"].isin(other_equipments))
+                        
+                        if filter_conditions:
+                            combined_condition = filter_conditions[0]
+                            for cond in filter_conditions[1:]:
+                                combined_condition = combined_condition | cond
+                            df_exibicao = df_exibicao[combined_condition]
 
                     # Exibe a tabela sem mostrar a coluna de controle interno 'linha_sheets' para o usuário
                     st.dataframe(
@@ -2602,7 +2615,9 @@ else:
                         opcoes_selecao = []
                         for idx, row in df_exibicao.iterrows():
                             # Embed linha_sheets directly into the option string
-                            opcoes_selecao.append(f"{row['linha_sheets']} - {row['Equipamento']} - {row['Turma']} ({row['Data Uso']} no {row['Tempo']})")
+                            # Adjust display for Tablets to remove "(Maleta)" if present
+                            display_equip = row['Equipamento'].replace(" (Maleta)", "")
+                            opcoes_selecao.append(f"{row['linha_sheets']} - {display_equip} - {row['Turma']} ({row['Data Uso']} no {row['Tempo']})")
                         
                         if opcoes_selecao: # Only show selectbox if there are options
                             agend_selecionado_texto = st.selectbox("Selecione um agendamento para Modificar ou Excluir:", opcoes_selecao)
@@ -2635,7 +2650,7 @@ else:
                                     dado_antigo = selected_row_data # Use selected_row_data
                                     
                                     # Updated options for editing equipment
-                                    equipamentos_edit_opcoes = ["Tablets (Maleta)", "TV", "Datashow", "Notebook", "Caixa de som"]
+                                    equipamentos_edit_opcoes = ["Tablets", "TV", "Datashow", "Notebook", "Caixa de som"]
                                     
                                     # Determine initial index for selectbox
                                     try:
@@ -2707,4 +2722,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
