@@ -2463,16 +2463,51 @@ else:
                         equipamentos_disponiveis = ["Tablets", "TV", "Datashow", "Notebook", "Caixa de som"]
                         equipamento_selecionado = st.selectbox("Selecione o Equipamento:", equipamentos_disponiveis, key="agend_equip")
                         
-                        # Verificação dos Tablets alterada para menu de seleção (selectbox) de 1 a 30
+                        # Verificação e cálculo do saldo restante de Tablets (Limite total: 30)
                         if "Tablets" in equipamento_selecionado:
-                            opcoes_quantidade = list(range(1, 31))  # Cria a lista de 1 a 30
-                            quantidade_tablets = st.selectbox(
-                                "Selecione a quantidade de Tablets (1 a 30)", 
-                                options=opcoes_quantidade,
-                                index=0,  # Começa marcado no número 1
-                                key="agend_qtd_tablets"
-                            )
-                            equipamento = f"Tablets (Maleta) ({quantidade_tablets} unidades)"
+                            qtd_tablets_agendados = 0
+                            try:
+                                sh_check = conectar_google_sheets()
+                                try:
+                                    wks_check = sh_check.worksheet("Config_Agendamentos")
+                                    dados_check = wks_check.get_all_records()
+                                    if dados_check:
+                                        import re
+                                        data_uso_fmt = data_uso.strftime("%d/%m/%Y")
+                                        for reg in dados_check:
+                                            eq_reg = str(reg.get("Equipamento", ""))
+                                            dt_reg = str(reg.get("Data Uso", ""))
+                                            tp_reg = str(reg.get("Tempo", ""))
+                                            
+                                            # Verifica se há choque de data e tempo de aula
+                                            choque_tempo = any(t in tp_reg for t in tempo_aula) if tempo_aula else False
+                                            
+                                            if dt_reg == data_uso_fmt and choque_tempo and "Tablets" in eq_reg:
+                                                match_qtd = re.search(r'\((\d+)\sunidades\)', eq_reg)
+                                                if match_qtd:
+                                                    qtd_tablets_agendados += int(match_qtd.group(1))
+                                                else:
+                                                    qtd_tablets_agendados += 1
+                                except Exception:
+                                    pass
+                            except Exception:
+                                pass
+                            
+                            saldo_tablets = max(0, 30 - qtd_tablets_agendados)
+                            
+                            if saldo_tablets > 0:
+                                st.info(f"ℹ️ Restam **{saldo_tablets}** Tablets disponíveis para este dia e tempo de aula.")
+                                opcoes_quantidade = list(range(1, saldo_tablets + 1))
+                                quantidade_tablets = st.selectbox(
+                                    f"Selecione a quantidade de Tablets (Disponíveis: {saldo_tablets})", 
+                                    options=opcoes_quantidade,
+                                    index=0,
+                                    key="agend_qtd_tablets"
+                                )
+                                equipamento = f"Tablets (Maleta) ({quantidade_tablets} unidades)"
+                            else:
+                                st.error("❌ Todos os 30 Tablets já estão agendados para a data e tempo selecionados.")
+                                equipamento = "Tablets (Maleta) (0 unidades)"
                         else:
                             equipamento = equipamento_selecionado
                         
@@ -2732,6 +2767,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
