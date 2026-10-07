@@ -2463,45 +2463,17 @@ else:
                         equipamentos_disponiveis = ["Tablets", "TV", "Datashow", "Notebook", "Caixa de som"]
                         equipamento_selecionado = st.selectbox("Selecione o Equipamento:", equipamentos_disponiveis, key="agend_equip")
                         
-                        # Lógica de seleção de quantidade baseada no equipamento
+                        # Verificação dos Tablets alterada para menu de seleção (selectbox) de 1 a 30
                         if "Tablets" in equipamento_selecionado:
-                            opcoes_quantidade = list(range(1, 31))
-                            quantidade = st.selectbox(
+                            opcoes_quantidade = list(range(1, 31))  # Cria a lista de 1 a 30
+                            quantidade_tablets = st.selectbox(
                                 "Selecione a quantidade de Tablets (1 a 30)", 
                                 options=opcoes_quantidade,
-                                index=0,
+                                index=0,  # Começa marcado no número 1
                                 key="agend_qtd_tablets"
                             )
-                            equipamento = f"Tablets (Maleta) ({quantidade} unidades)"
-                        elif "TV" in equipamento_selecionado:
-                            opcoes_quantidade = list(range(1, 3)) # 1 ou 2 TVs
-                            quantidade = st.selectbox(
-                                "Selecione a quantidade de TV (1 a 2)", 
-                                options=opcoes_quantidade,
-                                index=0,
-                                key="agend_qtd_tv"
-                            )
-                            equipamento = f"TV ({quantidade} unidades)"
-                        elif "Datashow" in equipamento_selecionado:
-                            opcoes_quantidade = list(range(1, 4)) # 1 a 3 Datashows
-                            quantidade = st.selectbox(
-                                "Selecione a quantidade de Datashow (1 a 3)", 
-                                options=opcoes_quantidade,
-                                index=0,
-                                key="agend_qtd_datashow"
-                            )
-                            equipamento = f"Datashow ({quantidade} unidades)"
-                        elif "Caixa de som" in equipamento_selecionado:
-                            opcoes_quantidade = list(range(1, 3)) # 1 ou 2 Caixas de som
-                            quantidade = st.selectbox(
-                                "Selecione a quantidade de Caixa de som (1 a 2)", 
-                                options=opcoes_quantidade,
-                                index=0,
-                                key="agend_qtd_caixa_som"
-                            )
-                            equipamento = f"Caixa de som ({quantidade} unidades)"
+                            equipamento = f"Tablets (Maleta) ({quantidade_tablets} unidades)"
                         else:
-                            # Para outros equipamentos como "Notebook", mantém o nome padrão
                             equipamento = equipamento_selecionado
                         
                         # Filtra os horários disponíveis com base no período selecionado
@@ -2551,16 +2523,30 @@ else:
                             if dados_agendados:
                                 df_agendados = pd.DataFrame(dados_agendados)
                                 for single_tempo in tempo_aula: # Itera por cada tempo selecionado
-                                    # Verifica se o mesmo equipamento já está reservado no mesmo dia e tempo
-                                    filtro_conflito = df_agendados[
-                                        (df_agendados["Equipamento"] == equipamento) & 
-                                        (df_agendados["Data Uso"] == data_uso_formatada) & 
-                                        (df_agendados["Tempo"] == single_tempo)
-                                    ]
-                                    if not filtro_conflito.empty:
-                                        conflito = True
-                                        conflicting_tempo = single_tempo # Armazena o tempo específico
-                                        break # Encontrou um conflito, não precisa verificar mais
+                                    if "TV" in equipamento:
+                                        # Soma quantas TVs já estão agendadas no mesmo dia e tempo
+                                        agendamentos_tv = df_agendados[
+                                            (df_agendados["Equipamento"].str.contains("TV", na=False)) & 
+                                            (df_agendados["Data Uso"] == data_uso_formatada) & 
+                                            (df_agendados["Tempo"].str.contains(single_tempo, regex=False, na=False))
+                                        ]
+                                        
+                                        qtd_tv_agendada = len(agendamentos_tv)
+                                        if qtd_tv_agendada >= 2:
+                                            conflito = True
+                                            conflicting_tempo = f"{single_tempo} (Todas as 2 TVs já estão reservadas)"
+                                            break
+                                    else:
+                                        # Regra padrão para os demais equipamentos
+                                        filtro_conflito = df_agendados[
+                                            (df_agendados["Equipamento"] == equipamento) & 
+                                            (df_agendados["Data Uso"] == data_uso_formatada) & 
+                                            (df_agendados["Tempo"].str.contains(single_tempo, regex=False, na=False))
+                                        ]
+                                        if not filtro_conflito.empty:
+                                            conflito = True
+                                            conflicting_tempo = single_tempo
+                                            break
                             
                             if conflito:
                                 st.error(f"❌ Não é possível agendar! O equipamento '{equipamento}' já está reservado para o dia {data_uso_formatada} no {conflicting_tempo}.")
@@ -2760,6 +2746,7 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
 
 
 
