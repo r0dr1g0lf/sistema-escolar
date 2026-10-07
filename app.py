@@ -2455,10 +2455,9 @@ else:
                     col1, col2 = st.columns(2)
                     
                     with col1:
-                        turma_selecionada = st.selectbox("Selecione a Turma:", turmas_disponiveis, key="agend_turma")
-                        
-                        # Novo campo para selecionar o período logo abaixo da turma
                         periodo_selecionado = st.selectbox("Selecione o Período:", ["Matutino", "Vespertino"], key="agend_periodo")
+                        
+                        turma_selecionada = st.selectbox("Selecione a Turma:", turmas_disponiveis, key="agend_turma")
                         
                         # Lista de equipamentos com a Caixa de som incluída
                         equipamentos_disponiveis = ["Tablets", "TV", "Datashow", "Notebook", "Caixa de som"]
@@ -2733,4 +2732,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
