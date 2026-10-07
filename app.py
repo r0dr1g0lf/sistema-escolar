@@ -2523,30 +2523,16 @@ else:
                             if dados_agendados:
                                 df_agendados = pd.DataFrame(dados_agendados)
                                 for single_tempo in tempo_aula: # Itera por cada tempo selecionado
-                                    if "TV" in equipamento:
-                                        # Soma quantas TVs já estão agendadas no mesmo dia e tempo
-                                        agendamentos_tv = df_agendados[
-                                            (df_agendados["Equipamento"].str.contains("TV", na=False)) & 
-                                            (df_agendados["Data Uso"] == data_uso_formatada) & 
-                                            (df_agendados["Tempo"].str.contains(single_tempo, regex=False, na=False))
-                                        ]
-                                        
-                                        qtd_tv_agendada = len(agendamentos_tv)
-                                        if qtd_tv_agendada >= 2:
-                                            conflito = True
-                                            conflicting_tempo = f"{single_tempo} (Todas as 2 TVs já estão reservadas)"
-                                            break
-                                    else:
-                                        # Regra padrão para os demais equipamentos
-                                        filtro_conflito = df_agendados[
-                                            (df_agendados["Equipamento"] == equipamento) & 
-                                            (df_agendados["Data Uso"] == data_uso_formatada) & 
-                                            (df_agendados["Tempo"].str.contains(single_tempo, regex=False, na=False))
-                                        ]
-                                        if not filtro_conflito.empty:
-                                            conflito = True
-                                            conflicting_tempo = single_tempo
-                                            break
+                                    # Verifica se o mesmo equipamento já está reservado no mesmo dia e tempo
+                                    filtro_conflito = df_agendados[
+                                        (df_agendados["Equipamento"] == equipamento) & 
+                                        (df_agendados["Data Uso"] == data_uso_formatada) & 
+                                        (df_agendados["Tempo"] == single_tempo)
+                                    ]
+                                    if not filtro_conflito.empty:
+                                        conflito = True
+                                        conflicting_tempo = single_tempo # Armazena o tempo específico
+                                        break # Encontrou um conflito, não precisa verificar mais
                             
                             if conflito:
                                 st.error(f"❌ Não é possível agendar! O equipamento '{equipamento}' já está reservado para o dia {data_uso_formatada} no {conflicting_tempo}.")
@@ -2746,8 +2732,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
-
-
 
 
 
