@@ -2463,53 +2463,55 @@ else:
                         equipamentos_disponiveis = ["Tablets", "TV", "Datashow", "Notebook", "Caixa de som"]
                         equipamento_selecionado = st.selectbox("Selecione o Equipamento:", equipamentos_disponiveis, key="agend_equip")
                         
-                        # Verificação e cálculo do saldo restante de Tablets (Limite total: 30)
-                        if "Tablets" in equipamento_selecionado:
-                            qtd_tablets_agendados = 0
-                            try:
-                                sh_check = conectar_google_sheets()
-                                try:
-                                    wks_check = sh_check.worksheet("Config_Agendamentos")
-                                    dados_check = wks_check.get_all_records()
-                                    if dados_check:
-                                        import re
-                                        data_uso_fmt = data_uso.strftime("%d/%m/%Y")
-                                        for reg in dados_check:
-                                            eq_reg = str(reg.get("Equipamento", ""))
-                                            dt_reg = str(reg.get("Data Uso", ""))
-                                            tp_reg = str(reg.get("Tempo", ""))
-                                            
-                                            # Verifica se há choque de data e tempo de aula
-                                            choque_tempo = any(t in tp_reg for t in tempo_aula) if tempo_aula else False
-                                            
-                                            if dt_reg == data_uso_fmt and choque_tempo and "Tablets" in eq_reg:
-                                                match_qtd = re.search(r'\((\d+)\sunidades\)', eq_reg)
-                                                if match_qtd:
-                                                    qtd_tablets_agendados += int(match_qtd.group(1))
-                                                else:
-                                                    qtd_tablets_agendados += 1
-                                except Exception:
-                                    pass
-                            except Exception:
-                                pass
-                            
-                            saldo_tablets = max(0, 30 - qtd_tablets_agendados)
-                            
-                            if saldo_tablets > 0:
-                                st.info(f"ℹ️ Restam **{saldo_tablets}** Tablets disponíveis para este dia e tempo de aula.")
-                                opcoes_quantidade = list(range(1, saldo_tablets + 1))
-                                quantidade_tablets = st.selectbox(
-                                    f"Selecione a quantidade de Tablets (Disponíveis: {saldo_tablets})", 
-                                    options=opcoes_quantidade,
-                                    index=0,
-                                    key="agend_qtd_tablets"
-                                )
-                                equipamento = f"Tablets (Maleta) ({quantidade_tablets} unidades)"
-                            else:
-                                st.error("❌ Todos os 30 Tablets já estão agendados para a data e tempo selecionados.")
-                                equipamento = "Tablets (Maleta) (0 unidades)"
-                        else:
-                            equipamento = equipamento_selecionado
+        # Define a constante para o total de tablets disponíveis no sistema
+        TOTAL_TABLETS = 30
+
+        # Criação das duas abas na interface
+        aba_cadastrar, aba_visualizar = st.tabs(["🆕 Realizar Agendamento", "📋 Visualizar Agendamentos"])
+        
+        # ---------------------------------------------------------------------
+        # ABA 1: FORMULÁRIO DE CADASTRO DE AGENDAMENTO
+        # ---------------------------------------------------------------------
+        with aba_cadastrar:
+            st.subheader("🗓️ Realizar Agendamento de Equipamento")
+            
+            # Trava de Segurança: Apenas ADM MASTER acessa durante a manutenção
+            if not st.session_state.get('is_master_admin', False):
+                st.info("🛠️ **Sistema em Manutenção Preventiva**\n\nEstamos atualizando a ferramenta de agendamentos para trazer melhorias! O recurso estará liberado para todos os professores em breve. Agradecemos a compreensão.")
+            else:
+                st.warning("⚡ **Acesso Administrativo Ativo:** Você está visualizando esta aba porque está logado como ADM MASTER durante os testes de atualização.")
+                
+                # 2. Carrega as turmas vinculadas ao professor logado para evitar componentes vazios
+                try:
+                    sh = conectar_google_sheets()
+                    df_p = pd.DataFrame(sh.worksheet("Config_Professores").get_all_records())
+                    
+                    # Filtra na tabela onde a coluna Usuario bate com o professor logado
+                    dados_prof = df_p[df_p["Usuario"] == usuario_logado]
+                    # Como estamos no bloco de 'is_master_admin', sempre mostra todas as turmas
+                    df_a = pd.DataFrame(sh.worksheet("Config_Alunos").get_all_records())
+                    if "Turma" in df_a.columns:
+                        turmas_disponiveis = sorted(df_a["Turma"].dropna().unique().tolist())
+                    else:
+                        turmas_disponiveis = ["Regular A", "Regular B"] # Fallback
+                except Exception as e:
+                    st.error(f"Erro ao carregar turmas: {e}")
+                    turmas_disponiveis = ["Erro ao carregar turmas"]
+
+                if not turmas_disponiveis or turmas_disponiveis == ["Erro ao carregar turmas"]:
+                    st.warning("⚠️ Não foi possível carregar as turmas. Por favor, verifique a configuração ou tente novamente.")
+                else:
+                    # Componentes visuais organizados
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        periodo_selecionado = st.selectbox("Selecione o Período:", ["Matutino", "Vespertino"], key="agend_periodo")
+                        
+                        turma_selecionada = st.selectbox("Selecione a Turma:", turmas_disponiveis, key="agend_turma")
+                        
+                        # Lista de equipamentos com a Caixa de som incluída
+                        equipamentos_disponiveis = ["Tablets", "TV", "Datashow", "Notebook", "Caixa de som"]
+                        equipamento_selecionado = st.selectbox("Selecione o Equipamento:", equipamentos_disponiveis, key="agend_equip")
                         
                         # Filtra os horários disponíveis com base no período selecionado
                         if periodo_selecionado == "Matutino":
@@ -2533,13 +2535,134 @@ else:
                         data_uso = st.date_input("Data de Uso do Equipamento:", value=data_atual, format="DD/MM/YYYY", key="agend_uso")
                         data_uso_formatada = data_uso.strftime("%d/%m/%Y")
 
-                    # Novo campo para o professor digitar o objetivo ou observações
+                    # --- LÓGICA DE DISPONIBILIDADE DE TABLETS ---
+                    equipamento_final_para_registro = equipamento_selecionado # Valor padrão
+                    quantidade_tablets_selecionada = 1 # Padrão para itens não-tablet ou se tablets indisponíveis
+                    saldo_tablets = TOTAL_TABLETS # Inicializa o saldo total
+
+                    if "Tablets" in equipamento_selecionado:
+                        qtd_tablets_agendados = 0
+                        try:
+                            sh_check = conectar_google_sheets()
+                            wks_check = sh_check.worksheet("Config_Agendamentos")
+                            dados_check = wks_check.get_all_records()
+                            
+                            if dados_check:
+                                df_agendamentos_existentes = pd.DataFrame(dados_check)
+                                
+                                # Garante que 'Data Uso' seja string para comparação
+                                df_agendamentos_existentes['Data Uso'] = df_agendamentos_existentes['Data Uso'].astype(str)
+                                
+                                # Filtra para a data selecionada
+                                df_filtered_by_date = df_agendamentos_existentes[
+                                    (df_agendamentos_existentes['Data Uso'] == data_uso_formatada)
+                                ]
+                                
+                                if not df_filtered_by_date.empty:
+                                    import re
+                                    for _, reg in df_filtered_by_date.iterrows():
+                                        eq_reg = str(reg.get("Equipamento", ""))
+                                        tp_reg_str = str(reg.get("Tempo", "")) # Obtém como string
+                                        
+                                        # Converte tp_reg_str para uma lista de tempos individuais para comparação
+                                        tp_reg_list = [t.strip() for t in tp_reg_str.split(',') if t.strip()]
+                                        
+                                        # Verifica sobreposição entre tempo_aula selecionado (lista) e tp_reg_list existente (lista)
+                                        # Considera apenas se ambas as listas não estiverem vazias
+                                        choque_tempo = False
+                                        if tempo_aula and tp_reg_list:
+                                            choque_tempo = any(t_sel in tp_reg_list for t_sel in tempo_aula)
+                                        
+                                        if choque_tempo and "Tablets" in eq_reg:
+                                            match_qtd = re.search(r'\((\d+)\sunidades\)', eq_reg)
+                                            if match_qtd:
+                                                qtd_tablets_agendados += int(match_qtd.group(1))
+                                            else:
+                                                # Fallback se a quantidade não for especificada, assume 1
+                                                qtd_tablets_agendados += 1
+                        except Exception as e:
+                            st.warning(f"Não foi possível carregar agendamentos existentes para Tablets: {e}")
+                            # Em caso de erro, assume 0 tablets reservados para permitir a reserva
+                            qtd_tablets_agendados = 0
+                        
+                        saldo_tablets = max(0, TOTAL_TABLETS - qtd_tablets_agendados)
+                        
+                        if saldo_tablets > 0:
+                            st.info(f"ℹ️ Restam **{saldo_tablets}** Tablets disponíveis para este dia e tempo(s) de aula.")
+                            opcoes_quantidade = list(range(1, saldo_tablets + 1))
+                            quantidade_tablets_selecionada = st.selectbox(
+                                f"Selecione a quantidade de Tablets (Disponíveis: {saldo_tablets})", 
+                                options=opcoes_quantidade,
+                                index=0,
+                                key="agend_qtd_tablets"
+                            )
+                            equipamento_final_para_registro = f"Tablets (Maleta) ({quantidade_tablets_selecionada} unidades)"
+                        else:
+                            st.error("❌ Todos os Tablets já estão agendados para a data e tempo(s) de aula selecionados.")
+                            equipamento_final_para_registro = "Tablets (Maleta) (0 unidades)" # Indica 0 unidades
+                            quantidade_tablets_selecionada = 0 # Define como 0 se indisponível
+                    else:
+                        equipamento_final_para_registro = equipamento_selecionado
+                    # --- FIM DA LÓGICA DE DISPONIBILIDADE DE TABLETS ---
+                    
                     observacoes = st.text_area("Objetivo / Observações sobre o agendamento", placeholder="Ex: Aula prática sobre o conteúdo X / Uso dos tablets para pesquisa em grupo...")
 
                     st.markdown("---")
                     
+                    # Desabilita o botão se não houver tablets disponíveis (e tablets forem selecionados) ou se nenhum tempo de aula for selecionado
+                    disable_button = False
+                    if "Tablets" in equipamento_selecionado and quantidade_tablets_selecionada == 0:
+                        disable_button = True
+                    if not tempo_aula: # Também desabilita se nenhum tempo for selecionado
+                        disable_button = True
+
                     # Botão para processar e salvar no banco de dados do Sheets
-                    if st.button("💾 Confirmar Agendamento do Equipamento", use_container_width=True, key="btn_confirmar_agendamento"):
+                    if st.button("💾 Confirmar Agendamento do Equipamento", use_container_width=True, key="btn_confirmar_agendamento", disabled=disable_button):
+                        # Re-verifica a disponibilidade no momento do envio para evitar condições de corrida
+                        if "Tablets" in equipamento_selecionado:
+                            qtd_tablets_agendados_on_submit = 0
+                            try:
+                                sh_submit_check = conectar_google_sheets()
+                                wks_submit_check = sh_submit_check.worksheet("Config_Agendamentos")
+                                dados_submit_check = wks_submit_check.get_all_records()
+                                
+                                if dados_submit_check:
+                                    df_agendamentos_submit = pd.DataFrame(dados_submit_check)
+                                    df_agendamentos_submit['Data Uso'] = df_agendamentos_submit['Data Uso'].astype(str)
+                                    
+                                    df_filtered_by_date_submit = df_agendamentos_submit[
+                                        (df_agendamentos_submit['Data Uso'] == data_uso_formatada)
+                                    ]
+                                    
+                                    if not df_filtered_by_date_submit.empty:
+                                        import re
+                                        for _, reg in df_filtered_by_date_submit.iterrows():
+                                            eq_reg = str(reg.get("Equipamento", ""))
+                                            tp_reg_str_submit = str(reg.get("Tempo", ""))
+                                            
+                                            tp_reg_list_submit = [t.strip() for t in tp_reg_str_submit.split(',') if t.strip()]
+                                            
+                                            choque_tempo_submit = False
+                                            if tempo_aula and tp_reg_list_submit:
+                                                choque_tempo_submit = any(t_sel in tp_reg_list_submit for t_sel in tempo_aula)
+                                            
+                                            if choque_tempo_submit and "Tablets" in eq_reg:
+                                                match_qtd_submit = re.search(r'\((\d+)\sunidades\)', eq_reg)
+                                                if match_qtd_submit:
+                                                    qtd_tablets_agendados_on_submit += int(match_qtd_submit.group(1))
+                                                else:
+                                                    qtd_tablets_agendados_on_submit += 1
+                            except Exception as e:
+                                st.error(f"Erro ao verificar disponibilidade de Tablets no envio: {e}")
+                                qtd_tablets_agendados_on_submit = TOTAL_TABLETS # Assume reserva total para evitar overbooking
+
+                            saldo_tablets_on_submit = max(0, TOTAL_TABLETS - qtd_tablets_agendados_on_submit)
+                            
+                            if quantidade_tablets_selecionada > saldo_tablets_on_submit:
+                                st.error(f"❌ A quantidade de Tablets solicitada ({quantidade_tablets_selecionada}) excede o saldo disponível ({saldo_tablets_on_submit}) no momento do envio. Por favor, ajuste a quantidade.")
+                                st.stop() # Interrompe a execução para evitar salvar
+                        
+                        # Verificação de conflito original (para todos os tipos de equipamento)
                         try:
                             sh = conectar_google_sheets()
                             
@@ -2547,45 +2670,50 @@ else:
                             try:
                                 wks_a = sh.worksheet("Config_Agendamentos")
                             except:
-                                wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7") # Changed cols to 7
-                                wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo", "Observacoes"]) # Added "Observacoes"
+                                wks_a = sh.add_worksheet(title="Config_Agendamentos", rows="1000", cols="7")
+                                wks_a.append_row(["Professor", "Turma", "Equipamento", "Data Registro", "Data Uso", "Tempo", "Observacoes"])
                             
-                            # Verifica duplicidade (Evita conflito de agendamento do mesmo equipamento no mesmo dia/tempo)
                             dados_agendados = wks_a.get_all_records()
                             conflito = False
                             conflicting_tempo = "" # Variável para armazenar o tempo que causou o conflito
                             
                             if dados_agendados:
                                 df_agendados = pd.DataFrame(dados_agendados)
+                                df_agendados['Data Uso'] = df_agendados['Data Uso'].astype(str) # Garante tipo string
+                                
                                 for single_tempo in tempo_aula: # Itera por cada tempo selecionado
-                                    # Verifica se o mesmo equipamento já está reservado no mesmo dia e tempo
-                                    filtro_conflito = df_agendados[
-                                        (df_agendados["Equipamento"] == equipamento) & 
-                                        (df_agendados["Data Uso"] == data_uso_formatada) & 
-                                        (df_agendados["Tempo"] == single_tempo)
-                                    ]
-                                    if not filtro_conflito.empty:
-                                        conflito = True
-                                        conflicting_tempo = single_tempo # Armazena o tempo específico
-                                        break # Encontrou um conflito, não precisa verificar mais
+                                    # Para itens não-tablet, verifica a correspondência exata do equipamento
+                                    if "Tablets" not in equipamento_selecionado: # Aplica esta verificação de conflito apenas para itens não-tablet
+                                        filtro_conflito = df_agendados[
+                                            (df_agendados["Equipamento"] == equipamento_final_para_registro) & 
+                                            (df_agendados["Data Uso"] == data_uso_formatada) & 
+                                            (df_agendados["Tempo"].apply(lambda x: single_tempo in [t.strip() for t in str(x).split(',') if t.strip()])) # Verifica se single_tempo está na lista de tempos reservados
+                                        ]
+                                        if not filtro_conflito.empty:
+                                            conflito = True
+                                            conflicting_tempo = single_tempo # Armazena o tempo específico
+                                            break # Encontrou um conflito, não precisa verificar mais
                             
                             if conflito:
-                                st.error(f"❌ Não é possível agendar! O equipamento '{equipamento}' já está reservado para o dia {data_uso_formatada} no {conflicting_tempo}.")
+                                st.error(f"❌ Não é possível agendar! O equipamento '{equipamento_final_para_registro}' já está reservado para o dia {data_uso_formatada} no {conflicting_tempo}.")
                             else:
-                                # Registra a nova linha se estiver livre
-                                wks_a.append_row([
-                                    str(nome_professor_logado),
-                                    str(turma_selecionada),
-                                    str(equipamento),
-                                    str(data_registro),
-                                    str(data_uso_formatada),
-                                    ", ".join(tempo_aula), # Converte a lista de tempos em uma string separada por vírgulas
-                                    str(observacoes)
-                                ])
-                                st.success(f"✅ Agendamento de {equipamento} realizado com sucesso!")
-                                st.cache_data.clear()
-                                time.sleep(1.5)
-                                st.rerun()
+                                if not tempo_aula:
+                                    st.error("Por favor, selecione pelo menos um 'Tempo de Aula'.")
+                                else:
+                                    # Registra a nova linha se estiver livre
+                                    wks_a.append_row([
+                                        str(nome_professor_logado),
+                                        str(turma_selecionada),
+                                        str(equipamento_final_para_registro),
+                                        str(data_registro),
+                                        str(data_uso_formatada),
+                                        ", ".join(tempo_aula), # Converte a lista de tempos em uma string separada por vírgulas
+                                        str(observacoes)
+                                    ])
+                                    st.success(f"✅ Agendamento de {equipamento_final_para_registro} realizado com sucesso!")
+                                    st.cache_data.clear()
+                                    time.sleep(1.5)
+                                    st.rerun()
                                 
                         except Exception as e:
                             st.error(f"Erro ao salvar os dados na planilha: {e}")
@@ -2767,3 +2895,4 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
