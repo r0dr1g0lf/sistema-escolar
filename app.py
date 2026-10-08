@@ -2505,13 +2505,13 @@ else:
                     col1, col2 = st.columns(2)
                     
                     with col1:
-                        periodo_selecionado = st.selectbox("Selecione o Período:", ["Matutino", "Vespertino"], key="agend_periodo")
+                        periodo_selecionado = st.selectbox("Selecione o Período:", ["Matutino", "Vespertino"], key="agend_periodo_tablets")
                         
-                        turma_selecionada = st.selectbox("Selecione a Turma:", turmas_disponiveis, key="agend_turma")
+                        turma_selecionada = st.selectbox("Selecione a Turma:", turmas_disponiveis, key="agend_turma_tablets")
                         
                         # Lista de equipamentos com a Caixa de som incluída
                         equipamentos_disponiveis = ["Tablets", "TV", "Datashow", "Notebook", "Caixa de som"]
-                        equipamento_selecionado = st.selectbox("Selecione o Equipamento:", equipamentos_disponiveis, key="agend_equip")
+                        equipamento_selecionado = st.selectbox("Selecione o Equipamento:", equipamentos_disponiveis, key="agend_equip_tablets")
                         
                         # Filtra os horários disponíveis com base no período selecionado
                         if periodo_selecionado == "Matutino":
@@ -2524,15 +2524,15 @@ else:
                                 "1º Tempo (Vespertino)", "2º Tempo (Vespertino)", 
                                 "3º Tempo (Vespertino)", "4º Tempo (Vespertino)"
                             ]
-                        tempo_aula = st.multiselect("Tempo de Aula:", tempos_disponiveis, key="agend_tempo")
+                        tempo_aula = st.multiselect("Tempo de Aula:", tempos_disponiveis, key="agend_tempo_tablets")
                         
                     with col2:
                         # Data de Registro automática capturada do Relógio do Sistema Operacional
                         data_registro = datetime.now(fuso_roraima).strftime("%d/%m/%Y")
-                        st.text_input("Data de Registro (Hoje):", value=data_registro, disabled=True, key="agend_reg")
+                        st.text_input("Data de Registro (Hoje):", value=data_registro, disabled=True, key="agend_reg_tablets")
                         
                         # Data de Uso usando o seletor de calendário nativo do Streamlit
-                        data_uso = st.date_input("Data de Uso do Equipamento:", value=data_atual, format="DD/MM/YYYY", key="agend_uso")
+                        data_uso = st.date_input("Data de Uso do Equipamento:", value=data_atual, format="DD/MM/YYYY", key="agend_uso_tablets")
                         data_uso_formatada = data_uso.strftime("%d/%m/%Y")
 
                     # --- LÓGICA DE DISPONIBILIDADE DE TABLETS ---
@@ -2895,6 +2895,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
