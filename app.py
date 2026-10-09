@@ -890,7 +890,7 @@ else:
                         df_ex_oc = df_ex_oc.sort_values(by=["Periodo", "Turma", "Alunos"])
                         
                         if is_soe:
-                            ordem_oc = ["Turma", "Alunos", "Periodo", "Data/Tempo", "Disciplina", "Professor", "Disciplinas Envolvidas", "Tipo_Ocorrência", "Justificativa", "Observações"]
+                            ordem_oc = ["Turma", "Alunos", "Periodo", "Data/Tempo", "Professor", "Disciplinas Envolvidas", "Tipo_Ocorrência", "Justificativa", "Observações"]
                         else:
                             ordem_oc = ["Data/Tempo", "Turma", "Alunos", "Periodo", "Disciplina", "Professor", "Tipo_Ocorrência", "Justificativa", "Disciplinas Envolvidas", "Observações"]
                         st.dataframe(df_ex_oc[ordem_oc], use_container_width=True, hide_index=True)
@@ -925,12 +925,11 @@ else:
                                 worksheet.set_column('B:B', 25, wrap_format) # Alunos
                                 worksheet.set_column('C:C', 10, wrap_format) # Periodo
                                 worksheet.set_column('D:D', 15, wrap_format) # Data/Tempo
-                                worksheet.set_column('E:E', 15, wrap_format) # Disciplina
-                                worksheet.set_column('F:F', 15, wrap_format) # Professor
-                                worksheet.set_column('G:G', 25, wrap_format) # Disciplinas Envolvidas
-                                worksheet.set_column('H:H', 25, wrap_format) # Tipo_Ocorrência
-                                worksheet.set_column('I:I', 20, wrap_format) # Justificativa
-                                worksheet.set_column('J:J', 40, wrap_format) # Observações
+                                worksheet.set_column('E:E', 15, wrap_format) # Professor
+                                worksheet.set_column('F:F', 25, wrap_format) # Disciplinas Envolvidas
+                                worksheet.set_column('G:G', 25, wrap_format) # Tipo_Ocorrência
+                                worksheet.set_column('H:H', 20, wrap_format) # Justificativa
+                                worksheet.set_column('I:I', 40, wrap_format) # Observações
                             else:
                                 worksheet.set_column('A:A', 15, wrap_format) # Data/Tempo
                                 worksheet.set_column('B:B', 6, wrap_format)  # Turma
@@ -2925,6 +2924,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
