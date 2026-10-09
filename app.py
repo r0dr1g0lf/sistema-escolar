@@ -829,32 +829,57 @@ else:
                         if disciplina_filtro_oc:
                             df_oc_filtrado = df_oc_filtrado[df_oc_filtrado[col_disc_oc].astype(str).isin(disciplina_filtro_oc)]
 
-                        def extrair_data_tempo(detalhes):
-                            try:
-                                data_parte = detalhes.split("DATA: ")[1].split(" | ")[0]
-                                tempo_parte = detalhes.split("TEMPO: ")[1].split(" | ")[0]
-                                return f"{data_parte} - {tempo_parte}"
-                            except:
-                                return ""
+                        def parse_detalhes_ocorrencia(detalhes_str):
+                            data_tempo = ""
+                            justificativa = ""
+                            disciplinas_envolvidas = ""
+                            observacoes = ""
 
-                        df_oc_filtrado['Data/Tempo'] = df_oc_filtrado[colunas_df[7]].apply(extrair_data_tempo)
+                            parts = [p.strip() for p in detalhes_str.split('|')]
+
+                            if parts and parts[0].startswith("DATA:"):
+                                data_part = parts.pop(0).replace("DATA:", "").strip()
+                                if parts and parts[0].startswith("TEMPO:"):
+                                    tempo_part = parts.pop(0).replace("TEMPO:", "").strip()
+                                    data_tempo = f"{data_part} - {tempo_part}"
+                                else:
+                                    data_tempo = data_part
+
+                            temp_obs_parts = []
+                            for part in parts:
+                                if part.startswith("JUSTIFICATIVA:"):
+                                    justificativa = part.replace("JUSTIFICATIVA:", "").strip()
+                                elif part.startswith("DISCIPLINAS ENVOLVIDAS:"):
+                                    disciplinas_envolvidas = part.replace("DISCIPLINAS ENVOLVIDAS:", "").strip()
+                                else:
+                                    temp_obs_parts.append(part)
+
+                            observacoes = " | ".join(temp_obs_parts).strip()
+
+                            return data_tempo, justificativa, disciplinas_envolvidas, observacoes
+
+                        parsed_data = df_oc_filtrado[colunas_df[7]].apply(lambda x: pd.Series(parse_detalhes_ocorrencia(x)))
+                        df_oc_filtrado[['Data/Tempo', 'Justificativa', 'Disciplinas Envolvidas', 'Observações']] = parsed_data
+
                         df_oc_filtrado[colunas_df[6]] = df_oc_filtrado[colunas_df[6]].astype(str).str.replace("OCORRÊNCIA: ", "", case=False)
 
                         mapeamento_oc = {
-                            'Data/Tempo': 'Data/Tempo',
                             colunas_df[2]: "Turma",
                             colunas_df[3]: "Alunos",
                             colunas_df[5]: "Periodo",
                             colunas_df[4]: "Disciplina",
                             colunas_df[1]: "Professor",
                             colunas_df[6]: "Tipo_Ocorrência",
-                            colunas_df[7]: "Observações / Detalhes" # Usar a coluna original que já contém todos os detalhes
+                            'Data/Tempo': 'Data/Tempo',
+                            'Justificativa': 'Justificativa',
+                            'Disciplinas Envolvidas': 'Disciplinas Envolvidas',
+                            'Observações': 'Observações'
                         }
                         
                         df_ex_oc = df_oc_filtrado.rename(columns=mapeamento_oc)
                         df_ex_oc = df_ex_oc.sort_values(by=["Periodo", "Turma", "Alunos"])
                         
-                        ordem_oc = ["Data/Tempo", "Turma", "Alunos", "Periodo", "Disciplina", "Professor", "Tipo_Ocorrência", "Observações / Detalhes"]
+                        ordem_oc = ["Data/Tempo", "Turma", "Alunos", "Periodo", "Disciplina", "Professor", "Tipo_Ocorrência", "Justificativa", "Disciplinas Envolvidas", "Observações"]
                         st.dataframe(df_ex_oc[ordem_oc], use_container_width=True, hide_index=True)
 
                         output_oc = io.BytesIO()
@@ -889,7 +914,9 @@ else:
                             worksheet.set_column('E:E', 15, wrap_format) # Disciplina
                             worksheet.set_column('F:F', 15, wrap_format) # Professor
                             worksheet.set_column('G:G', 25, wrap_format) # Tipo_Ocorrência
-                            worksheet.set_column('H:H', 45, wrap_format) # Observações / Detalhes (Aumentado para acomodar mais texto)
+                            worksheet.set_column('H:H', 20, wrap_format) # Justificativa
+                            worksheet.set_column('I:I', 25, wrap_format) # Disciplinas Envolvidas
+                            worksheet.set_column('J:J', 40, wrap_format) # Observações
 
                             for col_num, value in enumerate(df_ex_oc[ordem_oc].columns.values):
                                 worksheet.write(0, col_num, value, header_format)
@@ -2859,6 +2886,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
