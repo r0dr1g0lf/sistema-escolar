@@ -895,7 +895,8 @@ else:
                         if is_soe:
                             ordem_oc = ["Turma", "Alunos", "Periodo", "Data/Tempo", "Orientador (a)", "Disciplinas Envolvidas", "Tipo_Ocorrência", "Justificativa", "Observações"]
                         else:
-                            ordem_oc = ["Data/Tempo", "Turma", "Alunos", "Periodo", "Disciplina", "Professor", "Tipo_Ocorrência", "Justificativa", "Disciplinas Envolvidas", "Observações"]
+                            # Para não-SOE, remove 'Justificativa' e 'Disciplinas Envolvidas'
+                            ordem_oc = ["Data/Tempo", "Turma", "Alunos", "Periodo", "Disciplina", "Professor", "Tipo_Ocorrência", "Observações"]
                         st.dataframe(df_ex_oc[ordem_oc], use_container_width=True, hide_index=True)
 
                         output_oc = io.BytesIO()
@@ -934,6 +935,7 @@ else:
                                 worksheet.set_column('H:H', 20, wrap_format) # Justificativa
                                 worksheet.set_column('I:I', 40, wrap_format) # Observações
                             else:
+                                # Colunas ajustadas para não-SOE
                                 worksheet.set_column('A:A', 15, wrap_format) # Data/Tempo
                                 worksheet.set_column('B:B', 6, wrap_format)  # Turma
                                 worksheet.set_column('C:C', 25, wrap_format) # Alunos
@@ -941,9 +943,7 @@ else:
                                 worksheet.set_column('E:E', 15, wrap_format) # Disciplina
                                 worksheet.set_column('F:F', 15, wrap_format) # Professor
                                 worksheet.set_column('G:G', 25, wrap_format) # Tipo_Ocorrência
-                                worksheet.set_column('H:H', 20, wrap_format) # Justificativa
-                                worksheet.set_column('I:I', 25, wrap_format) # Disciplinas Envolvidas
-                                worksheet.set_column('J:J', 40, wrap_format) # Observações
+                                worksheet.set_column('H:H', 40, wrap_format) # Observações
 
                             for col_num, value in enumerate(df_ex_oc[ordem_oc].columns.values):
                                 worksheet.write(0, col_num, value, header_format)
@@ -2927,6 +2927,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
