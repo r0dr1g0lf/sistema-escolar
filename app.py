@@ -1059,16 +1059,76 @@ else:
                                         edit_obs_oc_soe = st.text_area("Observações detalhadas", value=parsed_obs_oc, key=f"edit_oc_soe_obs_{linha_idx_oc}")
                                         
                                     else: # Non-SOE specific fields
-                                        edit_data_ocorrido_prof = st.date_input("Data do ocorrido", value=parsed_data_ocorrido, format="DD/MM/YYYY", key=f"edit_oc_prof_data_{linha_idx_oc}")
+                                        # Get available turmas and disciplines (reusing logic from new occurrence)
+                                        if st.session_state.get('is_master_admin', False):
+                                            todas_turmas_edit_prof = sorted(df_alunos['Turma'].unique().astype(str))
+                                        else:
+                                            turmas_vinc_edit_prof = str(st.session_state.user_data.get('Turmas', "")).split(", ")
+                                            todas_turmas_edit_prof = sorted([t.strip() for t in turmas_vinc_edit_prof if t.strip()])
+
+                                        if st.session_state.get('is_master_admin', False):
+                                            if not df_discs.empty:
+                                                disciplina_opcoes_edit_prof = sorted(df_discs['Disciplina'].unique().astype(str))
+                                            else:
+                                                disciplina_opcoes_edit_prof = ["Artes", "Educação Física", "Inglês", "Espanhol", "Ensino Religioso", "Projeto de Vida", "SOE"]
+                                        else:
+                                            discs_vinc_edit_prof = str(st.session_state.user_data.get('Disciplinas', "")).split(", ")
+                                            disciplina_opcoes_edit_prof = sorted([d.strip() for d in discs_vinc_edit_prof if d.strip()])
+
+                                        # Current values from the selected occurrence
+                                        current_turma = dados_oc_edit[colunas_df[2]]
+                                        current_aluno = dados_oc_edit[colunas_df[3]]
+                                        current_disciplina = dados_oc_edit[colunas_df[4]]
+                                        current_bimestre = dados_oc_edit[colunas_df[5]]
+
+                                        # Find default indices for selectboxes
+                                        default_turma_index = todas_turmas_edit_prof.index(current_turma) if current_turma in todas_turmas_edit_prof else 0
+                                        default_disciplina_index = disciplina_opcoes_edit_prof.index(current_disciplina) if current_disciplina in disciplina_opcoes_edit_prof else 0
+
+                                        edit_turma_prof = st.selectbox("Turma", todas_turmas_edit_prof, index=default_turma_index, key=f"edit_oc_prof_turma_{linha_idx_oc}")
+
+                                        alunos_da_turma_edit_prof = df_alunos[df_alunos['Turma'].astype(str) == edit_turma_prof]['Nome_Aluno'].tolist()
+                                        default_aluno_index = alunos_da_turma_edit_prof.index(current_aluno) if current_aluno in alunos_da_turma_edit_prof else 0
+                                        edit_aluno_prof = st.selectbox("Aluno", sorted(alunos_da_turma_edit_prof), index=default_aluno_index, key=f"edit_oc_prof_aluno_{linha_idx_oc}")
+
+                                        edit_disciplina_prof = st.selectbox("Disciplina", disciplina_opcoes_edit_prof, index=default_disciplina_index, key=f"edit_oc_prof_disc_{linha_idx_oc}")
+                                        edit_bimestre_prof = st.text_input("Bimestre", value=current_bimestre, disabled=True, key=f"edit_oc_prof_bim_{linha_idx_oc}")
+
+                                        # Re-parse the details_str for the non-SOE specific fields
+                                        detalhes_str_for_prof = dados_oc_edit[colunas_df[7]]
+                                        parsed_data_ocorrido_prof = data_atual # Default
+                                        parsed_tempo_aula_prof_str = ""
+                                        parsed_obs_oc_prof = ""
+
+                                        parts_prof = [p.strip() for p in detalhes_str_for_prof.split('|')]
+
+                                        if parts_prof and parts_prof[0].startswith("DATA:"):
+                                            date_time_part_prof = parts_prof[0].replace("DATA:", "").strip()
+                                            try:
+                                                parsed_data_ocorrido_prof = datetime.strptime(date_time_part_prof.split(' ')[0], "%d/%m/%Y").date()
+                                            except ValueError:
+                                                pass # Keep default data_atual
+
+                                        if len(parts_prof) > 1 and parts_prof[1].startswith("TEMPO:"):
+                                            parsed_tempo_aula_prof_str = parts_prof[1].replace("TEMPO:", "").strip()
+
+                                        # The rest of the parts are observations
+                                        temp_obs_parts_prof = []
+                                        for part in parts_prof:
+                                            if not (part.startswith("DATA:") or part.startswith("TEMPO:") or part.startswith("JUSTIFICATIVA:") or part.startswith("DISCIPLINAS ENVOLVIDAS:")):
+                                                temp_obs_parts_prof.append(part)
+                                        parsed_obs_oc_prof = " | ".join(temp_obs_parts_prof).strip()
+
+                                        edit_data_ocorrido_prof = st.date_input("Data do ocorrido", value=parsed_data_ocorrido_prof, format="DD/MM/YYYY", key=f"edit_oc_prof_data_{linha_idx_oc}")
                                         
                                         tempos_de_aula_opcoes_prof = ["1º tempo", "2º tempo", "3º tempo", "4º tempo"] # Redefine for non-SOE selectbox
                                         default_tempo_index_prof = 0
-                                        if parsed_tempo_aula_str in tempos_de_aula_opcoes_prof:
-                                            default_tempo_index_prof = tempos_de_aula_opcoes_prof.index(parsed_tempo_aula_str)
+                                        if parsed_tempo_aula_prof_str in tempos_de_aula_opcoes_prof:
+                                            default_tempo_index_prof = tempos_de_aula_opcoes_prof.index(parsed_tempo_aula_prof_str)
                                         
                                         edit_tempo_aula_prof = st.selectbox("Tempo de aula", options=tempos_de_aula_opcoes_prof, index=default_tempo_index_prof, key=f"edit_oc_prof_tempo_{linha_idx_oc}")
                                         
-                                        edit_obs_oc_prof = st.text_area("Observações detalhadas", value=parsed_obs_oc, key=f"edit_oc_prof_obs_{linha_idx_oc}")
+                                        edit_obs_oc_prof = st.text_area("Observações detalhadas", value=parsed_obs_oc_prof, key=f"edit_oc_prof_obs_{linha_idx_oc}")
                                     
                                     col_at_oc1, col_at_oc2 = st.columns(2)
                                     with col_at_oc1:
@@ -1110,8 +1170,13 @@ else:
                                                     data_str_edit = edit_data_ocorrido_prof.strftime('%d/%m/%Y')
                                                     detalhes_extras_edit = f"DATA: {data_str_edit} | TEMPO: {edit_tempo_aula_prof} | {edit_obs_oc_prof}"
                                                 
-                                                wks_reg.update_cell(linha_alvo_sheets, 7, tipo_formatado_edit_oc)
-                                                wks_reg.update_cell(linha_alvo_sheets, 8, detalhes_extras_edit)
+                                                # Update all relevant columns for non-SOE
+                                                wks_reg.update_cell(linha_alvo_sheets, 3, edit_turma_prof) # Turma
+                                                wks_reg.update_cell(linha_alvo_sheets, 4, edit_aluno_prof) # Aluno
+                                                wks_reg.update_cell(linha_alvo_sheets, 5, edit_disciplina_prof) # Disciplina
+                                                wks_reg.update_cell(linha_alvo_sheets, 6, edit_bimestre_prof) # Bimestre (disabled, but value is current_bimestre)
+                                                wks_reg.update_cell(linha_alvo_sheets, 7, tipo_formatado_edit_oc) # Tipo_Registro
+                                                wks_reg.update_cell(linha_alvo_sheets, 8, detalhes_extras_edit) # Descrição_Detalhada
                                                 st.success("Ocorrência atualizada!")
                                                 st.cache_data.clear()
                                                 time.sleep(2)
@@ -2938,6 +3003,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
