@@ -695,6 +695,11 @@ else:
                 periodo = st.text_input("Bimestre", value=bimestre_ativo, disabled=True, key="bim_oc")
                 
                 data_ocorrido = st.date_input("Data do ocorrido", value=data_atual, format="DD/MM/YYYY")
+                hora_atual_str = datetime.now(fuso_roraima).strftime("%H:%M")
+                if is_soe:
+                    hora_registro_soe = st.text_input("Hora do registro (HH:MM)", value=hora_atual_str, key="hora_registro_soe")
+                else:
+                    hora_registro_soe = "" # Inicializa para não-SOE para evitar NameError
                 
                 tempos_de_aula_opcoes = ["1º tempo", "2º tempo", "3º tempo", "4º tempo"]
                 
@@ -754,7 +759,12 @@ else:
                         else:
                             tempo_aula_str = tempo_aula
 
-                        detalhes_extras = f"DATA: {data_ocorrido.strftime('%d/%m/%Y')} | TEMPO: {tempo_aula_str} | {obs_oc}"
+                        # Constrói a string de data e hora, incluindo a hora do registro se for SOE
+                        data_hora_str = data_ocorrido.strftime('%d/%m/%Y')
+                        if is_soe and hora_registro_soe:
+                            data_hora_str += f" {hora_registro_soe}"
+
+                        detalhes_extras = f"DATA: {data_hora_str} | TEMPO: {tempo_aula_str} | {obs_oc}"
                         
                         if is_soe:
                             if justificativa_selecionada and justificativa_selecionada != "":
@@ -2901,6 +2911,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
