@@ -991,6 +991,7 @@ else:
                                     detalhes_str = dados_oc_edit[colunas_df[7]]
                                     
                                     parsed_data_ocorrido = data_atual # Default to today
+                                    parsed_hora_ocorrido = "" # Initialize for time
                                     parsed_tempo_aula = []
                                     parsed_justificativa = ""
                                     parsed_disciplinas_envolvidas = []
@@ -999,11 +1000,18 @@ else:
                                     parts = [p.strip() for p in detalhes_str.split('|')]
 
                                     if parts and parts[0].startswith("DATA:"):
+                                        date_time_part = parts[0].replace("DATA:", "").strip()
                                         try:
-                                            date_str = parts[0].replace("DATA:", "").strip()
-                                            parsed_data_ocorrido = datetime.strptime(date_str, "%d/%m/%Y").date()
+                                            # Try to parse with time first
+                                            parsed_data_ocorrido = datetime.strptime(date_time_part, "%d/%m/%Y %H:%M").date()
+                                            parsed_hora_ocorrido = datetime.strptime(date_time_part, "%d/%m/%Y %H:%M").strftime("%H:%M")
                                         except ValueError:
-                                            pass
+                                            # If no time, parse just date
+                                            try:
+                                                parsed_data_ocorrido = datetime.strptime(date_time_part, "%d/%m/%Y").date()
+                                                parsed_hora_ocorrido = "" # No time found
+                                            except ValueError:
+                                                pass # Keep default data_atual
 
                                     if len(parts) > 1 and parts[1].startswith("TEMPO:"):
                                         tempo_str = parts[1].replace("TEMPO:", "").strip()
@@ -1032,6 +1040,7 @@ else:
                                         edit_selecao_oc_soe = st.multiselect("Selecione as ocorrências (SOE)", options=opcoes_ocorrencias_soe, default=[i for i in lista_oc_atual if i in opcoes_ocorrencias_soe], key=f"edit_oc_sel_soe_{linha_idx_oc}")
                                         
                                         edit_data_ocorrido = st.date_input("Data do ocorrido", value=parsed_data_ocorrido, format="DD/MM/YYYY", key=f"edit_oc_soe_data_{linha_idx_oc}")
+                                        edit_hora_registro_soe = st.text_input("Hora do registro (HH:MM)", value=parsed_hora_ocorrido, key=f"edit_oc_soe_hora_{linha_idx_oc}")
                                         
                                         justificativa_opcoes = ["Problema de saúde", "Consulta médica", "Exame médico", "Transporte/Trânsito", "Problemas familiares", "Situação em casa", "Sem justificativa", "Outras"]
                                         edit_justificativa_soe = st.selectbox("Justificativa", options=[""] + justificativa_opcoes, index=justificativa_opcoes.index(parsed_justificativa) + 1 if parsed_justificativa in justificativa_opcoes else 0, key=f"edit_oc_soe_just_{linha_idx_oc}")
@@ -1073,8 +1082,13 @@ else:
                                                     final_selecao_oc = list(set(edit_selecao_oc + edit_selecao_oc_soe))
                                                     tipo_formatado_edit_oc = "OCORRÊNCIA: " + ", ".join(final_selecao_oc)
                                                     
+                                                    # Construct the date_time_str for SOE
+                                                    data_hora_str_edit = edit_data_ocorrido.strftime('%d/%m/%Y')
+                                                    if edit_hora_registro_soe:
+                                                        data_hora_str_edit += f" {edit_hora_registro_soe}"
+
                                                     tempo_aula_str_edit = ", ".join(edit_tempo_aula_soe) if isinstance(edit_tempo_aula_soe, list) else edit_tempo_aula_soe
-                                                    detalhes_extras_edit = f"DATA: {edit_data_ocorrido.strftime('%d/%m/%Y')} | TEMPO: {tempo_aula_str_edit} | {edit_obs_oc_soe}"
+                                                    detalhes_extras_edit = f"DATA: {data_hora_str_edit} | TEMPO: {tempo_aula_str_edit} | {edit_obs_oc_soe}"
                                                     if edit_justificativa_soe and edit_justificativa_soe != "":
                                                         detalhes_extras_edit += f" | JUSTIFICATIVA: {edit_justificativa_soe}"
                                                     if edit_disciplinas_envolvidas_soe:
@@ -2911,6 +2925,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
