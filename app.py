@@ -837,21 +837,7 @@ else:
                             except:
                                 return ""
 
-                        def extrair_obs_limpa(detalhes):
-                            try:
-                                # This function needs to be more robust for SOE details
-                                parts = [p.strip() for p in detalhes.split('|')]
-                                obs_parts = []
-                                for part in parts:
-                                    if not (part.startswith("DATA:") or part.startswith("TEMPO:") or 
-                                            part.startswith("JUSTIFICATIVA:") or part.startswith("DISCIPLINAS ENVOLVIDAS:")):
-                                        obs_parts.append(part)
-                                return " | ".join(obs_parts).strip()
-                            except:
-                                return detalhes
-
                         df_oc_filtrado['Data/Tempo'] = df_oc_filtrado[colunas_df[7]].apply(extrair_data_tempo)
-                        df_oc_filtrado['Detalhes_Limpo'] = df_oc_filtrado[colunas_df[7]].apply(extrair_obs_limpa)
                         df_oc_filtrado[colunas_df[6]] = df_oc_filtrado[colunas_df[6]].astype(str).str.replace("OCORRÊNCIA: ", "", case=False)
 
                         mapeamento_oc = {
@@ -862,13 +848,13 @@ else:
                             colunas_df[4]: "Disciplina",
                             colunas_df[1]: "Professor",
                             colunas_df[6]: "Tipo_Ocorrência",
-                            'Detalhes_Limpo': "Observações"
+                            colunas_df[7]: "Observações / Detalhes" # Usar a coluna original que já contém todos os detalhes
                         }
                         
                         df_ex_oc = df_oc_filtrado.rename(columns=mapeamento_oc)
                         df_ex_oc = df_ex_oc.sort_values(by=["Periodo", "Turma", "Alunos"])
                         
-                        ordem_oc = ["Data/Tempo", "Turma", "Alunos", "Periodo", "Disciplina", "Professor", "Tipo_Ocorrência", "Observações"]
+                        ordem_oc = ["Data/Tempo", "Turma", "Alunos", "Periodo", "Disciplina", "Professor", "Tipo_Ocorrência", "Observações / Detalhes"]
                         st.dataframe(df_ex_oc[ordem_oc], use_container_width=True, hide_index=True)
 
                         output_oc = io.BytesIO()
@@ -903,7 +889,7 @@ else:
                             worksheet.set_column('E:E', 15, wrap_format) # Disciplina
                             worksheet.set_column('F:F', 15, wrap_format) # Professor
                             worksheet.set_column('G:G', 25, wrap_format) # Tipo_Ocorrência
-                            worksheet.set_column('H:H', 35, wrap_format) # Observações
+                            worksheet.set_column('H:H', 45, wrap_format) # Observações / Detalhes (Aumentado para acomodar mais texto)
 
                             for col_num, value in enumerate(df_ex_oc[ordem_oc].columns.values):
                                 worksheet.write(0, col_num, value, header_format)
@@ -2873,4 +2859,6 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
