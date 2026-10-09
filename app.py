@@ -878,19 +878,22 @@ else:
                             colunas_df[3]: "Alunos",
                             colunas_df[5]: "Periodo",
                             colunas_df[4]: "Disciplina",
-                            colunas_df[1]: "Professor",
                             colunas_df[6]: "Tipo_Ocorrência",
                             'Data/Tempo': 'Data/Tempo',
                             'Justificativa': 'Justificativa',
                             'Disciplinas Envolvidas': 'Disciplinas Envolvidas',
                             'Observações': 'Observações'
                         }
+                        if is_soe:
+                            mapeamento_oc[colunas_df[1]] = "Orientador (a)"
+                        else:
+                            mapeamento_oc[colunas_df[1]] = "Professor"
                         
                         df_ex_oc = df_oc_filtrado.rename(columns=mapeamento_oc)
                         df_ex_oc = df_ex_oc.sort_values(by=["Periodo", "Turma", "Alunos"])
                         
                         if is_soe:
-                            ordem_oc = ["Turma", "Alunos", "Periodo", "Data/Tempo", "Professor", "Disciplinas Envolvidas", "Tipo_Ocorrência", "Justificativa", "Observações"]
+                            ordem_oc = ["Turma", "Alunos", "Periodo", "Data/Tempo", "Orientador (a)", "Disciplinas Envolvidas", "Tipo_Ocorrência", "Justificativa", "Observações"]
                         else:
                             ordem_oc = ["Data/Tempo", "Turma", "Alunos", "Periodo", "Disciplina", "Professor", "Tipo_Ocorrência", "Justificativa", "Disciplinas Envolvidas", "Observações"]
                         st.dataframe(df_ex_oc[ordem_oc], use_container_width=True, hide_index=True)
@@ -925,7 +928,7 @@ else:
                                 worksheet.set_column('B:B', 25, wrap_format) # Alunos
                                 worksheet.set_column('C:C', 10, wrap_format) # Periodo
                                 worksheet.set_column('D:D', 15, wrap_format) # Data/Tempo
-                                worksheet.set_column('E:E', 15, wrap_format) # Professor
+                                worksheet.set_column('E:E', 15, wrap_format) # Orientador (a)
                                 worksheet.set_column('F:F', 25, wrap_format) # Disciplinas Envolvidas
                                 worksheet.set_column('G:G', 25, wrap_format) # Tipo_Ocorrência
                                 worksheet.set_column('H:H', 20, wrap_format) # Justificativa
@@ -2924,6 +2927,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
