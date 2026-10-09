@@ -1058,8 +1058,17 @@ else:
                                         
                                         edit_obs_oc_soe = st.text_area("Observações detalhadas", value=parsed_obs_oc, key=f"edit_oc_soe_obs_{linha_idx_oc}")
                                         
-                                    else:
-                                        edit_detalhes_oc = st.text_area("Detalhes (Data/Tempo/Obs)", value=dados_oc_edit[colunas_df[7]], key=f"edit_oc_detalhes_{linha_idx_oc}")
+                                    else: # Non-SOE specific fields
+                                        edit_data_ocorrido_prof = st.date_input("Data do ocorrido", value=parsed_data_ocorrido, format="DD/MM/YYYY", key=f"edit_oc_prof_data_{linha_idx_oc}")
+                                        
+                                        tempos_de_aula_opcoes_prof = ["1º tempo", "2º tempo", "3º tempo", "4º tempo"] # Redefine for non-SOE selectbox
+                                        default_tempo_index_prof = 0
+                                        if parsed_tempo_aula_str in tempos_de_aula_opcoes_prof:
+                                            default_tempo_index_prof = tempos_de_aula_opcoes_prof.index(parsed_tempo_aula_str)
+                                        
+                                        edit_tempo_aula_prof = st.selectbox("Tempo de aula", options=tempos_de_aula_opcoes_prof, index=default_tempo_index_prof, key=f"edit_oc_prof_tempo_{linha_idx_oc}")
+                                        
+                                        edit_obs_oc_prof = st.text_area("Observações detalhadas", value=parsed_obs_oc, key=f"edit_oc_prof_obs_{linha_idx_oc}")
                                     
                                     col_at_oc1, col_at_oc2 = st.columns(2)
                                     with col_at_oc1:
@@ -1095,9 +1104,11 @@ else:
                                                         detalhes_extras_edit += f" | JUSTIFICATIVA: {edit_justificativa_soe}"
                                                     if edit_disciplinas_envolvidas_soe:
                                                         detalhes_extras_edit += f" | DISCIPLINAS ENVOLVIDAS: {', '.join(edit_disciplinas_envolvidas_soe)}"
-                                                else:
+                                                else: # Non-SOE reconstruction
                                                     tipo_formatado_edit_oc = "OCORRÊNCIA: " + ", ".join(edit_selecao_oc)
-                                                    detalhes_extras_edit = edit_detalhes_oc # Use the generic text area for non-SOE
+                                                    
+                                                    data_str_edit = edit_data_ocorrido_prof.strftime('%d/%m/%Y')
+                                                    detalhes_extras_edit = f"DATA: {data_str_edit} | TEMPO: {edit_tempo_aula_prof} | {edit_obs_oc_prof}"
                                                 
                                                 wks_reg.update_cell(linha_alvo_sheets, 7, tipo_formatado_edit_oc)
                                                 wks_reg.update_cell(linha_alvo_sheets, 8, detalhes_extras_edit)
@@ -2927,6 +2938,8 @@ else:
         st.error("Acesso restrito.")
         st.session_state.pagina = "Registro"
         st.rerun()
+
+
 
 
 
